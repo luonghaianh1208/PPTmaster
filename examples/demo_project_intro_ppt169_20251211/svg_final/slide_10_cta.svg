@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366F1" />
+      <stop offset="100%" style="stop-color:#06B6D4" />
+    </linearGradient>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366F1" />
+      <stop offset="50%" style="stop-color:#8B5CF6" />
+      <stop offset="100%" style="stop-color:#06B6D4" />
+    </linearGradient>
+  </defs>
+  
+  
+  <rect width="1280" height="720" fill="url(#bgGradient)" />
+  
+  
+  <circle cx="150" cy="150" r="200" fill="#FFFFFF" opacity="0.05" />
+  <circle cx="1130" cy="570" r="250" fill="#FFFFFF" opacity="0.05" />
+  <circle cx="1050" cy="120" r="100" fill="#FFFFFF" opacity="0.03" />
+  
+  
+  <g transform="translate(640, 180)">
+    <text x="0" y="0" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="bold" text-anchor="middle" fill="#FFFFFF">
+      立即开始使用 PPT Master
+    </text>
+    <text x="0" y="45" font-family="system-ui, -apple-system, sans-serif" font-size="22" text-anchor="middle" fill="#FFFFFF" opacity="0.9">
+      释放 AI 生产力，让内容创作更高效
+    </text>
+  </g>
+  
+  
+  <g transform="translate(140, 270)">
+    
+    <g>
+      <path fill="#FFFFFF" d="M16,0 H284 A16,16 0 0 1 300,16 V134 A16,16 0 0 1 284,150 H16 A16,16 0 0 1 0,134 V16 A16,16 0 0 1 16,0 Z" />
+      <text x="150" y="50" font-size="36" text-anchor="middle">⭐</text>
+      <text x="150" y="85" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#1F2937">Star 支持</text>
+      <text x="150" y="110" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-anchor="middle" fill="#6B7280">github.com/hugohe3/ppt-master</text>
+      <path fill="#F59E0B" d="M102,125 H198 A2,2 0 0 1 200,127 V127 A2,2 0 0 1 198,129 H102 A2,2 0 0 1 100,127 V127 A2,2 0 0 1 102,125 Z" />
+    </g>
+    
+    
+    <g transform="translate(340, 0)">
+      <path fill="#FFFFFF" d="M16,0 H284 A16,16 0 0 1 300,16 V134 A16,16 0 0 1 284,150 H16 A16,16 0 0 1 0,134 V16 A16,16 0 0 1 16,0 Z" />
+      <text x="150" y="50" font-size="36" text-anchor="middle">🎴</text>
+      <text x="150" y="85" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#1F2937">在线示例</text>
+      <text x="150" y="110" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-anchor="middle" fill="#6B7280">notes.36sjs.com/pages/ppt</text>
+      <path fill="#06B6D4" d="M102,125 H198 A2,2 0 0 1 200,127 V127 A2,2 0 0 1 198,129 H102 A2,2 0 0 1 100,127 V127 A2,2 0 0 1 102,125 Z" />
+    </g>
+    
+    
+    <g transform="translate(680, 0)">
+      <path fill="#FFFFFF" d="M16,0 H284 A16,16 0 0 1 300,16 V134 A16,16 0 0 1 284,150 H16 A16,16 0 0 1 0,134 V16 A16,16 0 0 1 16,0 Z" />
+      <text x="150" y="50" font-size="36" text-anchor="middle">📖</text>
+      <text x="150" y="85" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#1F2937">完善文档</text>
+      <text x="150" y="110" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-anchor="middle" fill="#6B7280">详细教程 · 设计指南 · 速查手册</text>
+      <path fill="#10B981" d="M102,125 H198 A2,2 0 0 1 200,127 V127 A2,2 0 0 1 198,129 H102 A2,2 0 0 1 100,127 V127 A2,2 0 0 1 102,125 Z" />
+    </g>
+  </g>
+  
+  
+  <g transform="translate(640, 480)">
+    <g font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle">
+      <text x="-300" y="0">🚀 四角色 AI 协作</text>
+      <text x="0" y="0">🎨 三重设计风格</text>
+      <text x="300" y="0">📐 10+ 画布格式</text>
+    </g>
+    
+    <g font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" fill-opacity="0.85">
+      <text x="-300" y="35">📊 13 种图表模板</text>
+      <text x="0" y="35">🎯 640+ 矢量图标</text>
+      <text x="300" y="35">🖼️ 纯 SVG 输出</text>
+    </g>
+  </g>
+  
+  
+  <g transform="translate(640, 580)">
+    <text x="0" y="0" font-family="system-ui, -apple-system, sans-serif" font-size="15" text-anchor="middle" fill="#FFFFFF" opacity="0.8">
+      MIT License · Made with ❤️ by Hugo He
+    </text>
+    <text x="0" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="13" text-anchor="middle" fill="#FFFFFF" opacity="0.6">
+      github.com/hugohe3 · 欢迎 Star、Fork 和贡献
+    </text>
+  </g>
+  
+  
+  <text x="640" y="690" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-anchor="middle" fill="#FFFFFF" opacity="0.5">10 / 10</text>
+  
+  
+  <polygon points="0,720 0,660 60,720" fill="#FFFFFF" opacity="0.1" />
+  <polygon points="1280,720 1280,660 1220,720" fill="#FFFFFF" opacity="0.1" />
+  <polygon points="0,0 0,60 60,0" fill="#FFFFFF" opacity="0.08" />
+  <polygon points="1280,0 1280,60 1220,0" fill="#FFFFFF" opacity="0.08" />
+</svg>

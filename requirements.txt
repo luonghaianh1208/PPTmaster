@@ -1,0 +1,60 @@
+# PPT Master - Danh sách phụ thuộc
+# ==================================
+#
+# Hầu hết các công cụ chỉ sử dụng thư viện chuẩn Python, dưới đây là các phụ thuộc tùy chọn.
+#
+# Cách cài đặt:
+#   pip install -r requirements.txt
+
+# ─────────────────────────────────────────────────────────────
+# Công cụ chuyển SVG sang PPTX (skills/ppt-master/scripts/svg_to_pptx.py)
+# ─────────────────────────────────────────────────────────────
+# Dùng để chuyển đổi hàng loạt file SVG thành bài thuyết trình PowerPoint
+# Mặc định sử dụng chế độ tương thích Office (PNG + SVG hai định dạng), hỗ trợ mọi phiên bản Office
+python-pptx>=0.6.21
+
+# Phụ thuộc chế độ tương thích Office (chọn một trong hai, ưu tiên cairosvg)
+# Dùng để chuyển SVG thành ảnh PNG dự phòng, đảm bảo hiển thị đúng trên Office LTSC 2021 v.v.
+#
+# Phương án A: CairoSVG (khuyến nghị, hỗ trợ đầy đủ gradient/filter, ~25MB)
+#   pip install cairosvg
+#   macOS cần cài trước: brew install cairo
+#
+# Phương án B: svglib (nhẹ, ~5MB, một số gradient có thể mất)
+svglib>=1.5.0
+reportlab>=4.0.0
+
+# ─────────────────────────────────────────────────────────────
+# Công cụ chuyển PDF sang Markdown (skills/ppt-master/scripts/pdf_to_md.py)
+# ─────────────────────────────────────────────────────────────
+# Dùng để chuyển file PDF thành Markdown, hỗ trợ trích xuất văn bản, hình ảnh, bảng biểu
+PyMuPDF>=1.23.0
+
+# ─────────────────────────────────────────────────────────────
+# Công cụ chuyển tài liệu sang Markdown (skills/ppt-master/scripts/doc_to_md.py)
+# ─────────────────────────────────────────────────────────────
+# Sử dụng Pandoc để chuyển DOCX/EPUB/HTML/LaTeX/RST v.v. sang Markdown
+# Không cần gói Python riêng, yêu cầu cài pandoc trên hệ thống:
+#   macOS:   brew install pandoc
+#   Ubuntu:  sudo apt install pandoc
+#   Windows: https://pandoc.org/installing.html
+
+# ─────────────────────────────────────────────────────────────
+# Công cụ xử lý hình ảnh
+# ─────────────────────────────────────────────────────────────
+# fix_image_aspect.py - Sửa tỷ lệ khung hình ảnh (tránh bị kéo giãn khi chuyển đổi PPT)
+# gemini_watermark_remover.py - Xóa watermark ảnh do Gemini tạo
+Pillow>=9.0.0
+numpy>=1.20.0
+
+# ─────────────────────────────────────────────────────────────
+# Công cụ chuyển trang web sang Markdown (skills/ppt-master/scripts/web_to_md.py)
+# ─────────────────────────────────────────────────────────────
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# ─────────────────────────────────────────────────────────────
+# Công cụ tạo ảnh AI (skills/ppt-master/scripts/nano_banana_gen.py)
+# ─────────────────────────────────────────────────────────────
+# Dùng để gọi Google Gemini API tạo ảnh chất lượng cao (cần API Key)
+google-genai>=1.0.0

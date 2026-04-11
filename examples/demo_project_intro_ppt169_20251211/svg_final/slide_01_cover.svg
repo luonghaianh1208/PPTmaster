@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366F1" />
+      <stop offset="100%" style="stop-color:#06B6D4" />
+    </linearGradient>
+  </defs>
+  
+  
+  <image href="images/cover_background.png" x="0" y="0" width="1280" height="720" preserveAspectRatio="xMidYMid slice" />
+  
+  
+  <rect width="1280" height="720" fill="#000000" opacity="0.3" />
+  
+  
+  <rect x="0" y="0" width="1280" height="6" fill="url(#gradient1)" />
+  
+  
+  <path fill="url(#gradient1)" d="M63,220 H63 A3,3 0 0 1 66,223 V497 A3,3 0 0 1 63,500 H63 A3,3 0 0 1 60,497 V223 A3,3 0 0 1 63,220 Z" />
+  
+  
+  <text x="100" y="300" font-family="system-ui, -apple-system, sans-serif" font-size="60" font-weight="bold" fill="#FFFFFF">
+    PPT Master
+  </text>
+  
+  
+  <text x="100" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="26" fill="#FFFFFF" opacity="0.95">
+    AI 驱动的多格式 SVG 内容生成系统
+  </text>
+  
+  
+  <text x="100" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#FFFFFF" opacity="0.8">
+    四角色协作 · 智能内容解构 · 专业设计输出
+  </text>
+  
+  
+  <line x1="100" y1="450" x2="480" y2="450" stroke="#FFFFFF" stroke-width="2" opacity="0.4" />
+  
+  
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="14">
+    <path fill="#6366F1" d="M108,480 H222 A8,8 0 0 1 230,488 V512 A8,8 0 0 1 222,520 H108 A8,8 0 0 1 100,512 V488 A8,8 0 0 1 108,480 Z" />
+    <text x="165" y="506" text-anchor="middle" fill="#FFFFFF">🚀 10x 效率</text>
+    
+    <path fill="#06B6D4" d="M253,480 H367 A8,8 0 0 1 375,488 V512 A8,8 0 0 1 367,520 H253 A8,8 0 0 1 245,512 V488 A8,8 0 0 1 253,480 Z" />
+    <text x="310" y="506" text-anchor="middle" fill="#FFFFFF">🎨 多风格</text>
+    
+    <path fill="#10B981" d="M398,480 H522 A8,8 0 0 1 530,488 V512 A8,8 0 0 1 522,520 H398 A8,8 0 0 1 390,512 V488 A8,8 0 0 1 398,480 Z" />
+    <text x="460" y="506" text-anchor="middle" fill="#FFFFFF">📐 10+ 格式</text>
+  </g>
+  
+  
+  <g transform="translate(780, 180)">
+    
+    <path fill="#000000" opacity="0.2" d="M35,15 H375 A20,20 0 0 1 395,35 V315 A20,20 0 0 1 375,335 H35 A20,20 0 0 1 15,315 V35 A20,20 0 0 1 35,15 Z" />
+    
+    <path fill="#FFFFFF" opacity="0.95" d="M20,0 H360 A20,20 0 0 1 380,20 V300 A20,20 0 0 1 360,320 H20 A20,20 0 0 1 0,300 V20 A20,20 0 0 1 20,0 Z" />
+    
+    
+    <path fill="#E5E7EB" d="M24,20 H356 A4,4 0 0 1 360,24 V34 A4,4 0 0 1 356,38 H24 A4,4 0 0 1 20,34 V24 A4,4 0 0 1 24,20 Z" />
+    <path fill="#F3F4F6" d="M24,50 H276 A4,4 0 0 1 280,54 V58 A4,4 0 0 1 276,62 H24 A4,4 0 0 1 20,58 V54 A4,4 0 0 1 24,50 Z" />
+    <path fill="#F3F4F6" d="M24,70 H316 A4,4 0 0 1 320,74 V78 A4,4 0 0 1 316,82 H24 A4,4 0 0 1 20,78 V74 A4,4 0 0 1 24,70 Z" />
+    
+    
+    <g transform="translate(20, 100)">
+      <path fill="#6366F1" opacity="0.3" d="M6,80 H44 A6,6 0 0 1 50,86 V174 A6,6 0 0 1 44,180 H6 A6,6 0 0 1 0,174 V86 A6,6 0 0 1 6,80 Z" />
+      <path fill="#6366F1" opacity="0.5" d="M71,50 H109 A6,6 0 0 1 115,56 V174 A6,6 0 0 1 109,180 H71 A6,6 0 0 1 65,174 V56 A6,6 0 0 1 71,50 Z" />
+      <path fill="#6366F1" opacity="0.7" d="M136,30 H174 A6,6 0 0 1 180,36 V174 A6,6 0 0 1 174,180 H136 A6,6 0 0 1 130,174 V36 A6,6 0 0 1 136,30 Z" />
+      <path fill="#6366F1" d="M201,0 H239 A6,6 0 0 1 245,6 V174 A6,6 0 0 1 239,180 H201 A6,6 0 0 1 195,174 V6 A6,6 0 0 1 201,0 Z" />
+      <path fill="#06B6D4" d="M266,40 H304 A6,6 0 0 1 310,46 V174 A6,6 0 0 1 304,180 H266 A6,6 0 0 1 260,174 V46 A6,6 0 0 1 266,40 Z" />
+    </g>
+    
+    
+    <circle cx="340" cy="40" r="25" fill="url(#gradient1)" />
+    <text x="340" y="47" font-size="14" font-weight="bold" text-anchor="middle" fill="#FFFFFF">AI</text>
+  </g>
+  
+  
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#FFFFFF" fill-opacity="0.7">
+    <text x="100" y="640">📍 github.com/hugohe3/ppt-master</text>
+    <text x="1180" y="640" text-anchor="end">MIT License</text>
+  </g>
+  
+  
+  <text x="640" y="690" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-anchor="middle" fill="#FFFFFF" opacity="0.5">01 / 10</text>
+</svg>
