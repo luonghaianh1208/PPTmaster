@@ -72,5 +72,50 @@ class UpstreamBoundaryTest(unittest.TestCase):
         self.assertEqual(outside, [], "File upstream bị sửa ngoài danh sách cho phép")
 
 
+def canvas_format_keys() -> set:
+    text = (SKILL_DIR / "scripts" / "config.py").read_text(encoding="utf-8")
+    block = re.search(r"^CANVAS_FORMATS\b[^\n]*\{(.*?)^\}", text, re.S | re.M)
+    if block is None:
+        raise AssertionError("Không tìm thấy CANVAS_FORMATS trong config.py")
+    return set(re.findall(r"^\s{4}'([a-z0-9_]+)'\s*:", block.group(1), re.M))
+
+
+def format_map_keys() -> list:
+    block = re.search(r"<!-- format-map:start -->(.*?)<!-- format-map:end -->", read("AGENTS.vi.md"), re.S)
+    if block is None:
+        raise AssertionError("AGENTS.vi.md thiếu bảng format-map")
+    return re.findall(r"`([a-z0-9_]+)`\s*\|\s*$", block.group(1), re.M)
+
+
+class EditorWiringTest(unittest.TestCase):
+    def test_claude_md_imports_upstream_and_vietnamese_rules(self):
+        lines = [line.strip() for line in read("CLAUDE.md").splitlines()]
+        self.assertIn("@AGENTS.md", lines)
+        self.assertIn("@AGENTS.vi.md", lines)
+
+    def test_format_map_uses_existing_canvas_keys(self):
+        keys = format_map_keys()
+        self.assertEqual(len(keys), 6)
+        self.assertEqual(sorted(set(keys) - canvas_format_keys()), [])
+
+    def test_cursor_rule_always_applies_vietnamese_rules(self):
+        rule = read(".cursor/rules/ppt-master-vi.mdc")
+        self.assertTrue(rule.startswith("---\n"))
+        self.assertIn("alwaysApply: true", rule)
+        self.assertIn("@AGENTS.vi.md", rule)
+
+    def test_antigravity_rule_references_both_agent_files(self):
+        rule = read(".agents/rules/ppt-master-vi.md")
+        self.assertIn("trigger: always_on", rule)
+        self.assertIn("@../../AGENTS.md", rule)
+        self.assertIn("@../../AGENTS.vi.md", rule)
+
+    def test_rule_files_tracked_by_git(self):
+        if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
+            self.skipTest("Không có git")
+        for path in (".cursor/rules/ppt-master-vi.mdc", ".agents/rules/ppt-master-vi.md"):
+            self.assertEqual(git("ls-files", "--error-unmatch", path).returncode, 0, path)
+
+
 if __name__ == "__main__":
     unittest.main()
