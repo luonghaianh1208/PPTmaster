@@ -49,7 +49,8 @@ Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 ## Cập nhật
 
 - Bản tải bằng Git: bấm đúp `CAP-NHAT.bat`.
-- Bản ZIP: tải bản mới rồi chép thư mục `projects\` của bạn sang.
+- Bản ZIP: tải bản mới rồi chép thư mục `projects\` và file `.env` của bạn sang.
+- Từng dùng bản cũ (v2): thư mục `examples/` đã được gỡ bỏ, bộ ví dụ xem tại https://github.com/hugohe3/ppt-master-examples; trạng thái bản cũ vẫn giữ ở tag `v2-vi-legacy`. Chi tiết trong [Nhật ký thay đổi](CHANGELOG-VI.md).
 
 ## Giấy phép & Ghi công
 

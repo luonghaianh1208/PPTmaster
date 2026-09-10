@@ -17,6 +17,8 @@ Có hai cách:
 
 Nếu gõ `python` mà Windows mở Microsoft Store thay vì chạy Python: lệnh `python` đang bị lối tắt của Store chiếm chỗ. Vào **Settings → Apps → Advanced app settings → App execution aliases** rồi tắt `python.exe` và `python3.exe`.
 
+Nếu `CAI-DAT.bat` báo đã cài Python nhưng chưa có trong PATH (thường do lúc cài chưa tick ô "Add python.exe to PATH"), xem mục **Đã cài Python nhưng bộ cài báo không tìm thấy** trong [Xử lý lỗi](xu-ly-loi.md).
+
 ## Bước 2: Tải bộ công cụ
 
 Chọn một trong hai cách:
@@ -44,13 +46,15 @@ Sau đó bộ cài tự chạy kiểm tra môi trường.
 
 ## Bước 4: Đọc kết quả kiểm tra
 
-Mỗi dòng kết quả có một trong ba ký hiệu:
+Mỗi dòng kết quả bắt đầu bằng một trong ba ký hiệu, kèm nhãn chữ trong ngoặc vuông:
 
 | Ký hiệu | Ý nghĩa |
 |---|---|
-| ✅ | Mục này đạt |
-| ⚠️ | Mục khuyến nghị hoặc tuỳ chọn chưa có — vẫn dùng được |
-| ❌ | Mục bắt buộc bị lỗi — xem dòng `→` ngay bên dưới để biết cách sửa, và xem [Xử lý lỗi](xu-ly-loi.md) |
+| ✅ [ĐẠT] | Mục này đạt |
+| ⚠️ [CẢNH BÁO] | Mục khuyến nghị hoặc tuỳ chọn chưa có — vẫn dùng được |
+| ❌ [LỖI] | Mục bắt buộc bị lỗi — xem dòng `→` ngay bên dưới để biết cách sửa, và xem [Xử lý lỗi](xu-ly-loi.md) |
+
+Trên một số máy Windows 10, biểu tượng có thể hiện thành ô vuông; khi đó hãy đọc nhãn chữ trong ngoặc vuông.
 
 Bốn mục bắt buộc là: **Python**, **Thư viện Python**, **Tính toàn vẹn skill**, **Xuất thử PPTX**.
 

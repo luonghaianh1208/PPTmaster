@@ -8,6 +8,8 @@ Danh sách file upstream được phép sửa và cách giữ lại khi đồng 
 
 Không sửa file danh tính của skill: `skills/ppt-master/SKILL.md`, `LICENSE`, `SPONSORS*.md`.
 
+Không đổi nội dung `CAP-NHAT.bat` sau khi đã phát hành. cmd.exe đọc file `.bat` theo vị trí byte trong lúc chạy, mà `git pull` bên trong có thể ghi đè chính file đó, nên phần còn lại có thể bị đọc lệch và chạy sai. Nếu buộc phải đổi, ghi rõ rủi ro này trong `CHANGELOG-VI.md` và dặn người dùng tải lại bộ công cụ thay vì bấm `CAP-NHAT.bat`.
+
 ## Chuẩn bị một lần
 
 ```
@@ -23,7 +25,16 @@ Ngoài ra cần một virtualenv (venv) có đủ thư viện trong `requirement
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\sync_upstream.ps1 -Tag <tag> -Python <python>
 ```
 
-Nếu script dừng và in `[DỪNG]`, đó là một xung đột cần xử lý tay: sửa file xung đột, `git add` các file đã sửa, rồi `git commit` để hoàn tất merge. Với các file index template (`decks_index.json`, `brands_index.json`...), script tự lấy bản upstream rồi dựng lại index nên không cần sửa tay.
+Với các file index template (`decks_index.json`, `brands_index.json`...), script tự lấy bản upstream rồi dựng lại index nên không cần sửa tay.
+
+Nếu script dừng và in `[DỪNG]`, đọc thông báo để biết đang ở loại nào:
+
+1. **Dừng trước khi merge** — thiếu git hoặc Python, cây làm việc còn thay đổi chưa commit, không fetch được upstream hoặc không có tag, `git config` thất bại: chưa có gì thay đổi. Sửa nguyên nhân rồi chạy lại script.
+2. **Dừng giữa merge** — còn xung đột ở file không tự giải được (script liệt kê các file cần xử lý tay), hoặc không commit được merge: sửa từng file, `git add` các file đã sửa, rồi `git commit` để hoàn tất merge. Muốn bỏ lần đồng bộ này thì chạy `git merge --abort`.
+3. **Dừng sau khi đã commit merge** — `attribution_guard.py`, test lớp Việt hoá hoặc `doctor.py` thất bại: merge đã được commit nhưng **chưa push**. Cập nhật lớp Việt hoá cho khớp upstream mới rồi commit tiếp, hoặc hoàn tác merge bằng:
+   ```
+   git reset --keep ORIG_HEAD
+   ```
 
 ## Chạy test
 

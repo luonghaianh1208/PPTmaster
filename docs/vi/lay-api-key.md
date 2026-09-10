@@ -23,9 +23,13 @@ GEMINI_API_KEY=dán-key-của-bạn-vào-đây
 
 Lưu file lại. Muốn dùng dịch vụ AI khác, xem các dòng mẫu tương ứng trong `.env.example`.
 
+Mỗi dòng không phải ghi chú (dòng bắt đầu bằng `#`) phải có dạng `TÊN_BIẾN=giá_trị`. Đừng dán key thành một dòng riêng không có `TÊN_BIẾN=` phía trước.
+
 ## Kiểm tra
 
-Chạy `KIEM-TRA.bat`. Dòng "API key dịch vụ AI" sẽ chuyển thành ✅.
+Chạy `KIEM-TRA.bat`. Dòng "API key dịch vụ AI" sẽ chuyển thành ✅ [ĐẠT].
+
+Nếu dòng này báo **"Dòng N trong .env không đúng dạng KEY=VALUE"**, mở `.env`, sửa dòng số N theo dạng ở trên (hoặc xoá dòng đó), lưu lại rồi chạy lại `KIEM-TRA.bat`.
 
 ## Bảo mật
 

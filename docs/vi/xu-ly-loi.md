@@ -1,6 +1,6 @@
 # Xử lý lỗi
 
-Gặp lỗi, hãy chạy `KIEM-TRA.bat` trước, rồi đối chiếu dòng ❌ với các mục bên dưới.
+Gặp lỗi, hãy chạy `KIEM-TRA.bat` trước, rồi đối chiếu dòng ❌ [LỖI] (hoặc ⚠️ [CẢNH BÁO]) với các mục bên dưới.
 
 ## Gõ python mà mở Microsoft Store
 
@@ -9,6 +9,26 @@ Lệnh `python` đang bị lối tắt của Microsoft Store chiếm chỗ, chư
 - Vào **Settings → Apps → Advanced app settings → App execution aliases**, tắt `python.exe` và `python3.exe`.
 - Hoặc cài Python từ https://www.python.org/downloads/, nhớ tick **"Add python.exe to PATH"**.
 - Sau khi sửa, đóng cửa sổ dòng lệnh đang mở rồi mở lại (hoặc bấm lại `CAI-DAT.bat`).
+
+## Đã cài Python nhưng bộ cài báo không tìm thấy
+
+`CAI-DAT.bat` báo **"Đã cài Python ... nhưng bản này chưa có trong PATH"**, hoặc gõ `python` báo không tìm thấy dù máy đã cài Python. Nguyên nhân thường gặp: lúc cài chưa tick **"Add python.exe to PATH"** (bộ cài của python.org mặc định không tick ô này). Cài lại bằng winget không giúp được vì Python đã có sẵn trên máy.
+
+1. Mở **Settings → Apps → Installed apps** (Windows 10: **Apps & features**), tìm **Python 3.x** rồi chọn **Modify**. Cách khác: chạy lại bộ cài đã tải từ python.org và chọn **Modify**.
+2. Bấm **Next** tới trang **Advanced Options**, tick **"Add Python to environment variables"**, rồi bấm **Install**.
+3. Đóng cửa sổ dòng lệnh đang mở, mở lại rồi bấm lại `CAI-DAT.bat`.
+
+## PowerShell bị chặn trên máy trường hoặc công ty
+
+Bấm `CAI-DAT.bat` hoặc `KIEM-TRA.bat` mà thấy thông báo tiếng Anh có cụm **"running scripts is disabled on this system"** hoặc nhắc tới **execution policy**, rồi dừng: máy do nhà trường hoặc công ty quản lý đang chặn chạy script PowerShell. Chính sách này mạnh hơn tuỳ chọn mà các file `.bat` dùng nên bộ cài không tự vượt qua được.
+
+- Nhờ quản trị máy (bộ phận IT) cho phép chạy script PowerShell.
+- Hoặc tự chạy từng lệnh trong cửa sổ dòng lệnh mở tại thư mục bộ công cụ:
+  ```
+  python -m pip install -r requirements.txt
+  python tools\vi\doctor.py
+  ```
+  Nếu chưa có file `.env`, tạo bằng lệnh `copy .env.example .env`.
 
 ## Cài thư viện thất bại
 
@@ -45,11 +65,20 @@ Bộ công cụ bị sửa đổi hoặc thiếu file bản quyền (`LICENSE`, 
 
 - Chạy lại `KIEM-TRA.bat` để xem lỗi có lặp lại không.
 - Kiểm tra xem phần mềm diệt virus có đang quét thư mục Temp của Windows không — việc quét có thể làm chậm hoặc chặn quá trình xuất file.
+- Nếu thông báo có `FileNotFoundError` kèm một đường dẫn rất dài, xem mục **Đường dẫn quá dài** ngay bên dưới.
 - Nếu vẫn lỗi, khi hỏi hỗ trợ hãy chụp toàn bộ màn hình kết quả `KIEM-TRA.bat` để gửi kèm.
+
+## Đường dẫn quá dài
+
+Dấu hiệu: `KIEM-TRA.bat` hoặc lúc xuất bài báo lỗi có chữ `FileNotFoundError`, kèm một đường dẫn rất dài (thường chứa `.pptx-build-`). Windows mặc định chỉ cho phép đường dẫn dài khoảng 260 ký tự, trong khi quá trình xuất PPTX tạo thêm nhiều thư mục con bên trong thư mục dự án.
+
+- Dời cả thư mục bộ công cụ sang đường dẫn ngắn, ví dụ `D:\PPTmaster`.
+- Tránh giải nén ZIP thành thư mục lồng nhau như `PPTmaster-main\PPTmaster-main`, và tránh đặt trong thư mục OneDrive nhiều cấp.
+- Hoặc nhờ quản trị máy bật **Long Paths** của Windows (cần quyền quản trị).
 
 ## Cập nhật thất bại
 
-- Thông báo **"not a Git checkout"**: thư mục này là bản tải bằng ZIP, không tự cập nhật được. Tải bản mới và chép thư mục `projects\` của bạn sang.
+- Thông báo **"not a Git checkout"**: thư mục này là bản tải bằng ZIP, không tự cập nhật được. Tải bản mới rồi chép thư mục `projects\` và file `.env` của bạn sang.
 - Thông báo **"Tracked local changes"**: bạn đã sửa file thuộc bộ công cụ. Chạy `git status` để xem file nào đã đổi, chuyển các file cá nhân của bạn vào thư mục `projects\`, rồi khôi phục file bộ công cụ bằng:
   ```
   git restore <tên file>

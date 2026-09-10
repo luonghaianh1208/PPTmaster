@@ -16,7 +16,7 @@ Khách hàng (giáo viên, nhân viên, người làm nội dung — phần lớ
 
 1. Mô phỏng trên máy phát triển 3 kịch bản PATH — (a) không có Python, (b) chỉ có lối tắt Microsoft Store, (c) có Python ≥ 3.10 trong môi trường ảo tách biệt: `CAI-DAT` cho đúng thông báo và mã thoát; ở (c) `KIEM-TRA` báo toàn bộ mục **bắt buộc** ✅. (Máy phát triển không chạy được Windows Sandbox vì ảo hoá firmware đang tắt; chủ repo chọn chỉ mô phỏng.)
 2. Mở thư mục trong Claude Code, Cursor và Antigravity; nhập "Tạo 3 slide giới thiệu trường THPT" → AI trả lời tiếng Việt, xuất PPTX mở được trong PowerPoint, chữ tiếng Việt hiển thị đúng dấu.
-3. `python skills/ppt-master/scripts/attribution_guard.py` trả về exit 0 trên mọi commit của `main`.
+3. `python skills/ppt-master/scripts/attribution_guard.py` trả về exit 0 trên mọi commit của `main` kể từ commit merge `dc38928e`.
 4. `git diff v6.3.2 main -- skills/` chỉ gồm: 5 thư mục template tiếng Việt + `decks_index.json` + `brands_index.json`.
 5. Người đã clone bản cũ chạy `git pull` → fast-forward, không lỗi. 29 fork hiện có không bị ảnh hưởng (không force push).
 6. Diễn tập đồng bộ: áp lớp Việt hoá lên nhánh thử dựng từ `v6.3.1`, chạy `tools/vi/sync_upstream.ps1 v6.3.2` → hoàn tất không cần sửa tay, test pass.
@@ -142,7 +142,7 @@ Ba file `.bat` chỉ chứa ký tự ASCII và cùng gọi `powershell -NoProfil
 
 1. Tìm `python` trong PATH. Nếu không có, hoặc đường dẫn nằm trong `WindowsApps` và `python --version` thất bại (alias Microsoft Store), hoặc phiên bản < 3.10:
    - Nếu có `winget`: hỏi Y/N rồi `winget install -e --id Python.Python.3.12`; sau đó yêu cầu đóng/mở lại cửa sổ và chạy lại `CAI-DAT.bat`.
-   - Nếu không có `winget`: in link python.org + nhắc tick "Add python.exe to PATH", mở `docs/vi/cai-dat-windows.md`, thoát mã 1.
+   - Nếu không có `winget`: in link python.org + nhắc tick "Add python.exe to PATH", in đường dẫn tới `docs/vi/cai-dat-windows.md`, thoát mã 1.
    - Nếu phát hiện alias Store: hướng dẫn tắt tại *Settings → Apps → Advanced app settings → App execution aliases*.
 2. `python -m pip install --upgrade pip` rồi `python -m pip install -r requirements.txt`. Thất bại → giữ nguyên log pip trên màn hình, in gợi ý trong `docs/vi/xu-ly-loi.md`, thoát mã 1.
 3. Nếu chưa có `.env` ở thư mục gốc: sao chép từ `.env.example`.
@@ -165,7 +165,7 @@ Chỉ dùng thư viện chuẩn Python; ngay đầu gọi `sys.stdout.reconfigur
 | Smoke test xuất PPTX | Bắt buộc | Chép `tools/vi/fixtures/smoke/01_smoke.svg` (1280×720, chứa "Kiểm tra tiếng Việt") vào `<tmp>/svg_output/`, chạy `finalize_svg.py <tmp> -q` rồi `svg_to_pptx.py <tmp> -s final -o <tmp>/smoke.pptx --no-notes --no-animations -q` (chế độ chẩn đoán của upstream, không cần `spec_lock.md`); pass khi file là zip hợp lệ, có đúng 1 `ppt/slides/slideN.xml` chứa chuỗi trên. Đã chạy thật trên v6.3.2: ~2,5 giây | In bước lỗi + 3 dòng log cuối, trỏ `docs/vi/xu-ly-loi.md` |
 | Git | Khuyến nghị | `shutil.which("git")` | Cần để dùng `CAP-NHAT.bat` |
 | Pandoc | Tuỳ chọn | `shutil.which("pandoc")` | Chỉ cần cho định dạng tài liệu cũ |
-| FFmpeg / FFprobe | Tuỳ chọn | `shutil.which` | Chỉ cần cho thuyết minh/video |
+| FFmpeg / FFprobe | Tuỳ chọn | `shutil.which("ffmpeg")`; FFprobe được kiểm gián tiếp (gói `Gyan.FFmpeg` có kèm `ffprobe`) | Chỉ cần cho thuyết minh/video |
 | API key tạo ảnh | Tuỳ chọn | Đọc `.env`/biến môi trường: có ít nhất một key ảnh (`GEMINI_API_KEY`, `OPENAI_API_KEY`, …) — **chỉ báo có/không, không in giá trị** | Xem `docs/vi/lay-api-key.md` |
 
 - Mã thoát: `0` khi mọi mục bắt buộc pass; `1` nếu có mục bắt buộc lỗi.
@@ -288,7 +288,7 @@ Upstream ra tag mới
 
 ## 7. Xử lý lỗi (nguyên tắc)
 
-- Mọi script của lớp Việt in thông báo tiếng Việt, mỗi lỗi kèm **một** hành động cụ thể và link tài liệu `docs/vi/xu-ly-loi.md#<mục>`.
+- Mọi script của lớp Việt in thông báo tiếng Việt, mỗi lỗi kèm **một** hành động cụ thể và in đường dẫn tài liệu `docs/vi/xu-ly-loi.md` kèm tên mục cần xem.
 - Không in giá trị API key, token hay nội dung `.env`.
 - Không bao giờ tự sửa/bỏ qua `attribution_guard.py`; khi guard lỗi chỉ hướng dẫn tải lại bản đầy đủ.
 - Script chủ repo (`sync_upstream.ps1`) dừng an toàn khi gặp tình huống không tự giải được, không commit dở, không push.
@@ -306,7 +306,7 @@ Upstream ra tag mới
 | Kiểm chứng AI editor | Claude Code headless xác nhận đã nạp `AGENTS.vi.md`; chủ repo tự tạo thử 3 slide trong Claude Code/Cursor/Antigravity (tiêu chí #2) | M1 |
 | Diễn tập đồng bộ | Nhánh thử từ `v6.3.1` + lớp Việt → `sync_upstream.ps1 v6.3.2` (tiêu chí #6) | M1 |
 | Template | `--template-mode` pass; PPTX xem thử được chủ repo duyệt; tạo 1 bài thật với mỗi gói | M2 |
-| Review code | `code-reviewer` + `qa` subagent cho `doctor.py`, `setup.ps1`, `sync_upstream.ps1` trước khi phát hành | M1 |
+| Review code | `code-reviewer` + `qa` subagent cho `doctor.py`, `pptmaster.ps1`, `sync_upstream.ps1` trước khi phát hành | M1 |
 
 ---
 
@@ -343,7 +343,7 @@ Nếu upstream ra tag mới trước khi M2 xong: đồng bộ bằng `sync_upst
 | Rủi ro | Giảm thiểu |
 |---|---|
 | Upstream đổi guard, cấu trúc template hoặc key định dạng | `sync_upstream.ps1` chạy guard + `test_vi_layer.py`; test đỏ → cập nhật lớp Việt trước khi phát hành |
-| Alias `python3`/`python` của Microsoft Store | `setup.ps1` phát hiện và hướng dẫn tắt; `AGENTS.vi.md` quy định fallback `python` |
+| Alias `python3`/`python` của Microsoft Store | `pptmaster.ps1` phát hiện và hướng dẫn tắt; `AGENTS.vi.md` quy định fallback `python` |
 | Máy không có `winget` (Windows cũ/LTSC) | Hướng dẫn cài tay trong `cai-dat-windows.md` |
 | Không có máy Windows sạch để thử thật | Mô phỏng PATH; `xu-ly-loi.md` bao phủ lỗi cài đặt; thu thập phản hồi khách sau vi.1 |
 | Cơ chế nạp rule của Cursor/Antigravity không hoạt động | Kiểm chứng ở M1; dự phòng thêm 1 dòng cuối `AGENTS.md` |

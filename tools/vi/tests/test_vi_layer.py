@@ -149,7 +149,7 @@ class DocsTest(unittest.TestCase):
 
     def test_troubleshooting_has_sections_referenced_by_launcher(self):
         text = read("docs/vi/xu-ly-loi.md")
-        for heading in ("## Cài thư viện thất bại", "## Cập nhật thất bại"):
+        for heading in ("## Cài thư viện thất bại", "## Cập nhật thất bại", "## Đã cài Python nhưng bộ cài báo không tìm thấy"):
             self.assertIn(heading, text)
 
     def test_relative_markdown_links_resolve(self):
