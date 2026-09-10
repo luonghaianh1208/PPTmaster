@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content" font-family="Arial">
+  <rect id="background" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"/>
+  <g id="title" data-pptx-bounds="80 300 1120 120">
+    <rect x="80" y="300" width="1120" height="120" fill="#1F4E79"/>
+    <text x="640" y="375" font-size="48" font-weight="bold" text-anchor="middle" fill="#FFFFFF">Kiểm tra tiếng Việt</text>
+  </g>
+</svg>
