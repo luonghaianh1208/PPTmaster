@@ -51,7 +51,7 @@ Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 - Bản tải bằng Git: bấm đúp `CAP-NHAT.bat`.
 - Bản ZIP: tải bản mới rồi chép thư mục `projects\` của bạn sang.
 
-## Giấy phép và ghi công
+## Giấy phép & Ghi công
 
 - Lõi PPT Master: © 2025-2026 Hugo He, giấy phép MIT — [LICENSE](LICENSE). Nhà tài trợ của dự án gốc: [SPONSORS.md](skills/ppt-master/SPONSORS.md).
 - Phần Việt hoá và đóng gói: Lương Hải Anh — 2Anh AI Education, giấy phép MIT. Chi tiết: [NOTICE](NOTICE).
