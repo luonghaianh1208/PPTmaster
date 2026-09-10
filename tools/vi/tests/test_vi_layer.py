@@ -131,5 +131,45 @@ class ScriptEncodingTest(unittest.TestCase):
             self.assertIn(f"-Action {action}", text)
 
 
+LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
+REQUIRED_DOCS = (
+    "bat-dau-nhanh.md",
+    "cai-dat-windows.md",
+    "cau-lenh-mau.md",
+    "xu-ly-loi.md",
+    "lay-api-key.md",
+    "phat-trien/bao-tri.md",
+)
+
+
+class DocsTest(unittest.TestCase):
+    def test_required_vietnamese_docs_exist(self):
+        for name in REQUIRED_DOCS:
+            self.assertTrue((REPO_ROOT / "docs" / "vi" / name).is_file(), name)
+
+    def test_troubleshooting_has_sections_referenced_by_launcher(self):
+        text = read("docs/vi/xu-ly-loi.md")
+        for heading in ("## Cài thư viện thất bại", "## Cập nhật thất bại"):
+            self.assertIn(heading, text)
+
+    def test_relative_markdown_links_resolve(self):
+        files = [REPO_ROOT / "README.md", REPO_ROOT / "AGENTS.vi.md", REPO_ROOT / "CHANGELOG-VI.md"]
+        files += [path for path in sorted((REPO_ROOT / "docs" / "vi").rglob("*.md")) if not path.name.startswith("20")]
+        broken = []
+        for markdown in files:
+            for target in LINK_RE.findall(markdown.read_text(encoding="utf-8")):
+                if target.startswith(("http://", "https://", "mailto:", "#")):
+                    continue
+                path = target.split("#", 1)[0]
+                if path and not (markdown.parent / path).exists():
+                    broken.append(f"{markdown.relative_to(REPO_ROOT)} -> {target}")
+        self.assertEqual(broken, [])
+
+    def test_readme_credits_upstream(self):
+        readme = read("README.md")
+        self.assertIn("Hugo He", readme)
+        self.assertIn("https://github.com/hugohe3/ppt-master", readme)
+
+
 if __name__ == "__main__":
     unittest.main()
