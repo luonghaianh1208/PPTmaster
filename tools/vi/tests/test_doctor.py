@@ -83,6 +83,28 @@ class CheckPackagesTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.level, doctor.REQUIRED)
 
+    def test_requirements_with_utf8_bom_parses_first_package_name(self):
+        seen = []
+
+        def fake_find(name):
+            seen.append(name)
+            return object()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "requirements.txt"
+            path.write_bytes(b"\xef\xbb\xbfPyYAML>=6.0\nflask>=3.0\n")
+            result = doctor.check_packages(path, find_dist=fake_find)
+        self.assertTrue(result.ok)
+        self.assertEqual(seen, ["PyYAML", "flask"])
+
+    def test_requirements_with_invalid_utf8_bytes_reported_gracefully(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "requirements.txt"
+            path.write_bytes(b"PyYAML>=6.0\n\xe0\xff\n")
+            result = doctor.check_packages(path, find_dist=lambda name: object())
+        self.assertFalse(result.ok)
+        self.assertEqual(result.level, doctor.REQUIRED)
+
 
 class CheckIntegrityTest(unittest.TestCase):
     def test_passes_on_exit_zero_and_runs_guard(self):
@@ -153,6 +175,26 @@ class EnvTest(unittest.TestCase):
                 {"GEMINI_API_KEY": "abc", "OPENAI_API_KEY": "def", "EMPTY_API_KEY": ""},
             )
 
+    def test_read_env_file_empty_value_with_inline_comment_placeholder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text("GEMINI_API_KEY= # dán key vào đây\n", encoding="utf-8")
+            self.assertEqual(doctor.read_env_file(path), {"GEMINI_API_KEY": ""})
+            result = doctor.check_api_keys({}, doctor.read_env_file(path))
+            self.assertFalse(result.ok)
+
+    def test_read_env_file_strips_comment_after_closing_quote(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text('A="x # y" # note\n', encoding="utf-8")
+            self.assertEqual(doctor.read_env_file(path), {"A": "x # y"})
+
+    def test_read_env_file_strips_unquoted_inline_comment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text("B=abc # note\n", encoding="utf-8")
+            self.assertEqual(doctor.read_env_file(path), {"B": "abc"})
+
     def test_check_api_keys_counts_non_empty_keys_without_leaking_values(self):
         result = doctor.check_api_keys(
             {"OPENAI_API_KEY": "def", "PATH": "x"},
@@ -168,6 +210,32 @@ class EnvTest(unittest.TestCase):
         result = doctor.check_api_keys({}, {})
         self.assertFalse(result.ok)
         self.assertIn("lay-api-key.md", result.fix)
+
+    def test_env_file_has_bom_true(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_bytes(b"\xef\xbb\xbfGEMINI_API_KEY=abc\n")
+            self.assertTrue(doctor.env_file_has_bom(path))
+
+    def test_env_file_has_bom_false(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_bytes(b"GEMINI_API_KEY=abc\n")
+            self.assertFalse(doctor.env_file_has_bom(path))
+
+    def test_env_file_has_bom_missing_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(doctor.env_file_has_bom(Path(tmp) / "absent.env"))
+
+    def test_check_api_keys_reports_bom_and_never_leaks_values(self):
+        result = doctor.check_api_keys(
+            {}, {"GEMINI_API_KEY": "abc"}, env_has_bom=True,
+        )
+        self.assertFalse(result.ok)
+        self.assertEqual(result.level, doctor.OPTIONAL)
+        self.assertIn("BOM", result.detail)
+        self.assertIn("KIEM-TRA.bat", result.fix)
+        self.assertNotIn("abc", result.detail + result.fix)
 
 
 class VerifyPptxTest(unittest.TestCase):
@@ -200,6 +268,21 @@ class VerifyPptxTest(unittest.TestCase):
             pptx = Path(tmp) / "a.pptx"
             pptx.write_bytes(b"not a zip")
             self.assertFalse(doctor.verify_pptx(pptx).ok)
+
+    def test_rejects_directory_path_without_raising(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_pptx = Path(tmp) / "a_dir.pptx"
+            fake_pptx.mkdir()
+            result = doctor.verify_pptx(fake_pptx)
+        self.assertFalse(result.ok)
+
+    def test_rejects_oserror_when_opening_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "a.pptx"
+            pptx.write_bytes(b"not a zip")
+            with mock.patch.object(zipfile, "ZipFile", side_effect=PermissionError("locked")):
+                result = doctor.verify_pptx(pptx)
+        self.assertFalse(result.ok)
 
 
 class RunSmokeTest(unittest.TestCase):
@@ -234,6 +317,25 @@ class RunSmokeTest(unittest.TestCase):
         result = doctor.run_smoke(run=fake_run, python="python")
         self.assertFalse(result.ok)
         self.assertIn("Quá thời gian", result.detail)
+
+    def test_reports_oserror_from_run_without_raising(self):
+        def fake_run(cmd, **kwargs):
+            raise OSError("no such file")
+
+        result = doctor.run_smoke(run=fake_run, python="python")
+        self.assertFalse(result.ok)
+        self.assertIn("finalize_svg.py", result.detail)
+
+    def test_missing_smoke_fixture_reported_gracefully(self):
+        def fail_if_called(cmd, **kwargs):
+            self.fail("run() should not be called when the smoke fixture is missing")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(doctor, "SMOKE_SVG", Path(tmp) / "absent.svg"):
+                result = doctor.run_smoke(run=fail_if_called, python="python")
+        self.assertFalse(result.ok)
+        self.assertIn("Không chép được file mẫu smoke test", result.detail)
+        self.assertEqual(result.fix, "Tải lại bản đầy đủ của bộ công cụ")
 
 
 class RenderAndExitCodeTest(unittest.TestCase):
@@ -300,6 +402,21 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 1)
         smoke.assert_not_called()
         self.assertIn("Bỏ qua", output)
+
+    def test_collect_short_circuits_on_failed_python_check(self):
+        def fail_if_called(*args, **kwargs):
+            self.fail("check should not be called when Python check fails")
+
+        failed_python = doctor.CheckResult("Python", doctor.REQUIRED, False, "3.9", "Cài Python 3.10+")
+        with mock.patch.object(doctor, "check_python", return_value=failed_python), \
+                mock.patch.object(doctor, "check_packages", side_effect=fail_if_called), \
+                mock.patch.object(doctor, "check_integrity", side_effect=fail_if_called), \
+                mock.patch.object(doctor, "run_smoke", side_effect=fail_if_called), \
+                mock.patch.object(doctor, "check_tool", side_effect=fail_if_called), \
+                mock.patch.object(doctor, "check_api_keys", side_effect=fail_if_called):
+            results = doctor.collect(no_smoke=True)
+        self.assertEqual(results, [failed_python])
+        self.assertEqual(doctor.exit_code(results), 1)
 
 
 if __name__ == "__main__":

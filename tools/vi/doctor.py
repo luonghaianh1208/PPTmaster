@@ -79,8 +79,8 @@ def check_python(version_info: Sequence[int] = sys.version_info) -> CheckResult:
 def check_packages(requirements_path: Path, find_dist: Callable[[str], object] = importlib.metadata.distribution) -> CheckResult:
     name = "Thư viện Python"
     try:
-        packages = parse_requirement_names(requirements_path.read_text(encoding="utf-8"))
-    except OSError:
+        packages = parse_requirement_names(requirements_path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError):
         return CheckResult(name, REQUIRED, False, f"Không đọc được {requirements_path.name}", "Tải lại bản đầy đủ của bộ công cụ")
     missing = []
     for package in packages:
@@ -124,6 +124,33 @@ def find_env_file(candidates: Iterable[Path]) -> Optional[Path]:
     return None
 
 
+def _strip_inline_env_comment(value: str) -> str:
+    """Mirrors upstream skills/ppt-master/scripts/config.py:strip_inline_env_comment."""
+    stripped = value.lstrip()
+    if stripped.startswith(('"', "'")):
+        quote = stripped[0]
+        end = stripped.find(quote, 1)
+        if end != -1:
+            head = value[: len(value) - len(stripped) + end + 1]
+            tail = value[len(head):]
+            hash_pos = tail.find("#")
+            if hash_pos == -1:
+                return value
+            return head + tail[:hash_pos]
+        return value
+    hash_pos = value.find("#")
+    if hash_pos == -1:
+        return value
+    return value[:hash_pos]
+
+
+def _strip_env_quotes(value: str) -> str:
+    """Mirrors upstream skills/ppt-master/scripts/config.py:strip_env_quotes."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
+
+
 def read_env_file(path: Path) -> dict[str, str]:
     values = {}
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -134,12 +161,27 @@ def read_env_file(path: Path) -> dict[str, str]:
         key = key.strip()
         if key.startswith("export "):
             key = key[len("export "):].strip()
-        values[key] = value.strip().strip('"').strip("'")
+        cleaned = _strip_inline_env_comment(value).strip()
+        values[key] = _strip_env_quotes(cleaned)
     return values
 
 
-def check_api_keys(environ: Mapping[str, str], env_values: Mapping[str, str]) -> CheckResult:
+def env_file_has_bom(path: Path) -> bool:
+    try:
+        with path.open("rb") as f:
+            return f.read(3) == b"\xef\xbb\xbf"
+    except OSError:
+        return False
+
+
+def check_api_keys(environ: Mapping[str, str], env_values: Mapping[str, str], env_has_bom: bool = False) -> CheckResult:
     name = "API key dịch vụ AI"
+    if env_has_bom:
+        return CheckResult(
+            name, OPTIONAL, False,
+            "File .env được lưu kèm BOM nên dòng đầu tiên sẽ bị bỏ qua",
+            "Mở .env bằng Notepad → File → Save As → Encoding: UTF-8 (không chọn \"UTF-8 with BOM\"), rồi chạy lại KIEM-TRA.bat",
+        )
     merged = dict(env_values)
     merged.update(environ)
     count = sum(1 for key, value in merged.items() if API_KEY_RE.match(key) and value.strip())
@@ -164,6 +206,8 @@ def verify_pptx(pptx: Path, expected_text: str = SMOKE_TEXT) -> CheckResult:
             xml = archive.read(slides[0]).decode("utf-8", errors="replace")
     except zipfile.BadZipFile:
         return CheckResult(SMOKE_NAME, REQUIRED, False, "File PPTX bị hỏng", fix)
+    except OSError:
+        return CheckResult(SMOKE_NAME, REQUIRED, False, "Không đọc được file PPTX", fix)
     if expected_text not in xml:
         return CheckResult(SMOKE_NAME, REQUIRED, False, "Chữ tiếng Việt bị lỗi trong slide", fix)
     return CheckResult(SMOKE_NAME, REQUIRED, True, "Tạo được PPTX 1 slide, tiếng Việt hiển thị đúng")
@@ -173,10 +217,17 @@ def run_smoke(run: Callable = subprocess.run, python: str = sys.executable) -> C
     fix = f"Xem {FIX_DOC}"
     scripts = SKILL_DIR / "scripts"
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
-    with tempfile.TemporaryDirectory(prefix="pptmaster-vi-smoke-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="pptmaster-vi-smoke-", ignore_cleanup_errors=True) as tmp:
         project = Path(tmp)
         (project / "svg_output").mkdir()
-        shutil.copyfile(SMOKE_SVG, project / "svg_output" / SMOKE_SVG.name)
+        try:
+            shutil.copyfile(SMOKE_SVG, project / "svg_output" / SMOKE_SVG.name)
+        except OSError as exc:
+            return CheckResult(
+                SMOKE_NAME, REQUIRED, False,
+                f"Không chép được file mẫu smoke test: {exc}",
+                "Tải lại bản đầy đủ của bộ công cụ",
+            )
         pptx = project / "smoke.pptx"
         steps = [
             [python, str(scripts / "finalize_svg.py"), str(project), "-q"],
@@ -238,7 +289,11 @@ def collect(no_smoke: bool) -> list[CheckResult]:
     results.append(check_tool("pandoc", "Pandoc", OPTIONAL, "Chỉ cần khi chuyển tài liệu định dạng cũ"))
     results.append(check_tool("ffmpeg", "FFmpeg", OPTIONAL, "Chỉ cần cho thuyết minh và video"))
     env_file = find_env_file(default_env_candidates(Path.cwd(), Path.home()))
-    results.append(check_api_keys(os.environ, read_env_file(env_file) if env_file else {}))
+    results.append(check_api_keys(
+        os.environ,
+        read_env_file(env_file) if env_file else {},
+        env_has_bom=env_file_has_bom(env_file) if env_file else False,
+    ))
     return results
 
 
