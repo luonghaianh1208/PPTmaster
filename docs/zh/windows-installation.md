@@ -1,0 +1,176 @@
+# Windows 安装指南
+
+[English](../windows-installation.md) | [Chinese](./windows-installation.md)
+
+---
+
+本指南将手把手教你在 Windows 上安装 PPT Master。按顺序操作，10 分钟内即可跑通第一份 PPT。
+
+---
+
+## 步骤 1 — 安装 Python（必须）
+
+Python 是唯一的硬性要求。
+
+1. 前往 **[python.org/downloads](https://www.python.org/downloads/)**，下载最新的 **Python 3.10+** 安装包。
+
+2. **⚠️ 关键步骤：安装时务必勾选 "Add python.exe to PATH"** — 这是 Windows 上最常见的安装失误，不勾的话后面每一步都会出问题。
+
+3. 安装完成后，打开 **PowerShell**（在开始菜单搜索「PowerShell」）并验证：
+
+   ```powershell
+   python --version
+   ```
+
+   应该看到 `Python 3.12.x` 之类的输出。如果提示「未找到」或弹出 Microsoft Store，见下方[常见问题](#python-未找到或弹出-microsoft-store)。
+
+> **💡 提示**：Anaconda / Miniconda 安装的 Python 也可以用，只要 `python --version` 显示 3.10+ 即可。
+
+---
+
+## 步骤 2 — 下载项目
+
+**方式 A — 下载 ZIP**（最简单）：
+
+1. 打开 [GitHub](https://github.com/hugohe3/ppt-master)（中国大陆也可使用 [AtomGit 镜像](https://atomgit.com/hugohe3/ppt-master)）
+2. 点击绿色 **Code** 按钮 → **Download ZIP**
+3. 解压到 `C:\Users\你的用户名\ppt-master`
+
+**方式 B — Git Clone**（需要 [Git](https://git-scm.com/downloads)）。下面两条 clone 命令任选其一：
+
+```powershell
+# GitHub
+git clone https://github.com/hugohe3/ppt-master.git
+```
+
+```powershell
+# AtomGit 镜像
+git clone https://atomgit.com/hugohe3/ppt-master.git
+```
+
+然后进入克隆出的目录：
+
+```powershell
+cd ppt-master
+```
+
+---
+
+## 步骤 3 — 安装依赖
+
+```powershell
+cd C:\Users\你的用户名\ppt-master   # ← 替换为你的实际路径
+pip install -r requirements.txt
+```
+
+> 如果 `pip` 无法识别，用 `python -m pip install -r requirements.txt`。
+
+等待安装完成，最后看到 `Successfully installed ...` 就行。
+
+---
+
+## 步骤 4 — 验证安装
+
+```powershell
+python -c "import pptx; import fitz; print('All core dependencies OK')"
+```
+
+✅ 输出 `All core dependencies OK` → 核心环境没问题。
+
+❌ 报错 → 见下方[常见问题](#常见问题)。
+
+---
+
+## 步骤 5 — 跑一个最小示例
+
+在支持 Agent 的 AI 工具（Claude Code、Codex、Cursor、VS Code agent 等）中打开 `ppt-master` 目录，在聊天面板输入：
+
+```
+请快速生成一个 3 页测试 PPT，封面 + 内容页 + 封底，主题"Hello World"，不用跟我确认
+```
+
+这里显式要求**快速生成**是关键：AI 会跳过策略师分析和设计确认的来回，直接创作并导出。默认流程会先跟你确认设计规范——做正式 deck 时需要，但只是验证环境能不能跑通时太慢。完整说明 → [快速模式](./getting-started.md#快速模式)。
+
+跑完后应看到：
+
+- `exports/` 下出现由项目转换器从 `svg_output/` 生成的原生 DrawingML `.pptx`，并能在 PowerPoint 中打开、逐元素编辑。
+
+这一项满足 → **搞定了。** 注意快速生成会跳过 `finalize_svg.py`，因此不会生成 `svg_final/` 预览目录；默认流程才会生成，其中是可直接打开的自包含视觉预览 SVG，也可作为 SVG 图片手动插入 PowerPoint，但手工“转换为形状”不在支持范围。
+
+---
+
+## 步骤 6 — 可选增强（大多数用户可以跳过）
+
+装好 Python 和 `requirements.txt` 后，生成 PPT 的全部功能已经就绪。PPTX 导出直接写入原生 DrawingML 形状，不需要 CairoSVG、GTK 或另一套 SVG 栅格化环境。下面只保留一种**边缘场景的备用工具**——遇到对应需求时再装。
+
+| 增强项 | 只在以下情况才装 | 安装方式 | 验证 |
+|--------|-----------------|---------|------|
+| **Pandoc** — 旧格式文档 | 你需要转 `.doc`、`.odt`、`.rtf`、`.tex`、`.rst`、`.org`、`.typ`。`.docx`/`.html`/`.epub`/`.ipynb` 已由 Python 原生处理。 | [pandoc.org](https://pandoc.org/installing.html) 下载 `.msi` 安装 | `pandoc --version` |
+
+---
+
+## 常见问题
+
+### `python` 未找到或弹出 Microsoft Store
+
+**原因：** Python 没有加入系统 PATH。
+
+**方法 1** — 重新运行 Python 安装程序，选择 **Modify**，确保勾选 **"Add Python to environment variables"**。
+
+**方法 2** — 手动添加 PATH：
+1. 先在 PowerShell 中运行 `where python`，记下输出的路径（如 `C:\Users\你的用户名\AppData\Local\Programs\Python\Python312\python.exe`）
+2. 开始菜单搜索「环境变量」
+3. 找到 `Path` → **编辑** → 新增上面路径的**目录部分**及其 `Scripts` 子目录：
+   ```
+   C:\Users\你的用户名\AppData\Local\Programs\Python\Python312
+   C:\Users\你的用户名\AppData\Local\Programs\Python\Python312\Scripts
+   ```
+4. 确定，**重启 PowerShell**
+
+**方法 3** — 试试 `python3` 或 `py` 命令。
+
+### 命令里的 `python3` 报错（exit 49 / 弹 Microsoft Store）
+
+python.org 安装包只装了 `python.exe`，没有 `python3.exe`。**把命令里的 `python3` 换成 `python` 即可**（AI 通常也会自动改用 `python` 继续）。
+
+### `pip install` 报权限错误
+
+```powershell
+pip install --user -r requirements.txt
+```
+
+或以管理员身份运行 PowerShell。
+
+### `pip install` 网络问题
+
+```powershell
+# 清华镜像（国内推荐）
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 代理
+pip install -r requirements.txt --proxy http://your-proxy:port
+```
+
+### `ModuleNotFoundError`
+
+`pip` 装到了另一个 Python 环境。用 `python -m pip install -r requirements.txt` 确保对应同一个。
+
+### `import fitz` 失败
+
+1. 升级 pip：`python -m pip install --upgrade pip`
+2. 预编译包：`pip install PyMuPDF --only-binary :all:`
+3. 仍失败 → 安装 [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+
+### PowerShell「脚本运行被禁用」
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+## 还是搞不定？
+
+- 📖 [常见问题 (FAQ)](./faq.md)
+- 🐛 [GitHub Issues](https://github.com/hugohe3/ppt-master/issues) — 附上 Python 版本、Windows 版本和完整报错
+- 💬 [GitHub Discussions](https://github.com/hugohe3/ppt-master/discussions)

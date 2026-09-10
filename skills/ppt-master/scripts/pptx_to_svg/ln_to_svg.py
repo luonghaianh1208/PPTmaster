@@ -1,0 +1,445 @@
+"""DrawingML <a:ln> -> SVG stroke conversion.
+
+Reverse of svg_to_pptx/drawingml/styles.py build_stroke_xml.
+
+Produces an SVG attribute dict with stroke / stroke-width / stroke-opacity /
+stroke-dasharray / stroke-linecap / stroke-linejoin / marker-start /
+marker-end (markers also need a <defs> entry which is returned alongside).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from xml.etree import ElementTree as ET
+
+from pptx_gradients import (
+    NATIVE_GRADIENT_PREVIEW_SHA256_ATTR,
+    gradient_preview_fingerprint,
+)
+from pptx_shapes.formula import validate_ooxml_line_width
+
+from .color_resolver import (
+    ColorPalette,
+    find_color_elem,
+    resolve_color,
+    resolve_solid_fill_color,
+    validate_no_fill,
+)
+from .emu_units import NS, emu_to_px, fmt_num, format_ooxml_alpha
+from .fill_to_svg import resolve_fill
+
+
+@dataclass
+class StrokeResult:
+    """Resolved stroke: SVG attributes to apply + optional <defs> for markers."""
+
+    attrs: dict[str, str] = field(default_factory=dict)
+    defs: list[str] = field(default_factory=list)
+
+
+# Reverse of svg_to_pptx DASH_PRESETS (preset name -> dasharray).
+PRST_DASH_TO_ARRAY = {
+    "solid": None,           # no dasharray
+    "dot": "1 3",
+    "dash": "4 4",
+    "lgDash": "8 4",
+    "dashDot": "4 4 1 4",
+    "lgDashDot": "8 4 2 4",
+    "lgDashDotDot": "8 4 2 4 2 4",
+    "sysDash": "3 3",
+    "sysDot": "1 3",
+    "sysDashDot": "3 3 1 3",
+    "sysDashDotDot": "3 3 1 3 1 3",
+}
+_OOXML_INT_MAX = 2**31 - 1
+_LINE_PAINT_TAGS = {
+    f"{{{NS['a']}}}{name}": name
+    for name in (
+        "noFill",
+        "solidFill",
+        "gradFill",
+        "pattFill",
+        "blipFill",
+        "grpFill",
+    )
+}
+
+# DrawingML cap -> SVG stroke-linecap
+CAP_MAP = {
+    "rnd": "round",
+    "sq": "square",
+    "flat": "butt",
+}
+
+
+def resolve_stroke(
+    sp_pr: ET.Element | None,
+    palette: ColorPalette | None,
+    *,
+    id_prefix: str = "m",
+    id_seq: list[int] | None = None,
+    style_stroke_default: str | None = None,
+    gradient_frame: tuple[float, float, float, float] | None = None,
+) -> StrokeResult:
+    """Resolve <a:ln> child of <p:spPr>.
+
+    Returns:
+        StrokeResult.attrs is empty if no <a:ln> present (caller falls back to
+        the spec default). If <a:ln> exists with <a:noFill/>, attrs has
+        stroke="none".
+    """
+    if sp_pr is None:
+        return StrokeResult()
+
+    ln = sp_pr.find("a:ln", NS)
+    if ln is None:
+        return StrokeResult()
+
+    attrs: dict[str, str] = {}
+    defs: list[str] = []
+    marker_color_override: str | None = None
+
+    compound = ln.attrib.get("cmpd")
+    if compound not in {None, "sng"}:
+        raise ValueError(
+            f"Unsupported DrawingML compound line: {compound!r}"
+        )
+    alignment = ln.attrib.get("algn")
+    if alignment not in {None, "ctr"}:
+        raise ValueError(
+            f"Unsupported DrawingML line alignment: {alignment!r}"
+        )
+
+    # Width (a:ln@w in EMU)
+    width_emu = ln.attrib.get("w")
+    if width_emu is not None:
+        try:
+            width_value = int(width_emu)
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"Invalid DrawingML line width: {width_emu!r}"
+            ) from None
+        validate_ooxml_line_width(width_value)
+        width_px = emu_to_px(width_value)
+        attrs["stroke-width"] = fmt_num(width_px, 5)
+
+    # Cap
+    cap = ln.attrib.get("cap")
+    if cap is not None:
+        if cap not in CAP_MAP:
+            raise ValueError(f"Unsupported DrawingML line cap: {cap!r}")
+        attrs["stroke-linecap"] = CAP_MAP[cap]
+
+    # Fill: noFill / solidFill / gradFill
+    paints = [child for child in ln if child.tag in _LINE_PAINT_TAGS]
+    if len(paints) > 1:
+        raise ValueError("DrawingML line must contain at most one paint")
+    paint = paints[0] if paints else None
+    paint_name = _LINE_PAINT_TAGS.get(paint.tag) if paint is not None else None
+    if paint_name not in {None, "noFill", "solidFill", "gradFill"}:
+        raise ValueError(f"Unsupported DrawingML line paint: {paint_name}")
+    if paint_name == "noFill":
+        validate_no_fill(paint)
+        attrs["stroke"] = "none"
+    elif paint_name == "solidFill":
+        hex_, alpha = resolve_solid_fill_color(paint, palette)
+        attrs["stroke"] = hex_
+        if alpha < 1.0:
+            attrs["stroke-opacity"] = format_ooxml_alpha(alpha)
+    elif paint_name == "gradFill":
+        first_stop = paint.find("a:gsLst/a:gs", NS)
+        if first_stop is None:
+            raise ValueError("DrawingML gradient line requires a color stop")
+        marker_color, _marker_alpha = resolve_color(
+            find_color_elem(first_stop),
+            palette,
+        )
+        marker_color_override = marker_color
+        gradient = resolve_fill(
+            paint,
+            palette,
+            id_prefix=f"{id_prefix}stroke",
+            id_seq=id_seq,
+        )
+        attrs["stroke"] = gradient.attrs["fill"]
+        if "fill-opacity" in gradient.attrs:
+            attrs["stroke-opacity"] = gradient.attrs["fill-opacity"]
+        defs.extend(
+            _project_degenerate_stroke_gradients(
+                gradient.defs,
+                gradient_frame,
+                float(attrs.get("stroke-width", "1") or "1"),
+            )
+        )
+
+    # Dash pattern
+    preset_tag = f"{{{NS['a']}}}prstDash"
+    custom_tag = f"{{{NS['a']}}}custDash"
+    dashes = [child for child in ln if child.tag in {preset_tag, custom_tag}]
+    if len(dashes) > 1:
+        raise ValueError("DrawingML line must contain at most one dash")
+    dash = dashes[0] if dashes else None
+    if dash is not None and dash.tag == preset_tag:
+        if (
+            set(dash.attrib) != {"val"}
+            or list(dash)
+            or (dash.text or "").strip()
+        ):
+            raise ValueError("Invalid DrawingML preset dash structure")
+        preset = dash.attrib["val"]
+        if preset not in PRST_DASH_TO_ARRAY:
+            raise ValueError(
+                f"Unsupported DrawingML preset dash: {preset!r}"
+            )
+        dasharray = PRST_DASH_TO_ARRAY[preset]
+        if dasharray:
+            attrs["stroke-dasharray"] = dasharray
+    elif dash is not None:
+        cust_dash = dash
+        if cust_dash.attrib or (cust_dash.text or "").strip():
+            raise ValueError("Invalid DrawingML custom dash structure")
+        ds_parts: list[str] = []
+        sw = float(attrs.get("stroke-width", "1") or "1") or 1.0
+        dash_stops = list(cust_dash)
+        expected_tag = f"{{{NS['a']}}}ds"
+        if not dash_stops or any(
+            ds.tag != expected_tag
+            or set(ds.attrib) != {"d", "sp"}
+            or list(ds)
+            for ds in dash_stops
+        ):
+            raise ValueError("Invalid DrawingML custom dash structure")
+        for ds in dash_stops:
+            # d, sp are percentages of stroke width (1000ths)
+            values: dict[str, int] = {}
+            for name in ("d", "sp"):
+                raw_value = ds.attrib[name]
+                try:
+                    value = int(raw_value)
+                except (ValueError, TypeError):
+                    raise ValueError(
+                        f"Invalid DrawingML custom dash {name}: "
+                        f"{raw_value!r}"
+                    ) from None
+                if not 0 < value <= _OOXML_INT_MAX:
+                    raise ValueError(
+                        f"DrawingML custom dash {name}={value} is "
+                        "outside the positive OOXML integer range"
+                    )
+                values[name] = value
+            d_pct = values["d"]
+            sp_pct = values["sp"]
+            ds_parts.append(fmt_num(d_pct / 100000.0 * sw, 10))
+            ds_parts.append(fmt_num(sp_pct / 100000.0 * sw, 10))
+        attrs["stroke-dasharray"] = " ".join(ds_parts)
+
+    # Join
+    join_names = {
+        f"{{{NS['a']}}}round": "round",
+        f"{{{NS['a']}}}bevel": "bevel",
+        f"{{{NS['a']}}}miter": "miter",
+    }
+    joins = [child for child in ln if child.tag in join_names]
+    if len(joins) > 1:
+        raise ValueError("DrawingML line must contain at most one join")
+    if joins:
+        join = joins[0]
+        linejoin = join_names[join.tag]
+        if list(join):
+            raise ValueError("Invalid DrawingML line join structure")
+        if linejoin in {"round", "bevel"} and join.attrib:
+            raise ValueError("Invalid DrawingML line join structure")
+        if linejoin == "miter":
+            if set(join.attrib) - {"lim"}:
+                raise ValueError("Invalid DrawingML line join structure")
+            limit = join.attrib.get("lim")
+            if limit not in {None, "800000"}:
+                raise ValueError(
+                    f"Unsupported DrawingML miter limit: {limit!r}"
+                )
+        attrs["stroke-linejoin"] = linejoin
+
+    # Arrow markers (head / tail)
+    if id_seq is None:
+        id_seq = [0]
+    for which, attr in (("headEnd", "marker-start"), ("tailEnd", "marker-end")):
+        endpoints = ln.findall(f"a:{which}", NS)
+        if len(endpoints) > 1:
+            raise ValueError(
+                f"DrawingML line must contain at most one {which}"
+            )
+        if not endpoints:
+            continue
+        end_elem = endpoints[0]
+        if (
+            set(end_elem.attrib) - {"type", "w", "len"}
+            or list(end_elem)
+            or (end_elem.text or "").strip()
+        ):
+            raise ValueError(f"Invalid DrawingML {which} structure")
+        marker_color = (
+            marker_color_override
+            or attrs.get("stroke")
+            or style_stroke_default
+            or "#000000"
+        )
+        marker_id, marker_def = _build_arrow_marker(
+            end_elem,
+            marker_color,
+            id_prefix=id_prefix,
+            seq=id_seq,
+            reversed_=(which == "headEnd"),
+        )
+        if marker_id is None:
+            continue
+        defs.append(marker_def)
+        attrs[attr] = f"url(#{marker_id})"
+
+    return StrokeResult(attrs=attrs, defs=defs)
+
+
+def _project_degenerate_stroke_gradients(
+    definitions: list[str],
+    frame: tuple[float, float, float, float] | None,
+    stroke_width: float,
+) -> list[str]:
+    """Use page coordinates when objectBoundingBox has a degenerate axis."""
+    if frame is None:
+        return definitions
+    x, y, width, height = frame
+    if width > 0 and height > 0:
+        return definitions
+
+    projected: list[str] = []
+    safe_width = width if width > 0 else max(stroke_width, 1.0)
+    safe_height = height if height > 0 else max(stroke_width, 1.0)
+    origin_x = x if width > 0 else x - safe_width / 2
+    origin_y = y if height > 0 else y - safe_height / 2
+    for definition in definitions:
+        gradient = ET.fromstring(definition)
+        tag = gradient.tag.rsplit("}", 1)[-1]
+        gradient.set("gradientUnits", "userSpaceOnUse")
+        if tag == "linearGradient":
+            for name, origin, span in (
+                ("x1", origin_x, safe_width),
+                ("x2", origin_x, safe_width),
+                ("y1", origin_y, safe_height),
+                ("y2", origin_y, safe_height),
+            ):
+                gradient.set(
+                    name,
+                    fmt_num(origin + float(gradient.get(name, "0")) * span, 5),
+                )
+        elif tag == "radialGradient":
+            for name, origin, span, default in (
+                ("cx", origin_x, safe_width, "0.5"),
+                ("fx", origin_x, safe_width, gradient.get("cx", "0.5")),
+                ("cy", origin_y, safe_height, "0.5"),
+                ("fy", origin_y, safe_height, gradient.get("cy", "0.5")),
+            ):
+                gradient.set(
+                    name,
+                    fmt_num(
+                        origin + float(gradient.get(name, default)) * span,
+                        5,
+                    ),
+                )
+            gradient.set(
+                "r",
+                fmt_num(
+                    float(gradient.get("r", "0.5"))
+                    * max(safe_width, safe_height),
+                    5,
+                ),
+            )
+        gradient.set(
+            NATIVE_GRADIENT_PREVIEW_SHA256_ATTR,
+            gradient_preview_fingerprint(gradient),
+        )
+        projected.append(ET.tostring(gradient, encoding="unicode"))
+    return projected
+
+
+# ---------------------------------------------------------------------------
+# Arrow marker generation
+# ---------------------------------------------------------------------------
+
+# Bucket -> markerWidth/markerHeight ratio (in stroke widths).  These values
+# are the stable representatives of the SVG-to-DrawingML bucket thresholds,
+# so importing and exporting preserves both ``w`` and ``len`` categories.
+SIZE_BUCKET = {"sm": 1.5, "med": 2.5, "lg": 3.5}
+
+
+def _build_arrow_marker(
+    end_elem: ET.Element,
+    stroke_color: str,
+    *,
+    id_prefix: str,
+    seq: list[int],
+    reversed_: bool,
+) -> tuple[str | None, str]:
+    """Build an SVG <marker> def for an <a:headEnd>/<a:tailEnd>."""
+    typ = end_elem.attrib.get("type")
+    if typ not in {
+        None,
+        "none",
+        "triangle",
+        "stealth",
+        "arrow",
+        "diamond",
+        "oval",
+    }:
+        raise ValueError(f"Unsupported DrawingML line-end type: {typ!r}")
+
+    w_b = end_elem.attrib.get("w", "med")
+    l_b = end_elem.attrib.get("len", "med")
+    for dimension, bucket in (("width", w_b), ("length", l_b)):
+        if bucket not in SIZE_BUCKET:
+            raise ValueError(
+                f"Unsupported DrawingML line-end {dimension} bucket: "
+                f"{bucket!r}"
+            )
+    if typ is None or typ == "none":
+        return None, ""
+    if stroke_color.strip().lower() == "none":
+        raise ValueError(
+            "DrawingML line end requires a visible line paint"
+        )
+    mw = SIZE_BUCKET[l_b]
+    mh = SIZE_BUCKET[w_b]
+
+    seq[0] += 1
+    marker_id = f"{id_prefix}arrow{seq[0]}"
+
+    # SVG markers are drawn in their own viewBox; we use a 0..10 box and place
+    # the path so refX is at the line endpoint.
+    if typ == "triangle":
+        path = "M 0 0 L 10 5 L 0 10 z"
+    elif typ == "stealth":
+        path = "M 0 0 L 10 5 L 0 10 L 3 5 z"
+    elif typ == "arrow":
+        path = "M 0 0 L 10 5 L 0 10"
+    elif typ == "diamond":
+        path = "M 0 5 L 5 0 L 10 5 L 5 10 z"
+    elif typ == "oval":
+        path = ""  # use circle below
+
+    if typ == "oval":
+        body = f'<circle cx="5" cy="5" r="4" fill="{stroke_color}"/>'
+    elif typ == "arrow":
+        body = (
+            f'<path d="{path}" fill="none" stroke="{stroke_color}"/>'
+        )
+    else:
+        body = f'<path d="{path}" fill="{stroke_color}"/>'
+
+    orient = "auto-start-reverse" if reversed_ else "auto"
+    # Note: stroke="none" prevents marker from inheriting parent stroke.
+    marker_def = (
+        f'<marker id="{marker_id}" viewBox="0 0 10 10" '
+        f'refX="{"0" if reversed_ else "10"}" refY="5" '
+        f'markerWidth="{fmt_num(mw, 2)}" markerHeight="{fmt_num(mh, 2)}" '
+        f'orient="{orient}" markerUnits="strokeWidth">'
+        f"{body}</marker>"
+    )
+    return marker_id, marker_def

@@ -14,9 +14,15 @@ Usage:
     colors = Config.get_color_scheme('consulting')
 """
 
+import argparse
+import json
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-import json
+
+from console_encoding import configure_utf8_stdio
+
+configure_utf8_stdio()
 
 
 # ============================================================
@@ -34,11 +40,123 @@ WORKFLOWS_DIR = PROJECT_ROOT / 'workflows'
 
 # Repository root directory
 REPO_ROOT = PROJECT_ROOT.parent.parent
-EXAMPLES_DIR = REPO_ROOT / 'examples'
 PROJECTS_DIR = REPO_ROOT / 'projects'
 
 # Template subdirectories
 CHART_TEMPLATES_DIR = TEMPLATES_DIR / 'charts'
+
+
+# ============================================================
+# Environment Configuration
+# ============================================================
+
+USER_CONFIG_DIR = Path.home() / '.ppt-master'
+USER_ENV_FILE = USER_CONFIG_DIR / '.env'
+
+
+def get_env_candidates() -> list[Path]:
+    """Return the supported .env lookup order."""
+    return [
+        Path.cwd() / '.env',
+        PROJECT_ROOT / '.env',
+        REPO_ROOT / '.env',
+        USER_ENV_FILE,
+    ]
+
+
+def resolve_env_path() -> Path:
+    """
+    Return the first existing .env path.
+
+    If no candidate exists, return the CWD .env path so callers can no-op
+    consistently while still showing a useful default location in messages.
+    """
+    candidates = get_env_candidates()
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def strip_env_quotes(value: str) -> str:
+    """Strip matching surrounding quotes from a .env value."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
+
+
+def strip_inline_env_comment(value: str) -> str:
+    """Strip an unquoted inline ``#`` comment from a .env value.
+
+    Matches standard dotenv behavior: a ``#`` outside surrounding quotes
+    starts a comment and is dropped along with the rest of the line. To keep
+    a literal ``#`` in the value, wrap it in single or double quotes.
+    """
+    stripped = value.lstrip()
+    if stripped.startswith(('"', "'")):
+        quote = stripped[0]
+        end = stripped.find(quote, 1)
+        if end != -1:
+            head = value[: len(value) - len(stripped) + end + 1]
+            tail = value[len(head):]
+            hash_pos = tail.find('#')
+            if hash_pos == -1:
+                return value
+            return head + tail[:hash_pos]
+        return value
+    hash_pos = value.find('#')
+    if hash_pos == -1:
+        return value
+    return value[:hash_pos]
+
+
+def load_prefixed_env_file(
+    prefixes: tuple[str, ...],
+    *,
+    deprecated_keys: Optional[dict[str, str]] = None,
+) -> Optional[Path]:
+    """
+    Load matching keys from the first supported .env file.
+
+    Existing process environment variables always win. Keys outside the
+    requested prefixes are ignored so one shared .env can hold image, search,
+    and narration credentials without leaking unrelated values into the
+    process.
+    """
+    env_path = resolve_env_path()
+    if not env_path.exists():
+        return None
+
+    deprecated_keys = deprecated_keys or {}
+    with env_path.open('r', encoding='utf-8') as fh:
+        for lineno, raw_line in enumerate(fh, start=1):
+            line = raw_line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if line.startswith('export '):
+                line = line[7:].lstrip()
+            if '=' not in line:
+                raise ValueError(
+                    f"Invalid line in {env_path}:{lineno}. Expected KEY=VALUE."
+                )
+
+            key, value = line.split('=', 1)
+            key = key.strip()
+            if not key:
+                raise ValueError(
+                    f"Invalid line in {env_path}:{lineno}. Missing variable name."
+                )
+            if not any(key.startswith(prefix) for prefix in prefixes):
+                continue
+            if key in deprecated_keys:
+                raise ValueError(
+                    f"Unsupported key in {env_path}:{lineno}: {key}\n"
+                    f"{deprecated_keys[key]}"
+                )
+            cleaned = strip_inline_env_comment(value).strip()
+            os.environ.setdefault(key, strip_env_quotes(cleaned))
+
+    return env_path
 
 
 # ============================================================
@@ -64,32 +182,32 @@ CANVAS_FORMATS = {
         'aspect_ratio': '4:3',
         'use_case': 'Traditional projectors'
     },
-    'zalo_oa': {
-        'name': 'Zalo OA Header',
+    'wechat': {
+        'name': 'WeChat Article Header',
         'dimensions': '900×383',
         'viewbox': '0 0 900 383',
         'width': 900,
         'height': 383,
         'aspect_ratio': '2.35:1',
-        'use_case': 'Ảnh bìa bài viết Zalo OA'
+        'use_case': 'WeChat article cover images'
     },
-    'facebook_tiktok': {
-        'name': 'Facebook/TikTok',
+    'xiaohongshu': {
+        'name': '小红书',
         'dimensions': '1242×1660',
         'viewbox': '0 0 1242 1660',
         'width': 1242,
         'height': 1660,
         'aspect_ratio': '3:4',
-        'use_case': 'Chia sẻ kiến thức, đánh giá sản phẩm'
+        'use_case': 'Knowledge sharing, product reviews'
     },
-    'social_square': {
-        'name': 'Zalo/Instagram',
+    'moments': {
+        'name': 'Moments/Instagram',
         'dimensions': '1080×1080',
         'viewbox': '0 0 1080 1080',
         'width': 1080,
         'height': 1080,
         'aspect_ratio': '1:1',
-        'use_case': 'Ảnh vuông mạng xã hội'
+        'use_case': 'Social media square images'
     },
     'story': {
         'name': 'Story/Vertical',
@@ -323,7 +441,15 @@ LAYOUT_MARGINS = {
         'content_width': 1160,
         'content_height': 600
     },
-    'facebook_tiktok': {
+    'ppt43': {
+        'top': 50,
+        'right': 50,
+        'bottom': 50,
+        'left': 50,
+        'content_width': 924,
+        'content_height': 608
+    },
+    'xiaohongshu': {
         'top': 80,
         'right': 60,
         'bottom': 80,
@@ -331,70 +457,50 @@ LAYOUT_MARGINS = {
         'content_width': 1122,
         'content_height': 1500
     },
-    'social_square': {
+    'moments': {
         'top': 60,
         'right': 60,
         'bottom': 60,
         'left': 60,
         'content_width': 960,
         'content_height': 960
-    }
+    },
+    'story': {
+        'top': 120,
+        'right': 60,
+        'bottom': 180,
+        'left': 60,
+        'content_width': 960,
+        'content_height': 1620
+    },
+    'wechat': {
+        'top': 40,
+        'right': 40,
+        'bottom': 40,
+        'left': 40,
+        'content_width': 820,
+        'content_height': 303
+    },
 }
 
 
 # ============================================================
-# SVG Technical Specifications
+# SVG Policy Reference
 # ============================================================
 
+# Do not mirror element/attribute rules here. The router selects the mandatory
+# core and feature-triggered interfaces; the quality checker enforces them.
+# Keep the exported authority key as the compatibility router for existing
+# config consumers.
 SVG_CONSTRAINTS = {
-    # Forbidden elements - PPT incompatible
-    'forbidden_elements': [
-        # Clipping / Masking
-        'clipPath',
-        'mask',
-        # Style system
-        'style',
-        # Structure / Nesting
-        'foreignObject',
-        'marker',
-        # Text / Fonts
-        'textPath',
-        # Animation / Interaction
-        'animate',
-        'animateMotion',
-        'animateTransform',
-        'animateColor',
-        'set',
-        'script',
-        # Others
-        'iframe',
-    ],
-    # Forbidden attributes
-    'forbidden_attributes': [
-        'class',
-        'id',
-        'onclick', 'onload', 'onmouseover', 'onmouseout',
-        'onfocus', 'onblur', 'onchange',
-        'marker-end',
-    ],
-    # Forbidden patterns (regex matching)
-    'forbidden_patterns': [
-        r'@font-face',  # Web fonts
-        r'rgba\s*\(',   # rgba colors (PPT incompatible)
-        r'<\?xml-stylesheet\b',  # External CSS
-        r'<link[^>]*rel\s*=\s*["\']stylesheet["\']',
-        r'@import\s+',  # External CSS
-        r'<g[^>]*\sopacity\s*=',  # Group opacity
-        r'<image[^>]*\sopacity\s*=',  # Image opacity
-        r'\bon\w+\s*=',  # Event attributes
-        r'(?s)(?=.*<symbol)(?=.*<use\b)',  # <symbol> + <use> complex usage (order-independent)
-    ],
-    'recommended_fonts': [
-        'system-ui',
-        '-apple-system',
-        'BlinkMacSystemFont',
-        'Segoe UI'
-    ]
+    'authority': 'skills/ppt-master/references/shared-standards.md',
+    'core_authority': 'skills/ppt-master/references/shared-standards-core.md',
+    'conditional_authorities': {
+        'effects': 'skills/ppt-master/references/svg-effects.md',
+        'native_data': 'skills/ppt-master/references/native-data-interface.md',
+        'pptx_structure': 'skills/ppt-master/references/pptx-structure-interface.md',
+    },
+    'validator': 'skills/ppt-master/scripts/svg_quality_checker.py',
 }
 
 
@@ -411,7 +517,7 @@ class Config:
         Get canvas format configuration.
 
         Args:
-            format_key: Format key name (e.g. 'ppt169', 'facebook_tiktok')
+            format_key: Format key name (e.g. 'ppt169', 'xiaohongshu')
 
         Returns:
             Format configuration dict, or None if not found
@@ -494,19 +600,6 @@ class Config:
         return FONT_SIZES.get(size_name, FONT_SIZES['body'])
 
     @staticmethod
-    def validate_svg_element(element_name: str) -> bool:
-        """
-        Validate whether an SVG element is allowed.
-
-        Args:
-            element_name: Element name
-
-        Returns:
-            Whether the element is allowed
-        """
-        return element_name.lower() not in [e.lower() for e in SVG_CONSTRAINTS['forbidden_elements']]
-
-    @staticmethod
     def get_project_path(subdir: str = '') -> Path:
         """
         Get project path.
@@ -548,61 +641,66 @@ class Config:
 # Command Line Interface
 # ============================================================
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser."""
+    parser = argparse.ArgumentParser(
+        description="PPT Master configuration management tool.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("list-formats", help="List all canvas formats")
+    subparsers.add_parser("list-colors", help="List all color schemes")
+    subparsers.add_parser("list-industries", help="List all industry colors")
+
+    export = subparsers.add_parser("export", help="Export configuration to JSON")
+    export.add_argument(
+        "output_path",
+        nargs="?",
+        help="Output JSON path (backward-compatible positional form)",
+    )
+    export.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="Output JSON path (default: config_export.json)",
+    )
+
+    format_parser = subparsers.add_parser("format", help="View a specific canvas format")
+    format_parser.add_argument("key", choices=sorted(CANVAS_FORMATS), help="Canvas format key")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
     """Command line entry point."""
-    import sys
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
-    # Fix Windows terminal encoding for Vietnamese/Unicode output
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-
-    if len(sys.argv) < 2:
-        print("PPT Master - Configuration Management Tool\n")
-        print("Usage:")
-        print("  python3 scripts/config.py list-formats     # List all canvas formats")
-        print("  python3 scripts/config.py list-colors      # List all color schemes")
-        print("  python3 scripts/config.py list-industries  # List all industry colors")
-        print("  python3 scripts/config.py export           # Export configuration to JSON")
-        print("  python3 scripts/config.py format <key>     # View a specific canvas format")
-        return
-
-    command = sys.argv[1]
-
-    if command == 'list-formats':
+    if args.command == 'list-formats':
         print("\nCanvas Format List:\n")
         for key, info in CANVAS_FORMATS.items():
             print(
                 f"  {key:15} | {info['name']:15} | {info['dimensions']:12} | {info['use_case']}")
 
-    elif command == 'list-colors':
+    elif args.command == 'list-colors':
         print("\nColor Scheme List:\n")
         for key, info in DESIGN_COLORS.items():
             print(f"  {key:12} | {info['name']:15} | Primary: {info['primary']}")
 
-    elif command == 'list-industries':
+    elif args.command == 'list-industries':
         print("\nIndustry Color List:\n")
         for key, info in INDUSTRY_COLORS.items():
             print(f"  {key:15} | {info['name']:15} | Primary: {info['primary']}")
 
-    elif command == 'export':
-        output_file = sys.argv[2] if len(
-            sys.argv) > 2 else 'config_export.json'
-        Config.export_config(output_file)
+    elif args.command == 'export':
+        Config.export_config(args.output or args.output_path or "config_export.json")
 
-    elif command == 'format' and len(sys.argv) > 2:
-        format_key = sys.argv[2]
-        info = Config.get_canvas_format(format_key)
-        if info:
-            print(f"\nCanvas Format: {format_key}\n")
-            for key, value in info.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"[ERROR] Format not found: {format_key}")
-            print(f"   Available formats: {', '.join(CANVAS_FORMATS.keys())}")
+    elif args.command == 'format':
+        info = Config.get_canvas_format(args.key)
+        print(f"\nCanvas Format: {args.key}\n")
+        for key, value in info.items():
+            print(f"  {key}: {value}")
 
-    else:
-        print(f"[ERROR] Unknown command: {command}")
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

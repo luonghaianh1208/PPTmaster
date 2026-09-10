@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="1280" height="720" viewBox="0 0 1280 720"
+  data-pptx-master="catarc_dark_master" data-pptx-master-name="CATARC Dark"
+  data-pptx-layout="section" data-pptx-layout-name="Section Header">
+  <rect id="dark-master-background" x="0" y="0" width="1280" height="720" fill="#004098"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+  <rect id="dark-master-top-rule" x="0" y="0" width="1280" height="4" fill="#FFFFFF" fill-opacity="0.35"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+  <rect id="dark-master-bottom-rule" x="0" y="716" width="1280" height="4" fill="#FFFFFF" fill-opacity="0.35"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+
+  <circle id="section-circle-right" cx="1200" cy="100" r="200" fill="#FFFFFF" fill-opacity="0.03"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <circle id="section-circle-left" cx="100" cy="620" r="250" fill="#FFFFFF" fill-opacity="0.03"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <line id="section-horizontal-rule" x1="100" y1="360" x2="1180" y2="360"
+    stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.12"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="section-title-accent" x="600" y="370" width="80" height="6" fill="#FFFFFF"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <g id="section-number-slot" data-pptx-placeholder="body" data-pptx-idx="1"
+    data-pptx-bounds="440 176 400 152">
+    <text id="section-number-carrier" data-pptx-carrier="true"
+      x="640" y="288" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.1"
+      font-family="Arial, sans-serif" font-size="120" font-weight="700">{{CHAPTER_NUM}}</text>
+  </g>
+  <g id="section-title-slot" data-pptx-placeholder="title"
+    data-pptx-bounds="180 398 920 86">
+    <text id="section-title-carrier" data-pptx-carrier="true"
+      x="640" y="454" text-anchor="middle" fill="#FFFFFF"
+      font-family="Microsoft YaHei, SimHei, Arial, sans-serif"
+      font-size="48" font-weight="700">{{CHAPTER_TITLE}}</text>
+  </g>
+  <g id="section-subtitle-slot" data-pptx-placeholder="subtitle" data-pptx-idx="2"
+    data-pptx-bounds="240 494 800 50">
+    <text id="section-subtitle-carrier" data-pptx-carrier="true"
+      x="640" y="528" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.72"
+      font-family="Arial, Microsoft YaHei, sans-serif" font-size="24">{{CHAPTER_SUBTITLE}}</text>
+  </g>
+</svg>

@@ -1,102 +1,63 @@
-# SVG Chart Template Library (33 Types)
+# Chart Visualization Templates
 
-This directory provides **33 standardized SVG chart templates** for use as chart selection references in PPT Master.
+This directory contains 33 canonical value-driven references. A chart belongs here
+when source values, categories, time, weights, or durations determine visual
+mark position, length, area, angle, font size, or connection width.
 
-- **Full Index**: [README.md](./README.md) (human browsing)
-- **JSON Index**: [charts_index.json](./charts_index.json) (AI / programmatic lookup — preferred)
+Qualitative page topology is built as a page-specific Structure by Executor.
+Cell-grid semantics belong in [`tables/`](../tables/). Reusable PowerPoint
+Master/Layout, page-type, slot, and placeholder contracts belong in
+[`layouts/`](../layouts/).
 
-Before generating chart pages, review the corresponding template file to understand its structure and layout.
+## Planning vocabulary and source of truth
 
-## Quick Selection
+[`charts_index.json`](./charts_index.json) is the sole chart registry. Its
+`charts` object maps each canonical key to one selection-rule `summary` in the
+form `Pick for ... Skip if ...`. The key matches `<key>.svg`; `meta.total`
+matches the canonical SVG roster.
 
-> **AI / Programmatic recommendation**: Prefer reading `charts_index.json`; use this README for human browsing and quick comparison.
+[`chart-vocabulary.md`](./chart-vocabulary.md) is the complete planning
+projection. It lists all 33 exact `chart/<key>` references by information
+relationship and states only what each encoding represents. It contains no
+chart-authoring instructions and does not prescribe selection.
 
-| I want to show... | Recommended Template | Filename |
-|-------------------|---------------------|----------|
-| Key numeric metrics | KPI Cards | `kpi_cards.svg` |
-| Category value comparison | Bar Chart | `bar_chart.svg` |
-| Long-label rankings | Horizontal Bar Chart | `horizontal_bar_chart.svg` |
-| Multi-series comparison | Grouped Bar Chart | `grouped_bar_chart.svg` |
-| Time trends | Line Chart | `line_chart.svg` |
-| Cumulative trends | Area Chart | `area_chart.svg` |
-| Proportional composition | Pie / Donut Chart | `pie_chart.svg` / `donut_chart.svg` |
-| Goal completion rate | Progress Bar / Gauge | `progress_bar_chart.svg` / `gauge_chart.svg` |
-| Conversion funnel | Funnel Chart | `funnel_chart.svg` |
-| Project scheduling | Gantt Chart | `gantt_chart.svg` |
-| Milestone events | Timeline | `timeline.svg` |
-| Multi-dimensional assessment | Radar Chart | `radar_chart.svg` |
-| Bidirectional comparison | Butterfly Chart | `butterfly_chart.svg` |
-| Incremental breakdown | Waterfall Chart | `waterfall_chart.svg` |
-| Flow / fund allocation | Sankey Chart | `sankey_chart.svg` |
-| Strategic analysis | SWOT / Porter's Five Forces | `swot_analysis.svg` / `porter_five_forces.svg` |
-| Quadrant analysis | Matrix (2x2) | `matrix_2x2.svg` |
+Default Strategist and Quick read the vocabulary together with the Table
+registry before planning, choose through their own judgment, then use
+[`visualization_recall.py`](../../scripts/visualization_recall.py) `validate`
+to resolve selected canonical references. Its `recall` mode remains an
+optional diagnostic helper over the machine registry, not the runtime
+capability gate. Default writes `chart/<key>` to `page_visualizations`; Quick
+keeps the selected reference in active context. Executor then reads only the
+selected SVG and execution references. [`chart_recall.py`](../../scripts/chart_recall.py)
+and bare keys remain legacy compatibility only.
 
-## Full Chart Index
+## Authoring contract
 
-### Comparison
+[`VISUALIZATION_TEMPLATE_AUTHORING.md`](../VISUALIZATION_TEMPLATE_AUTHORING.md)
+owns the shared standalone-SVG, neutral-preview, root-boundary, Shape-first,
+family, and catalog rules. Chart-specific requirements are:
 
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `bar_chart.svg` | Vertical bar comparison (3-8 bars) | Sales comparison, regional ranking |
-| `horizontal_bar_chart.svg` | Horizontal bar ranking (5-12 bars) | Brand ranking, satisfaction scores |
-| `grouped_bar_chart.svg` | Multi-series grouped comparison | Quarterly product line comparison, YoY/QoQ |
-| `stacked_bar_chart.svg` | Stacked composition comparison | Revenue composition, market share changes |
-| `butterfly_chart.svg` | Bidirectional comparison | Population pyramid, A/B testing, income vs expense |
-| `bullet_chart.svg` | Target vs actual | KPI achievement, performance evaluation |
-| `dumbbell_chart.svg` | Multi-dimension score comparison | Competitive analysis, composite index |
-| `waterfall_chart.svg` | Incremental change breakdown | Profit decomposition, budget variance |
+- Preserve the exact value-to-mark mapping, labels, units, categories, series,
+  ordering, and source notes required by the information.
+- Keep calculator-supported `chart-plot-area` markers accurate.
+- Default output remains independently editable DrawingML shapes.
+- Add native Chart replacement metadata only for a supported independent data
+  object. The visible fallback and metadata describe the same data.
+- Do not classify a named quadrant, process, hierarchy, or relationship diagram
+  as a chart unless values actually determine its marks.
 
-### Trends
+`matrix_2x2` is a chart: each item's x/y coordinates encode two values and its
+radius encodes a third metric. A fixed 2×2 set of titled text regions is a
+page-specific Structure. A schedule whose dates or durations determine task-bar
+position and length is `chart/gantt_chart`; a qualitative stage/lane plan is a
+Structure built from those relationships.
 
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `line_chart.svg` | Line trend (multi-line support) | Time series, growth trends |
-| `area_chart.svg` | Area cumulative trend | Traffic trends, user growth |
-| `stacked_area_chart.svg` | Multi-series stacked trend | Revenue sources, traffic source changes |
-| `dual_axis_line_chart.svg` | Dual Y-axis different-unit comparison | Sales vs profit margin, traffic vs conversion rate |
+## Runtime boundary
 
-### Proportions
-
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `pie_chart.svg` | Basic proportion (3-6 slices) | Market share, budget allocation |
-| `donut_chart.svg` | Ring proportion (with center data) | Structural proportion, category composition |
-| `treemap_chart.svg` | Hierarchical area proportion | Budget allocation, market share composition |
-
-### Metrics
-
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `kpi_cards.svg` | Key metric cards (2x2 / 1x4) | Financial overview, data dashboard |
-| `gauge_chart.svg` | Gauge completion rate | KPI completion, performance monitoring |
-| `progress_bar_chart.svg` | Multi-item progress bars | OKR progress, project completion |
-
-### Analysis
-
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `radar_chart.svg` | Multi-dimensional assessment (4-8 axes) | Capability assessment, competitive comparison |
-| `scatter_chart.svg` | Correlation / distribution | Input-output analysis, price-demand |
-| `funnel_chart.svg` | Conversion funnel (3-5 stages) | Sales funnel, user conversion |
-| `matrix_2x2.svg` | Four-quadrant analysis | BCG matrix, priority analysis |
-| `bubble_chart.svg` | 3D bubble (X/Y/Size) | Market size vs growth rate vs share |
-| `heatmap_chart.svg` | Matrix heatmap | User activity periods, correlation matrix |
-| `pareto_chart.svg` | 80/20 Pareto analysis | Quality attribution, sales contribution |
-| `box_plot_chart.svg` | Box plot distribution | Salary distribution, quality control |
-
-### Project Management / Relationships
-
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `gantt_chart.svg` | Gantt schedule (6-12 tasks) | Project management, product roadmap |
-| `timeline.svg` | Timeline events (3-8 nodes) | Milestones, historical evolution |
-| `process_flow.svg` | Process flow steps | Business processes, operational guides |
-| `org_chart.svg` | Org structure (2-4 levels) | Company structure, reporting relationships |
-| `sankey_chart.svg` | Data flow (three-tier) | Budget flow, user conversion paths |
-
-### Strategic Frameworks
-
-| Filename | Purpose | Use Cases |
-|----------|---------|-----------|
-| `swot_analysis.svg` | SWOT four-quadrant analysis | Strategic planning, competitive analysis |
-| `porter_five_forces.svg` | Porter's Five Forces model | Industry analysis, market entry assessment |
+One selected SVG is a flexible reference for one mapped page. Design Spec §IX
+or the Quick active-context decision plus source data owns final semantics.
+Project palette, typography, chrome, grouping, capacity, and geometry remain
+adaptable. Selecting a chart reference does not itself select native output;
+§IX/Quick names independent objects separately and decides
+`<object-key>=yes|no`, while explicit `--native-charts-and-tables` export is a
+second opt-in.

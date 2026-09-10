@@ -1,0 +1,352 @@
+# PowerPoint Feature ↔ Project SVG Mapping Guide
+
+[English](./powerpoint-svg-mapping.md) | [Chinese](./zh/powerpoint-svg-mapping.md)
+
+---
+
+## Purpose and authority
+
+This guide answers one question from the PowerPoint user's point of view: **for a PowerPoint feature, what project representation owns it, and what survives export or import?** PowerPoint semantics are therefore the primary index. SVG elements appear only as the implementation of a specific PowerPoint capability.
+
+This is a public capability and import-behavior map, not a second generated-SVG syntax specification and not a promise to convert arbitrary SVG or arbitrary OOXML. The canonical generated-authoring contract is the authority set selected through [`shared-standards.md`](../skills/ppt-master/references/shared-standards.md); when generated syntax differs, the applicable module wins. PPTX import recovery modes and user-visible degradation belong to §12 here and to the [conversion command reference](../skills/ppt-master/scripts/docs/conversion.md), while the parser implementation remains the exact source of truth. A feature not listed here is not implicitly supported.
+
+The main route compiles **project-canonical SVG**, not general browser SVG:
+
+```text
+PowerPoint intent
+    ↔ project-canonical SVG or an explicit sidecar
+    ↔ DrawingML / PPTX package semantics
+```
+
+Some PowerPoint features have no honest SVG equivalent. They are shown as sidecar/package features, direct-PPTX preservation features, or unsupported features instead of being forced into decorative SVG metadata.
+
+## How to read the tables
+
+Each row owns one PowerPoint capability. The mapping cardinality is not always one object to one object: one SVG text node may produce several PowerPoint runs, a native chart marker group may collapse into one `p:graphicFrame`, and an imported PowerPoint object may be reconstructed as several SVG elements.
+
+| Term | Meaning |
+|---|---|
+| `Native-stable` | Export uses the corresponding editable DrawingML property or object within the documented limits. |
+| `Native-normalized` | Export remains editable, but the source is normalized into an equivalent DrawingML structure. |
+| `Approximate` | PowerPoint has no exact counterpart; review the generated PPTX when the effect is material. |
+| `Bake-required` | Pre-render to an image or rebuild with supported explicit geometry. |
+| `Sidecar/package` | The capability belongs to a project sidecar or PPTX package writer, not the SVG page design. |
+| `Direct preservation` | A direct-PPTX workflow may retain the source OOXML; the main SVG compiler does not recreate it. |
+| `Unsupported` | The main generation route has no registered mapping and must not guess. |
+
+“Import” below means a semantic projection produced by the PPTX-to-SVG route, not recovery of an original SVG or absent design intent. It does not promise the original `<defs>` graph, `<use>` structure, path commands, or `<tspan>` layout.
+
+## 1. Presentation, slide, and coordinate model
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Presentation slide size | Root SVG `viewBox="0 0 W H"`, selected through the project canvas contract | Presentation width and height; `1 SVG px = 9,525 EMU` at 96 DPI | `Native-stable`; imported custom PPTX sizes may use compatible fractional dimensions | Values must be finite with a zero origin and positive supported dimensions; every public page/internal Layout prototype must match the lock; a root transform is forbidden |
+| Slide | One complete `svg_output/<slide>.svg` page | One `p:sld` with its relationships | Reconstructed as one complete SVG page | SVG is the visible page authority; notes and package behavior are separate |
+| Object position and size | Absolute SVG coordinates and element bounds | `a:xfrm` offsets and extents | `Native-normalized` through coordinate conversion | Values must be finite and use the registered coordinate grammar |
+| Z-order | SVG source order, back to front | PowerPoint shape-tree order | Reconstructed in shape-tree order | Do not rely on browser-only stacking behavior |
+| Rotation, scale, translation, and mirror | Supported SVG transform forms | DrawingML transform or normalized geometry | `Native-normalized`; matrices may be decomposed | Skew and shear outside the registered transform contract are not accepted |
+| Theme colors and fonts | Default uses stable roles anchored in `spec_lock.md`; Quick keeps transient design anchors in active context without a persisted lock | Default derives the package Theme and retains theme-aware tokens where an exact anchor role applies; otherwise it writes direct DrawingML values. Flat Quick uses converter-default Theme scaffolding. Structured Quick retains an installed per-Master source Theme when available and infers Master title/body size defaults from semantic slot carriers; SVG page colors/fonts remain direct values | `Native-stable` for registered roles/direct values | Default validates lock alignment; Quick omits that comparison. Both reject invalid values; font portability and target-system availability remain advisory, while contextual colors and export-safe one-off fonts remain allowed |
+| PowerPoint-only package identity | `spec_lock.md` structure declarations and the package builder | Presentation, Master, Layout, relationship, and content-type registrations | Read back from package structure, not inferred from page appearance | Final-package read-back must match the declared roster |
+
+See [`canvas-formats.md`](../skills/ppt-master/references/canvas-formats.md) for supported canvases and [`shared-standards-core.md` §4.1](../skills/ppt-master/references/shared-standards-core.md#41-semantic-svg-marker-contract) for the normative root-`viewBox` contract.
+
+## 2. Master, Layout, background, and placeholder features
+
+**Route boundary**: Free-design and brand-only projects in the main SVG pipeline remain on `pptx_structure.mode: flat` from planning through export; `flat` is not a provisional state awaiting an exporter upgrade. Repeated logos, footers, or layouts never cause export to switch to `structured`, promote content into a Master/Layout, infer placeholders, or deduplicate objects. Output that requires reusable native Master, Layout, or placeholder behavior must enter Step 3 with a validated deck/layout template workspace; when none exists, run [`create-template`](../skills/ppt-master/workflows/create-template.md) first and return to the main pipeline with that workspace. The minimal Master and Blank Layout emitted by flat export are PPTX package scaffolding, not a design master derived from the slides. Filling new content into a raw PPTX while preserving its design belongs to [`edit-native-pptx`](../skills/ppt-master/workflows/edit-native-pptx.md).
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Free-design deck structure | `pptx_structure.mode: flat`; page content remains slide-local | One clean project Master and one Blank Layout, with represented objects on slides | `Native-stable` package topology for the flat route | No authored Master/Layout/layer/placeholder metadata is allowed |
+| Template-backed deck structure | `pptx_structure.mode: structured` plus explicit Master/Layout/page assignments | Declared `p:sldMaster`, `p:sldLayout`, registrations, and slide parentage | `Native-stable` within the explicit structure contract | The exporter never guesses a Master, Layout, or placeholder topology |
+| Slide Master | Root Master identity plus atomic `data-pptx-layer="master"` objects; one validated compact authored-preset `<g>` counts as one semantic atom | Reusable Master part and picker identity | Create Template mirror may preserve validated source-package facts in a new workspace; authored modes create a new identity | Master atoms must be direct, stable, and identical across their slides; ordinary or expanded authored groups do not qualify |
+| Slide Layout | Root Layout identity plus atomic `data-pptx-layer="layout"` objects; one validated compact authored-preset `<g>` counts as one semantic atom | Reusable Layout part under one Master | Create Template mirror may preserve a validated source Layout in a new workspace; Strategist's adaptive plan may declare a new Layout | Reuse a Layout key only when its fixed atoms and slot contract are identical; ordinary or expanded authored groups do not qualify |
+| Imported inherited-shape visibility | Layered analysis records normalized source booleans; a materialized structured mirror writes exact lowercase root `data-pptx-show-inherited-shapes` and `data-pptx-show-master-shapes` | Declared source values written to `p:sld@showMasterSp` and `p:sldLayout@showMasterSp` | `Native-stable`: Slide false hides Layout and Master shapes; Layout false hides only Master shapes | Omission means true; every page using one Layout key must agree on the Layout value. Backgrounds, Slide-local objects, placeholder inheritance, parts, and parent relationships remain intact |
+| Strict template Layout | Selected prototype contract | Existing declared Layout topology is preserved | `Native-stable` when the page follows the prototype | Fixed Layout atoms and slot structure may not change |
+| Adaptive template Layout | Selected Master plus an explicit current or new Layout declared by Strategist | A declared new Layout identity is created when reusable structure changes | `Native-stable` after Strategist updates the plan/lock mapping and execution resumes | Construction-discovered changes return upstream; never mutate a reused Layout key downstream |
+| Slide background fill outside structured mode | First eligible full-canvas `<rect>`, direct or in a simple single-child group, with a registered solid, linear/radial gradient, or preset-pattern fill | Native slide `p:bg` | Fidelity follows the corresponding paint row below | Transform, filter, clip, rounding, visible stroke, or an unmapped fill prevents promotion |
+| Master/Layout/slide background fill in structured mode | One direct full-canvas solid `<rect>` in the declared structural layer | Native `p:bg` at Master, Layout, or slide scope | `Native-stable` | Explicit scoped background ownership is intentionally solid-only |
+| Gradient or pattern backdrop in structured mode | Ordinary gradient/pattern `<rect>` on its declared Master/Layout layer or as slide-local content | Editable shape on the owning part | Fidelity follows the corresponding paint row below | Structured export disables generic background promotion; do not use `data-pptx-layer="slide"` |
+| Picture backdrop | Ordinary project `<image>` on its declared Master/Layout layer or as slide-local content | Editable `p:pic` on the owning part | Fidelity follows the picture rows below | An image element is never promoted to `p:bg` |
+| Title placeholder | Structured slot group with one text carrier | Layout and slide `p:ph` of type `title` | `Native-stable` | Carrier count, bounds, type, and effective index must match the Layout contract |
+| Subtitle placeholder | Structured slot group with one text carrier | `p:ph` type `subTitle` | `Native-stable` | Same slot rules as title |
+| Body placeholder | Structured slot group with one text carrier | `p:ph` type `body` | `Native-stable` | A multiline carrier remains one text frame |
+| Imported mirror text-placeholder frame | Positive source `data-pptx-frame="x y width height"` on the slot's `<text>` carrier, separate from the slot's reusable bounds | The Slide carrier keeps that exact `a:xfrm`; text remains editable and source hard breaks remain explicit paragraphs | `Native-stable` within supported imported text | `data-pptx-bounds` still owns the Layout default and may differ; authored standard/fidelity slots do not duplicate bounds into this frame |
+| Date, footer, and slide-number placeholders | Structured text slots | `p:ph` types `dt`, `ftr`, and `sldNum`, with matching Layout header/footer flags | `Native-stable` | Placeholder indices must be unique and legal |
+| Picture placeholder | Structured slot with one image or supported crop carrier | `p:ph` type `pic` | `Native-stable` within the picture contract | The slot must contain exactly one compatible direct carrier |
+| Chart or table placeholder | Structured slot with one matching native-object carrier | `p:ph` type `chart` or `tbl` | `Native-stable` only on native Chart/Table export | Requires valid JSON metadata and `--native-charts-and-tables` |
+| Generic object placeholder | One compatible carrier—including one validated compact authored-preset `<g>`—or an explicit composite proxy binding | `p:ph` type `obj` | Native binding; composite visible content remains ordinary shapes | Composite slots must use the registered proxy downgrade; expanded authored groups are not single-object carriers |
+| Media placeholder | One image or supported crop carrier | `p:ph` type `media` | Native placeholder binding only | It does not synthesize video or audio from decorative SVG content |
+| Empty text placeholder | Empty or whitespace-only marked text carrier | Invisible U+200B run at the legal 1 pt minimum, producing one native text shape | `Native-stable` | Do not add a dummy dash, sub-1 pt text, or background-colored visible glyph |
+| Page role such as cover/content/ending | Flat-route root `data-pptx-page-role` compiler hint | Routing/validation hint; not a native PowerPoint page type | No independent OOXML object | Structured pages use explicit Master/Layout identity instead |
+| Slide sections and custom shows | No SVG mapping | Not authored by the main generation route | `Direct preservation` where a source-preserving workflow owns them | Do not encode them as visual metadata |
+
+The exact structured metadata and slot grammar live in the [PPTX Structure Interface](../skills/ppt-master/references/pptx-structure-interface.md#1-pptx-structure-routing).
+
+Internal identifiers and PowerPoint display names are separate concerns: Master and Layout keys use the restricted project ASCII identifier grammar, while picker names may contain spaces. Every Layout definition also names its parent Master and one explicit prototype source. The PPTX Structure Interface owns the exact row syntax.
+
+## 3. PowerPoint shapes and drawing objects
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Rectangle | `<rect>` | Editable `p:sp` with `a:prstGeom prst="rect"` | `Native-stable`; imports as a primitive when possible | Use registered paint, line, and transform properties only |
+| Symmetric rounded rectangle | `<rect>` with equal supported corner radii | `a:prstGeom prst="roundRect"` with adjustment | `Native-stable` | Asymmetric corners follow the freeform row |
+| Circle or ellipse | `<circle>` or `<ellipse>` | `a:prstGeom prst="ellipse"` | `Native-stable` | Bounds and radii must be finite and positive where required |
+| Straight line | `<line>` | Editable line/freeform shape | `Native-normalized` | Browser-only line effects are rejected |
+| Arrowhead line | `<line>` or supported path with registered triangle, stealth, arrow, diamond, or oval start/end markers | Native DrawingML line head/tail ends | `Native-normalized`; marker size is approximate | Marker definitions must follow the conditional marker contract |
+| Native connector | Compact project-authored preset group with connector metadata and direct visible paths | `p:cxnSp` | Imported connectors retain the expanded round-trip evidence needed for source topology | `Native-stable` for the registered preset/connector schema |
+| Freeform shape | `<path>` | `p:sp` with `a:custGeom` | Imported custom geometry reconstructs as a path | `Native-normalized`; SVG arcs are converted to cubic segments |
+| Materialized Merge Shapes result | Ordinary `<path>` output from `shape_boolean_svg.py`; Fragment returns sibling paths | One `p:sp` with `a:custGeom` per returned path | `Native-normalized`; imports as final freeform geometry, not replayable operation history | Supported closed geometry or horizontal implicit-LTR direct text with an exact resolvable font face; text becomes glyph geometry, the first source owns style/order, and no clip, mask, or explicit fill rule is emitted |
+| Polygon | `<polygon>` | Closed custom geometry | `Native-normalized` | Points must be finite and valid |
+| Polyline | `<polyline>` | Open custom geometry | `Native-normalized` | Points use the same finite, registered grammar as other generated geometry |
+| PowerPoint preset shape | Registry-generated compact `<g>` with preset intent/base paint, an optional direct reference to one registered shadow/glow filter, and direct visible `<path>` children | One editable preset `p:sp`, with at most one native effect in `p:spPr/a:effectLst` | Preset identity and adjustments can survive import/export; the effect follows the shared fidelity row below | Quality check and export rerender the registry dynamically; authored-preset filter references are shape-only, and canonical authoring has no hidden carrier, preview wrapper, or stored preview hash |
+| Imported preset shape | Expanded import/round-trip group with a hidden native carrier, visible preview evidence, and freshness metadata | Restored preset when the payload is valid and unchanged | `Native-stable` within the import contract | Unsupported presets remain explicit diagnostic fallbacks, not guessed geometry |
+| Action button shape | Compact authored `actionButton*` preset group | Visual preset geometry only | Shape geometry can round-trip | No click action, navigation target, or hyperlink is created |
+| Group | `<g>` | `p:grpSp`, or a documented flatten/collapse for a special carrier | Grouped content can reconstruct as `<g>` | Structural atoms and placeholder contracts override ordinary grouping |
+| Reused local symbol | Registered same-document `<use>` contract or project icon placeholder | Expanded editable shapes in the generated slide | Original symbol graph is not promised on import | External use, unsupported symbol features, and structural metadata reuse are rejected |
+| Icon / imported vector | `<use data-icon="library/name">` resolved by the project icon pipeline; create-template imports use `imported/<name>` | Editable vector primitives/group after expansion | Reconstructed geometry, not the original library reference | Identifiers are case-sensitive; imported assets exist once at workspace-root `icons/imported/<name>.svg` |
+| SmartArt / DiagramML | No main SVG object mapping | Main redesign route may rebuild the meaning with ordinary shapes | `Direct preservation` in native/template routes; otherwise a preview or explicit fallback | Do not label a decorative group as native SmartArt |
+
+Project-authored presets deliberately use a compact representation, while PPTX
+import keeps the expanded evidence needed for lossless round-trip decisions.
+The exact machine contract remains in
+[`shared-standards-core.md`](../skills/ppt-master/references/shared-standards-core.md), and
+preset selection and authoring behavior are documented in
+[`native-shape-authoring.md`](../skills/ppt-master/references/native-shape-authoring.md).
+
+## 4. PowerPoint text features
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Text box | `<text>` | Editable `p:sp` with `p:txBody` | Reconstructed as `<text>` and, when needed, `<tspan>` | Text must be well-formed XML and use registered attributes |
+| Mixed formatting within a line | Non-positioned `<tspan>` runs | DrawingML runs in one text frame | `Native-normalized`; registered run formatting remains editable | Positioning that changes frame geometry may split the result |
+| Authored multiline and paragraph text | One `<text>` with positioned direct `<tspan>` lines | By default, one no-wrap text frame retains authored line breaks; ordinary generated frames resize to fit later edits, while exact frames and structured multiline placeholder carriers retain fixed-size behavior; semantic paragraph boundaries remain `a:p` | `Native-normalized` | `--reflow-text` permits PowerPoint reflow; `--no-merge` emits one shape per visual line |
+| Significant text whitespace | Exact `xml:space="default"` or `xml:space="preserve"` on `<text>`/`<tspan>` | Normalized or preserved U+0020 text in editable DrawingML runs | `Native-normalized`; inline run ownership is retained | Uses the project Chromium/SVG2 contract: LF/TAB become spaces, `default` collapses across runs, `preserve` retains them, and Unicode spacing characters remain literal; CSS `white-space` and legacy SVG 1.1 newline deletion are outside the mapping |
+| Font family | Canonical `font-family` resolved as a structural lock role or contextual export-safe choice | Direct typeface or registered theme font | `Native-stable` within installed/font-substitution limits | Unavailable/unsafe fonts are reported; a contextual safe family is informational, not a lock failure |
+| Font size | Finite unitless SVG pixels, for example `font-size="24"` | DrawingML hundredths of a point; `1 px = 0.75 pt` | `Native-stable` after unit conversion | Generated authoring uses only unitless px; registered legacy units are compatible input and warn, while unknown units error; DrawingML minimum is 1 pt |
+| Font weight | Registered `font-weight` on `<text>`/`<tspan>` | DrawingML regular/bold run switch | `Native-normalized`; numeric weights collapse to the DrawingML boolean boundary | The exact value grammar and aliases belong to [`svg-effects.md` §6.7](../skills/ppt-master/references/svg-effects.md#67-advanced-text-treatments) |
+| Italic, underline, and strike | Registered `font-style` / `text-decoration` on `<text>`/`<tspan>` | DrawingML italic, underline, and strike run properties | `Native-stable` for registered tokens | Unknown tokens are rejected; the exact grammar belongs to [`svg-effects.md` §6.7](../skills/ppt-master/references/svg-effects.md#67-advanced-text-treatments) |
+| Superscript and subscript in ordinary text | Exact direct `baseline-shift="super|sub"` on `<tspan>`; an explicit run `font-size` remains independent | Editable ordinary-text `a:rPr@baseline` at `30000` / `-25000`; no automatic font-size reduction | Forward export is native. PPTX-to-SVG does not reconstruct baseline shift in visible SVG; unchanged imported `txBody` metadata and Edit Native PPTX can still retain the source run | Inline style, other elements, numeric offsets, and combination with an inline formula marker are rejected; structured mathematics uses editable OMML, while a Unicode glyph remains literal text |
+| Solid/gradient text fill and transparency | Canonical solid/gradient fill plus run alpha | DrawingML run fill and alpha | `Native-normalized` | Use the semantic alpha channel, not an unregistered CSS effect |
+| Picture or texture text fill | `<text>` / non-positional `<tspan>` fill referencing one annotated single-image pattern | Editable DrawingML run `a:blipFill` with native stretch or tile | Forward export is native; stretch is `Native-normalized`, tile scale/phase may normalize; reverse import does not reconstruct the fill yet | Requires `data-pptx-text-image-fill="stretch|tile"`, one direct valid image, and no image clip/filter/mask/transform; see [`svg-effects.md` §6.3](../skills/ppt-master/references/svg-effects.md#63-gradients-and-paint-effects) |
+| Text outline | Registered stroke on text | DrawingML run outline | `Native-normalized` | Review when outline carries fine visual meaning |
+| Text alignment | Registered `text-anchor` and paragraph semantics | Paragraph alignment plus normalized text-frame position | `Native-normalized` | Run-level anchoring and browser baseline heuristics are unsupported; exact placement belongs to [`svg-effects.md` §6.7](../skills/ppt-master/references/svg-effects.md#67-advanced-text-treatments) |
+| Vertical text-frame alignment | No canonical generated-SVG control; generated text boxes use top anchoring | Top-anchored DrawingML text body | Imported text-frame anchoring may be normalized, but the main route does not expose a general authoring control | Do not infer vertical alignment from SVG baseline or browser layout behavior |
+| East Asian vertical typesetting | No registered generated-SVG control; `writing-mode` is invalid | The main generation route does not author `a:bodyPr@vert` | PPTX-to-SVG import normalizes `eaVert`, `vert`, `wordArtVert`, and `wordArtVertRtl` into upright stacked SVG glyphs; `Direct preservation` applies where Edit Native PPTX leaves the owning OOXML unchanged | Manual glyph stacking can approximate one visual column but does not create native punctuation-orientation, automatic-reflow, or multi-column behavior; the closed grammar belongs to [`svg-effects.md` §6.7](../skills/ppt-master/references/svg-effects.md#67-advanced-text-treatments) |
+| Character spacing | Registered `letter-spacing` | DrawingML character spacing | `Native-normalized` | Unsupported CSS typography, out-of-range DrawingML spacing, and negative tracking that collapses a generated run advance or text-frame extent to a non-positive value are rejected under [`svg-effects.md` §6.7](../skills/ppt-master/references/svg-effects.md#67-advanced-text-treatments) |
+| Bulleted paragraph | Recognized leading bullet form | Native DrawingML bullet | `Native-normalized` | Only the registered bullet grammar is promoted |
+| Rotated text | Supported transform on the text object | Rotated text shape | `Native-normalized` | Skewed text and browser-only transforms are unsupported |
+| Text shadow or glow | Supported filter/effect contract | One native outer shadow or glow | `Approximate` | One supported effect graph only; review material effects |
+| WordArt, text warp, or text-on-path | Prepared image asset for decorative lettering, or ordinary `<text>` as the editable fallback | Picture or ordinary text; never newly authored native WordArt | `Direct preservation` in source-preserving native routes; otherwise `Bake-required` or rebuild with supported carriers | No generated-SVG WordArt/warp/path attribute is registered; browser rendering does not imply PowerPoint support |
+
+## 5. PowerPoint picture features
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Picture | `<image>` with explicit positive dimensions and exactly one project-asset or image data-URI source | `p:pic`, media part, and relationship | Reconstructed as `<image>` | Source must resolve, use a registered format, and contain decodable bytes matching its MIME/extension; invalid frames or media fail before packaging |
+| Explicit complex-SVG picture | A direct `<image>` referencing a tight, self-contained `.svg` created from one exact `<g id>` by `extract_svg_pictures.py` during `create-template` normalization | One `p:pic` backed by SVG media | Reconstructed as one `<image>`; its internal paths are not promoted to separate PowerPoint shapes | Selection is explicit and limited to `standard` / `fidelity`; no import, repetition, Master/Layout, finalize, or export heuristic may convert a group into this representation automatically |
+| Stretch picture to frame | `preserveAspectRatio="none"` | Stretched native picture frame | `Native-stable` | `none` must stand alone; it intentionally changes the source aspect ratio |
+| Crop picture to fill | One registered alignment plus explicit `slice` | Native `a:srcRect` crop | `Native-stable` when source dimensions are readable | Alignment is case-sensitive; unknown modes and extra tokens are errors |
+| Fit picture inside frame | Omitted default, or one registered alignment plus explicit `meet` | Native fitted picture frame | `Native-normalized` | Alignment-only shorthand is compatible input that receives a normalization recommendation |
+| Picture transparency | Atomic image `opacity` | Native `a:alphaModFix` | `Native-stable` | Value must be finite and within the accepted opacity grammar |
+| Picture shadow or glow | One registered effect filter directly on an unclipped `<image>`; a clipped image or imported crop uses its exact single-picture outer carrier | Native `p:pic/p:spPr/a:effectLst` | `Approximate`; one effect round-trips as one editable picture, including a direct Master/Layout atom | `filter` and `clip-path` cannot share one `<image>`; only a direct fixed atom may put `data-pptx-layer="master|layout"` on the carrier, while Placeholder/Binding/replacement ownership stays outside; ordinary group filters, other primitives, effect DAGs, and multiple independent effects remain unsupported |
+| Picture clipped to a shape | Registered image/crop-wrapper `clip-path` with one SVG-namespace shape | Picture preset or custom geometry | `Native-normalized` | Circle/ellipse/rect presets must cover the complete picture frame; use path/polygon for partial or offset contours; masks and winding-rule-dependent contours are not accepted |
+| Imported cropped picture | Exact SVG-namespace nested crop wrapper produced by import, containing one direct unit-frame image in the visual root/`g` tree | Native signed `a:srcRect` on re-export | `Native-stable` within the crop contract, including negative crop values | Any generalized nested viewport, non-visual/render-only owner, extra visual child, unrepresentable crop window, redundant uncropped wrapper, or unresolved clip-marker pair is rejected |
+| Picture recolor, artistic filter, blur, or complex mask | No general authoring mapping | Rebuild with supported overlays or pre-render | `Bake-required` | Unregistered SVG filters and blend modes fail the main contract |
+
+## 6. PowerPoint fill, line, and effect features
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| No fill | `fill="none"` | `a:noFill` | `Native-stable` | Use lowercase canonical spelling in generated SVG |
+| Solid fill | Canonical `fill="#RRGGBB"`, either a named lock anchor or contextual page paint | `a:solidFill`, with a theme token when an anchor role is exactly reusable | `Native-stable` | Compatible spellings may warn; malformed colors fail, while valid contextual colors are informational |
+| Fill transparency | Opaque fill plus `fill-opacity` | Native alpha | `Native-stable` | Generated values are finite unitless numbers from 0 to 1 |
+| Linear gradient fill | Registered `<linearGradient>` in `<defs>` | Native `a:gradFill` | `Native-normalized` | Stops, coordinates, transforms, and references must follow the closed contract |
+| Radial gradient fill | Registered `<radialGradient>` | Point-focused circular DrawingML gradient | `Approximate`; an in-circle effective focus round-trips while outer center/radius normalize | Effective focus must lie inside the canonical centered radius-0.5 circle; import centers an outside focus with a diagnostic; review radius- or outer-center-sensitive designs |
+| Pattern fill | Annotated project pattern definition | Native `a:pattFill` | `Native-normalized` | Only registered PowerPoint preset patterns are supported |
+| No outline | `stroke="none"` or the registered absence of a line | `a:noFill` under `a:ln` | `Native-stable` | Do not simulate absence with zero-width ambiguous CSS |
+| Solid outline | Registered `stroke` and width | Native `a:ln` | `Native-stable` | Width and paint must use canonical units/grammar |
+| Compound outline | No registered single-stroke SVG representation | Explicit geometry alternative or baked asset | `Bake-required` for the compound-line identity | Tolerant PPTX import omits the unsupported outline and reports it; strict import rejects non-`sng` `cmpd` |
+| Inside-aligned outline | No registered ordinary SVG stroke representation | Explicit inset geometry or baked asset | `Bake-required` for exact outline alignment | Tolerant PPTX import omits the unsupported outline and reports it; strict import rejects non-`ctr` `algn` |
+| Pattern, image, or group-derived outline paint | No registered line-paint SVG mapping | Explicit geometry alternative or baked asset | `Bake-required` | Tolerant PPTX import omits the unsupported outline and reports it; strict import rejects it instead of inventing a solid color |
+| Outline scaling under transforms | Exact `vector-effect="none"` or `vector-effect="non-scaling-stroke"` | Choice resolved into native line width | `Native-normalized` | Other values are rejected; generated spelling is exact and lowercase |
+| Dashed or dotted outline | Registered dash array | Preset or custom DrawingML dash | `Native-normalized` | Unsupported dash semantics are rejected |
+| Line cap and join | Registered cap/join values | Native line cap/join properties | `Native-stable` within the fixed join contract | Import accepts one join; miter requires exact `lim="800000"` |
+| Line arrowheads | Registered start/end markers | Native head/tail end properties | `Approximate` for marker size | Only triangle, stealth, arrow, diamond, and oval follow the conditional marker contract |
+| Outer shadow | One supported shadow filter graph | Native outer shadow in `a:effectLst` | `Approximate`; one imported shape/connector/picture source `outerShdw` is reconstructed only when its non-zero offset is classifiable and its scale, skew, and rotation behavior are neutral or representable | Non-neutral `sx`/`sy`/`kx`/`ky`, rotate-with-shape behavior on a rotated target, zero offset, and unsupported attributes or graphs produce blocking diagnostics instead of silent simplification |
+| Glow | One supported glow filter graph | Native glow in `a:effectLst` | `Approximate`; one imported shape/connector/picture source glow keeps the registered radius conversion | Review when the glow carries semantic emphasis |
+| Imported text-run effect | Unchanged `metadata[data-pptx-part="txbody"]` on a logical shape; import-only blocking effect status for inherited Layout/Master list styles plus vertical, relationship-bearing, and table-cell fallback routes | Original slide-local native run effect inside `p:txBody` | `Native-stable` only while the raw slide-local payload remains usable; inherited effects, edits, or fallback routes that would drop a non-empty run `effectLst` / `effectDag` block | Not public authoring syntax; a table-cell run effect also disables the native Table replacement payload |
+| Whole-object transparency | Atomic element `opacity` | Alpha distributed into supported native channels | `Native-normalized` | Prefer channel-specific alpha unless the whole atomic object fades |
+| Group transparency | Compatible `<g opacity>` | Descendant-normalized approximation | `Approximate` with a warning | Generated SVG should prefer descendant alpha |
+| Inner shadow, soft edge, reflection, blur, turbulence, blend mode, or arbitrary mask | No registered native mapping | Explicit geometry alternative or raster asset | `Bake-required`; PPTX import keeps the base object and emits blocking diagnostics for unsupported effects, effect DAGs, and picture/group lists outside the single registered effect | Handled object effects cannot be reclassified or omitted; text-run safety follows the unchanged-`txBody` row above |
+
+## 7. PowerPoint tables
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Visually drawn table | Ordinary SVG shapes, lines, and text | Independent editable PowerPoint shapes | Fidelity follows each component row | It is not a native table and has no PowerPoint table editing model |
+| PowerPoint-native table | One `<g data-pptx-replace-with="table">` with child `ppt-master.semantic-table.v2` JSON metadata and a visible fallback | `p:graphicFrame` containing `a:tbl` when native Chart/Table replacement is enabled | Imported supported tables factor repeated cell/paragraph/run formatting into defaults and named cell styles; export expands it in memory | Metadata must form the registered rectangular schema; unversioned payloads fail; requires `--native-charts-and-tables` |
+| Merged table cells | Canonical native-table merge metadata | Native horizontal/vertical merge semantics | `Native-stable` within the closed schema | Overlapping, ambiguous, or non-rectangular merges are rejected |
+| Table cell formatting | Registered native-table cell formatting fields | Native cell fill, border, text, and alignment | `Native-normalized` | Fields outside the closed schema are not guessed; imported non-empty run effects block instead of normalizing into an effect-free cell |
+| Unsupported native table feature | SVG fallback or direct source preservation | Visible fallback remains, or source OOXML stays on a direct route | Explicit fallback / `Direct preservation` | Do not extend JSON ad hoc |
+
+PowerPoint-native Chart/Table objects are opt-in. Default export keeps the SVG fallback as independently editable DrawingML shapes for visual stability; native export instead provides the object's data-source and table/chart-specific editing model, and may normalize appearance.
+
+Imported chart groups classify their visible fallback with `data-pptx-fallback-kind="source-preview|normalized|placeholder"`; `placeholder` alone denotes the reconstruction-only fallback. `data-pptx-replacement-status` instead records why a fallback-only chart or table import cannot make an active replacement claim. Imported groups in this contract use `data-pptx-import-source="pptx"` and active claims may carry `data-pptx-fallback-sha256` for stale-edit protection. Legacy `data-pptx-native*`, `data-pptx-visual-status`, and `data-pptx-route-status` spellings remain read-compatible but are not canonical authoring.
+
+## 8. PowerPoint charts
+
+| PowerPoint feature | Project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Visually drawn chart | Ordinary SVG geometry and text | Independent editable PowerPoint shapes | Fidelity follows each component row | It has no “Edit Data” workbook |
+| PowerPoint-native classic chart | One `<g data-pptx-replace-with="chart">` with registered JSON data in `<metadata type="application/json">` and a visible fallback | `p:graphicFrame`, classic chart part, and embedded workbook | Supported imports reconstruct a fallback plus replacement metadata | Chart type and data must match the closed schema; requires `--native-charts-and-tables` |
+| Native ChartEx chart | Same marker interface with a supported ChartEx family | `cx:chart` part and embedded workbook | Supported families can reconstruct semantically | Only the registered family/field combinations are accepted |
+| Chart title, legend, axes, labels, and series formatting | Registered native-chart metadata | Native chart properties | `Native-normalized` | Exact fields and supported families remain normative in `native-data-interface.md` |
+| Chart caption, source, or footnote | Ordinary companion SVG text outside the replacement marker | Editable slide text boxes beside the chart | `Native-stable` as text | Do not hide slide prose inside chart JSON |
+| Edited SVG fallback with stale replacement metadata | Updated visible SVG plus stale hash | Default export keeps the visible SVG; native replacement fails | Explicit safety behavior | The compiler never discards a newer visual edit silently |
+| Unsupported 3D or deferred chart family | SVG-drawn chart, baked asset, or direct source preservation | No guessed native chart | Fallback / `Direct preservation` | Unsupported aliases must fail native validation |
+
+The exhaustive chart/table schemas and supported family list intentionally remain in the [Native Data Interface replacement contract](../skills/ppt-master/references/native-data-interface.md#2-powerpoint-native-chart--table-replacement-markers-opt-in).
+
+## 9. PowerPoint formulas
+
+| PowerPoint feature | Project representation | PPTX result | Compatibility | Validation boundary |
+|---|---|---|---|---|
+| LaTeX input profile | Canonical marker sources omit outer delimiters; one complete `$...$`, `$$...$$`, `\(...\)`, or `\[...\]` pair is also accepted | Every explicitly named input in the pinned Microsoft 365 2606 / Mac 16.110 profile, plus the 2605 / 16.109 mhchem profile, compiles to editable OMML | The profile is pinned to those Microsoft documentation versions; emitted OMML retains the PowerPoint 2010+ package target. Repository verification is compiler/OMML/package-level, not complete Microsoft 365 UI certification | Explicit native normalizations are preserved; unknown or explicitly unsupported input fails closed rather than leaking as literal LaTeX |
+| Editable block equation | One `<g data-pptx-replace-with="formula">` with explicit bounds, source LaTeX in `<metadata type="application/json">`, and visible SVG preview children | PowerPoint text shape containing `a14:m > m:oMathPara > m:oMath` | See the input-profile row | Matrices, multiline derivations, and other standalone high-structure formulas use the registered block contract |
+| Editable inline formula | A leaf `<tspan data-pptx-inline-formula="canonical LaTeX body">preview text</tspan>` among ordinary text runs | The same DrawingML `a:p` retains surrounding runs and inserts `a14:m > m:oMath` | See the input-profile row | Direct non-empty preview text only; no child element, positional `x/y/dx/dy`, structured placeholder/Master/Layout ownership, preserved imported `txBody`, or native-replacement ancestor |
+| PPTX formula reverse import | Validator-clean `m:oMathPara` becomes a block marker; validator-clean `m:oMath` remains an inline marker with surrounding runs | Re-export recompiles the canonicalized LaTeX to editable OMML | `Native-normalized` for PPT Master-owned closed OMML vocabulary | The original LaTeX spelling is not recoverable; unknown third-party OMML gets `formula-not-reconstructed`, readable text, and relationship-free opaque `txBody` retention in tolerant mode |
+| Browser / live preview | Ordinary SVG children inside a block marker, or the inline marker's direct text | Only the registered preview is discarded when native math is written | Raw LaTeX does not render in SVG | Preview content must express the same formula; it is not a PPTX fallback |
+| Formula typography | Block payload style, or computed inline text-run style | Math inherits size and visible solid fill, then uses the project text language and Cambria Math; local `\color` / `\textcolor` scopes override the inherited fill on selectable runs and structural controls, while `\boldsymbol` / `\bm` also styles structural control glyphs | PowerPoint 2010+ OMML | High-structure or multiline math remains block-level |
+| Non-PowerPoint formula playback | The same native markers; no picture branch | No compatibility fallback is added | Keynote, WPS, LibreOffice, and other clients are outside the formula contract | Do not claim cross-client rendering or editability |
+
+Formula replacement is always active and does not use
+`--native-charts-and-tables`. It creates no `formula_manifest.json`, formula
+PNG, media relationship, or `mc:Fallback` picture. Block JSON and inline
+`data-pptx-inline-formula` values are the native formula sources; SVG preview
+content exists only so the authored page remains visible before export.
+`pptx_to_svg.py` performs the narrow inverse only for OMML accepted by the same
+closed validator, and its output is canonical LaTeX rather than the author's
+original spelling. It does not claim arbitrary Office Math conversion.
+The executable closed vocabulary and pinned Microsoft source revisions live in
+`formula_profile.py`; Microsoft's open-ended “etc.” does not make undisclosed
+relation aliases part of this contract.
+
+## 10. PowerPoint playback and package features
+
+These capabilities compile either from canonical page SVG or from the named
+package-level sidecar. A sidecar remains absent when the table names SVG as the
+owner.
+
+| PowerPoint feature | Owning project representation | PPTX result | Import and fidelity | Validation boundary |
+|---|---|---|---|---|
+| Speaker notes | `notes/<slide>.md` sidecar | Notes Slide part and relationship | `Sidecar/package` | Notes are not SVG text and do not affect page geometry |
+| Slide transition | CLI options or `animations.json` | `p:transition` | `Sidecar/package`; PPTX import reconstructs exact current-registry transitions into `animations.json` | Unknown effects or inexact carriers fail or remain diagnosed; no silent `fade` fallback |
+| Object animation (entrance / emphasis / motion path / exit) | `animations.json` targeting stable top-level SVG group IDs; `effects[]` may assign several rows to one anchor | Root `p:timing` animation tree | `Sidecar/package`; PPTX import reconstructs exact-duration current-registry rows into the sidecar | Target and optional trigger shape must map uniquely; advanced/build/media timing remains diagnosed/direct-preserve |
+| Narration audio | `audio/` asset plus recorded-narration export option | Media relationship, audio carrier, and timing | `Sidecar/package` | Asset, slide association, and timing must validate |
+| Automatic slide advance | Explicit transition timing or narration-derived duration | `advTm`/advance behavior | `Sidecar/package` | Click-driven animation is incompatible with recorded narration |
+| Whole-object hyperlink | Standard SVG `<a href="...">` around one visual element or group | `p:cNvPr/a:hlinkClick` on each clickable leaf plus one shared relationship | `Native-stable` for supported external and same-deck targets; PPTX import reconstructs the anchor | Add an explicit background shape when gaps inside a multi-object card/button must be clickable |
+| Inline-text hyperlink | `<a href="..."><tspan>visible text or an inline-formula marker</tspan></a>` inside ordinary SVG text | `a:rPr/a:hlinkClick` in the same DrawingML paragraph or Office Math leaf runs | `Native-stable` for supported external and same-deck targets | The anchor owns no positional attributes; nested links fail |
+| Same-deck slide jump | Either supported carrier with exact 1-based `href="#slide-N"` | Internal slide relationship plus `ppaction://hlinksldjump` | Reconstructed against the final presentation roster | Missing, out-of-range, orphaned, or ambiguous slide targets fail closed |
+| Imported shape click plus inner run links | Importer-only `data-pptx-shape-hyperlink="..."` on the logical `<g>`, with standard inline anchors retained inside | Restores both `p:cNvPr/a:hlinkClick` and the run-level clicks | Lossless transport for this source-only overlap | Authors never write this metadata; checker/export accept it only when the group contains a real inline anchor, because standard SVG forbids nested `<a>` |
+| Other action setting | No SVG authoring mapping | Not created | `Direct preservation` only where an owning native route leaves source OOXML unchanged | Mouse-over, custom-show, navigation-command, program/macro/OLE/file, and arbitrary `ppaction://` actions are outside the hyperlink contract; an action-button preset supplies visual geometry only |
+| Comment or review thread | No SVG or generation-side mapping | Not authored | `Direct preservation` only when explicitly owned by another route | Do not convert review metadata into visible slide content automatically |
+| Relationship not owned by a mapped feature | No generic SVG escape hatch | Not generated | `Direct preservation` where applicable | Arbitrary relationship injection is unsupported |
+
+For one target group, the fully compatible legacy object represents one
+effect row, while a non-empty `effects[]` represents several; the two forms are
+mutually exclusive. Every row may set its own `trigger`, sequence `order`,
+`delay`, `duration`, and `trigger_shape`, with the slide animation trigger used
+only as an inherited Start value. `auto`, `mixed`, and `random` resolve generic
+entrances only; explicit canonical effects cover entrance, emphasis, native
+motion-path presets, and exit. This mapping does not infer paragraph/text-range
+builds, custom freeform motion paths, native Chart/SmartArt build sequences, or
+media playback commands.
+
+See [Animations & Transitions](./animations.md) (technical source: [`references/animations.md`](../skills/ppt-master/references/animations.md)) and [`audio-narration.md`](./audio-narration.md) for the sidecar workflows.
+
+## 11. Other PowerPoint-native features
+
+| PowerPoint feature | Main-route status | Supported alternative | Boundary |
+|---|---|---|---|
+| SmartArt / DiagramML | No native SVG compiler mapping | Reconstruct meaning with shapes, or preserve through a native/template route | A screenshot or fallback must be explicit |
+| OLE or embedded Office object | Unsupported in the SVG route | Direct preservation or a rendered preview | Do not manufacture package relationships from SVG metadata |
+| Video | Unsupported as an SVG-authored media object | Direct preservation or an explicit poster carrying an ordinary supported hyperlink | A `media` placeholder does not create video |
+| 3D model | Unsupported | Direct preservation or baked preview | No browser-SVG approximation is treated as native 3D |
+| Macro / VBA | Unsupported | Preserve only through a macro-aware direct workflow | The normal generated `.pptx` route does not synthesize VBA |
+| Arbitrary Office extension XML | Unsupported | Direct preservation by Edit Native PPTX when the owning source object stays unchanged | The SVG compiler has no generic OOXML passthrough |
+
+## 12. Reverse mapping: PPTX to project SVG
+
+The importer reconstructs supported PowerPoint semantics into the same project vocabulary used by export:
+
+| PowerPoint source object | Project SVG reconstruction |
+|---|---|
+| Preset shape | Expanded preset group with native carrier and visible preview evidence when supported |
+| Custom geometry | `<path>` |
+| Text body | `<text>` and `<tspan>` runs/paragraphs |
+| Supported text-run hyperlink | Inline `<a href>` containing the linked `<tspan>` run |
+| Supported shape/picture/group hyperlink | Canonical `<a href>` around the reconstructed visual object |
+| One shape with both a shape click and inner run links | Logical `<g data-pptx-shape-hyperlink="...">` transport plus canonical inline anchors; generated authoring never emits this exception |
+| Picture | `<image>`, or the registered nested crop representation |
+| SVG picture with raster compatibility fallback | `<image>` sourced from the `asvg:svgBlip` relationship; the ordinary `a:blip` relationship is used only when the SVG relationship or media part is unavailable |
+| Connector | Expanded line/path preview plus connector/frame/topology evidence |
+| Group | `<g>` |
+| Supported native table/chart | Visible fallback plus native-object metadata |
+| Supported current-registry page transition | Canonical `animations.json` row with effective options, exact duration, optional auto-advance, and supported WAV sound |
+| Supported exact-duration object-animation sequence | Canonical `animations.json` group rows with effect/options, order, trigger, duration, relative delay, and optional `trigger_shape` |
+| Unsupported graphic frame or SmartArt | Explicit preview, placeholder, or unsupported status |
+
+This is semantic projection, not a syntax round trip. Preserving validated source-package Master/Layout facts is confined to Create Template mirror and always produces a new workspace; an ordinary visual import does not infer reusable topology from slide appearance.
+
+### Import operating modes and error-recovery boundary
+
+`pptx_to_svg.py` defaults to tolerant import because its inputs are user-owned or third-party PPTX files. `--strict` is available for parser development, contract verification, and reproducing the first source violation. Strict generated-SVG validation and export remain unchanged.
+
+| Source condition | Default tolerant import | `--strict` | Diagnostic result |
+|---|---|---|---|
+| Recognized color semantics with unrelated source metadata | Canonicalize the recognized color and modifiers | Reject the noncanonical structure | Warning with part, slide, and shape context where available |
+| Unsupported fill, outline, effect, image fill, text body, or style property | Keep the object and omit only the unsupported property or feature | Stop at the first violation | Warning names the omitted feature and fallback |
+| Unsupported object that cannot be recovered property-by-property | Replace that object with a visible diagnostic placeholder; omit it only when it has no usable frame | Stop at the first violation | Warning identifies the source object |
+| Unsupported slide or part background | Omit that background and continue the page/part | Stop at the first violation | Warning identifies the owning part |
+| Corrupt package/XML or missing required package structure | Stop; no safe page-level recovery exists | Stop | Clean command error; no raw Python traceback |
+
+Every successful run writes `<output>/conversion-report.json` and a canonical
+`<output>/animations.json` whose baseline transition is `none`. The report
+records the mode, slide and warning counts, owned artifacts, stable reason code,
+source message, chosen fallback, package part, and—when available—slide index
+plus shape id/name/kind. Unknown or inexact transition carriers remain explicit
+`transition-not-reconstructed` diagnostics. Tolerant import is therefore not
+silent: it maximizes usable output while making every contract recovery
+reviewable.
+
+## 13. Validation ownership
+
+The four layers have deliberately different jobs:
+
+| Layer | Responsibility |
+|---|---|
+| Prompt, template, and examples | Generate only the canonical representation for each PowerPoint feature |
+| `svg_quality_checker.py` | Reject invalid/unsupported mappings; warn but allow registered compatible spellings or fidelity risks |
+| `svg_to_pptx.py` and package read-back | Normalize compatible input, compile DrawingML, and reject any result that would be ambiguous, structurally inconsistent, or invalid |
+| `pptx_to_svg.py` | In default tolerant mode, preserve the usable deck and report source-owned degradation at the narrowest safe boundary; in `--strict` mode, stop at the first unsupported or malformed source construct |
+
+A generated-SVG warning is not permission to guess. It is reserved for a deterministic supported mapping whose spelling or fidelity deserves attention. Missing mappings, invalid units, malformed metadata, broken structure contracts, and potentially repair-triggering generated DrawingML remain errors. Import diagnostics describe explicit loss or normalization of source-owned content; they never authorize the importer to invent unsupported semantics.
+
+## 14. Adding or changing a mapping
+
+Treat a mapping change as a compiler change, not as a permissive SVG parser tweak:
+
+1. Name the PowerPoint capability and its intended editable DrawingML result.
+2. Define one canonical project-SVG or sidecar representation in the applicable authority module selected by [`shared-standards.md`](../skills/ppt-master/references/shared-standards.md).
+3. State accepted compatible input separately from generated authoring.
+4. Implement export, and implement import only when semantic reconstruction is supported.
+5. Add checker classification: error for invalid/ambiguous input, warning only for deterministic compatible or approximate input.
+6. Perform focused regression verification on the generated SVG, PPTX package, PowerPoint rendering, and reverse import where applicable.
+7. Update the matching English and Chinese row in this guide.
+
+Implementation entry points:
+
+- Export: [`svg_to_pptx.py`](../skills/ppt-master/scripts/svg_to_pptx.py) and `scripts/svg_to_pptx/`
+- Import: [`pptx_to_svg.py`](../skills/ppt-master/scripts/pptx_to_svg.py) and `scripts/pptx_to_svg/`
+- Validation: [`svg_quality_checker.py`](../skills/ppt-master/scripts/svg_quality_checker.py)
+- Authority router: [`shared-standards.md`](../skills/ppt-master/references/shared-standards.md)

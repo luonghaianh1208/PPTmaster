@@ -6,10 +6,21 @@ Provides common functions for project information parsing and validation,
 reusable by other tools.
 """
 
+import argparse
 import re
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+
+from console_encoding import configure_utf8_stdio
+from slide_roster import discover_slide_svgs
+from svg_to_pptx.canvas_contract import (
+    CanvasContractError,
+    parse_project_viewbox,
+    read_project_viewbox,
+)
+
+configure_utf8_stdio()
 
 # Canvas format definitions (unified source)
 try:
@@ -29,20 +40,20 @@ except ImportError:
             'viewbox': '0 0 1024 768',
             'aspect_ratio': '4:3'
         },
-        'zalo_oa': {
-            'name': 'Zalo OA Header',
+        'wechat': {
+            'name': 'WeChat Article Header',
             'dimensions': '900×383',
             'viewbox': '0 0 900 383',
             'aspect_ratio': '2.35:1'
         },
-        'facebook_tiktok': {
-            'name': 'Facebook/TikTok',
+        'xiaohongshu': {
+            'name': '小红书',
             'dimensions': '1242×1660',
             'viewbox': '0 0 1242 1660',
             'aspect_ratio': '3:4'
         },
-        'social_square': {
-            'name': 'Zalo/Instagram',
+        'moments': {
+            'name': 'Moments/Instagram',
             'dimensions': '1080×1080',
             'viewbox': '0 0 1080 1080',
             'aspect_ratio': '1:1'
@@ -68,13 +79,24 @@ except ImportError:
     }
 
 CANVAS_FORMAT_ALIASES = {
-    'xhs': 'facebook_tiktok',
-    'xiaohongshu': 'facebook_tiktok',
-    'moments': 'social_square',
-    'wechat': 'zalo_oa',
-    'wechat_moment': 'social_square',
-    'wechat-moment': 'social_square',
+    'xhs': 'xiaohongshu',
+    'wechat_moment': 'moments',
+    'wechat-moment': 'moments',
+    '朋友圈': 'moments',
+    '小红书': 'xiaohongshu',
 }
+
+_DESIGN_SPEC_NAMES = (
+    'design_spec.md',
+    '设计规范与内容大纲.md',
+    'design_specification.md',
+    '设计规范.md',
+)
+_COMMUNICATION_TRACE_KEYS = (
+    'audience',
+    'objective',
+    'core_message',
+)
 
 
 def normalize_canvas_format(format_key: str) -> str:
@@ -155,13 +177,15 @@ def get_project_info(project_path: str) -> Dict:
         Project information dictionary
     """
     project_path = Path(project_path)
+    # ``.`` or ``..`` carry no name of their own; parse the real directory name.
+    dir_name = project_path.resolve().name
 
     # Parse directory name
-    parsed = parse_project_name(project_path.name)
+    parsed = parse_project_name(dir_name)
 
     info = {
         'path': str(project_path),
-        'dir_name': project_path.name,
+        'dir_name': dir_name,
         'name': parsed['name'],
         'format': parsed['format'],
         'format_name': parsed['format_name'],
@@ -183,9 +207,8 @@ def get_project_info(project_path: str) -> Dict:
     # Check README.md
     info['has_readme'] = (project_path / 'README.md').exists()
 
-    # Check design specification files (multiple possible names)
-    spec_files = ['设计规范与内容大纲.md', 'design_specification.md', '设计规范.md']
-    for spec_file in spec_files:
+    # Check design specification files (current standard + legacy names)
+    for spec_file in _DESIGN_SPEC_NAMES:
         if (project_path / spec_file).exists():
             info['has_spec'] = True
             info['spec_file'] = spec_file
@@ -202,7 +225,7 @@ def get_project_info(project_path: str) -> Dict:
     # Count SVG files
     svg_output = project_path / 'svg_output'
     if svg_output.exists():
-        svg_files = sorted(svg_output.glob('*.svg'))
+        svg_files = discover_slide_svgs(svg_output)
         info['svg_count'] = len(svg_files)
         info['svg_files'] = [f.name for f in svg_files]
 
@@ -213,13 +236,162 @@ def get_project_info(project_path: str) -> Dict:
     return info
 
 
-def validate_project_structure(project_path: str, verbose: bool = False) -> Tuple[bool, List[str], List[str]]:
+def validate_communication_trace(
+    project_path: str | Path,
+    *,
+    check_lock: bool = True,
+    check_design: bool = True,
+) -> List[str]:
+    """Validate either or both communication-trace surfaces."""
+    root = Path(project_path)
+    design_spec = next(
+        (root / name for name in _DESIGN_SPEC_NAMES if (root / name).is_file()),
+        None,
+    )
+    if design_spec is None or not (check_lock or check_design):
+        return []
+
+    errors: List[str] = []
+    lock_path = root / 'spec_lock.md'
+    if check_lock:
+        if not lock_path.is_file():
+            return [
+                'Communication trace: missing spec_lock.md with a '
+                '## communication section.',
+            ]
+        try:
+            lock_text = lock_path.read_text(encoding='utf-8-sig')
+        except OSError as exc:
+            return [f'Communication trace: unable to read specification files: {exc}']
+
+        communication_match = re.search(
+            r'^##[ \t]+communication[ \t]*$',
+            lock_text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if communication_match is None:
+            errors.append(
+                'Communication trace: spec_lock.md must contain a '
+                '## communication section.',
+            )
+        else:
+            next_section = re.search(
+                r'^##[ \t]+',
+                lock_text[communication_match.end():],
+                flags=re.MULTILINE,
+            )
+            section_end = (
+                communication_match.end() + next_section.start()
+                if next_section
+                else len(lock_text)
+            )
+            communication_block = lock_text[
+                communication_match.end():section_end
+            ]
+            missing_keys = [
+                key
+                for key in _COMMUNICATION_TRACE_KEYS
+                if re.search(
+                    rf'^-[ \t]+{re.escape(key)}[ \t]*:',
+                    communication_block,
+                    flags=re.MULTILINE,
+                ) is None
+            ]
+            if missing_keys:
+                errors.append(
+                    'Communication trace: spec_lock.md ## communication is '
+                    f'missing key line(s): {", ".join(missing_keys)}.',
+                )
+
+    if not check_design:
+        return errors
+    try:
+        design_text = design_spec.read_text(encoding='utf-8-sig')
+    except OSError as exc:
+        return [f'Communication trace: unable to read specification files: {exc}']
+
+    outline_match = re.search(
+        r'^##[ \t]+IX\.[ \t]+Content Outline\b.*$',
+        design_text,
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+    if outline_match is None:
+        errors.append(
+            'Communication trace: design_spec.md must contain '
+            '## IX. Content Outline.',
+        )
+        return errors
+    next_section = re.search(
+        r'^##[ \t]+',
+        design_text[outline_match.end():],
+        flags=re.MULTILINE,
+    )
+    outline_end = (
+        outline_match.end() + next_section.start()
+        if next_section
+        else len(design_text)
+    )
+    outline = design_text[outline_match.end():outline_end]
+    slide_matches = list(re.finditer(
+        r'^#{3,6}[ \t]+Slide[ \t]+([0-9]+|NN)\b.*$',
+        outline,
+        flags=re.IGNORECASE | re.MULTILINE,
+    ))
+    if not slide_matches:
+        errors.append(
+            'Communication trace: design_spec.md §IX contains no Slide blocks.',
+        )
+        return errors
+
+    missing_moves = []
+    missing_relationships = []
+    for index, slide_match in enumerate(slide_matches):
+        block_end = (
+            slide_matches[index + 1].start()
+            if index + 1 < len(slide_matches)
+            else len(outline)
+        )
+        slide_block = outline[slide_match.end():block_end]
+        if re.search(
+            r'^[ \t]*-[ \t]+(?:\*\*)?Audience move(?:\*\*)?[ \t]*:',
+            slide_block,
+            flags=re.IGNORECASE | re.MULTILINE,
+        ) is None:
+            missing_moves.append(slide_match.group(1))
+        if re.search(
+            r'^[ \t]*-[ \t]+(?:\*\*)?Relationships(?:\*\*)?[ \t]*:',
+            slide_block,
+            flags=re.IGNORECASE | re.MULTILINE,
+        ) is None:
+            missing_relationships.append(slide_match.group(1))
+    if missing_moves:
+        errors.append(
+            'Communication trace: every design_spec.md §IX Slide block must '
+            'contain an Audience move line; missing on Slide '
+            f'{", ".join(missing_moves)}.',
+        )
+    if missing_relationships:
+        errors.append(
+            'Communication trace: every design_spec.md §IX Slide block must '
+            'contain a Relationships line; missing on Slide '
+            f'{", ".join(missing_relationships)}.',
+        )
+    return errors
+
+
+def validate_project_structure(
+    project_path: str,
+    verbose: bool = False,
+    *,
+    validate_communication: bool = True,
+) -> Tuple[bool, List[str], List[str]]:
     """
     Validate project structure completeness.
 
     Args:
         project_path: Project directory path
         verbose: Whether to show detailed fix suggestions
+        validate_communication: Whether to run the communication trace check
 
     Returns:
         (is_valid, error_list, warning_list)
@@ -250,20 +422,21 @@ def validate_project_structure(project_path: str, verbose: bool = False) -> Tupl
 
     # Check required files
     if not (project_path / 'README.md').exists():
-        msg = "Missing required file: README.md"
+        msg = "Missing README.md (optional project notes; nothing reads it)"
         if use_helper and verbose:
             msg += "\n" + ErrorHelper.format_error_message('missing_readme',
                                                            {'project_path': str(project_path)})
-        errors.append(msg)
+        warnings.append(msg)
 
     # Check design specification file
-    spec_files = ['设计规范与内容大纲.md', 'design_specification.md', '设计规范.md']
-    has_spec = any((project_path / f).exists() for f in spec_files)
+    has_spec = any((project_path / name).exists() for name in _DESIGN_SPEC_NAMES)
     if not has_spec:
-        msg = "Missing design specification file (suggested filename: design_specification.md)"
+        msg = "Missing design specification file (suggested filename: design_spec.md)"
         if use_helper and verbose:
             msg += "\n" + ErrorHelper.format_error_message('missing_spec')
         warnings.append(msg)
+    elif validate_communication:
+        errors.extend(validate_communication_trace(project_path))
 
     # Check svg_output directory
     svg_output = project_path / 'svg_output'
@@ -294,13 +467,13 @@ def validate_project_structure(project_path: str, verbose: bool = False) -> Tupl
                                                                        {'file_name': svg_file.name})
                     warnings.append(msg)
 
-    # Check directory naming format
-    dir_name = project_path.name
+    # Check directory naming format (``.`` has no name of its own)
+    dir_name = project_path.resolve().name
     if not re.search(r'_\d{8}$', dir_name):
         msg = f"Directory name missing date suffix (_YYYYMMDD): {dir_name}"
         if use_helper and verbose:
             msg += "\n" + \
-                ErrorHelper.format_error_message('missing_date_suffix')
+                ErrorHelper.format_error_message('missing_project_date')
         warnings.append(msg)
 
     is_valid = len(errors) == 0
@@ -319,37 +492,39 @@ def validate_svg_viewbox(svg_files: List[Path], expected_format: Optional[str] =
         List of warnings
     """
     warnings = []
-    viewbox_pattern = re.compile(r'viewBox="([^"]+)"')
-    viewboxes = set()
+    viewboxes = {}
 
     # Determine expected viewBox
     expected_viewbox = None
     if expected_format and expected_format in CANVAS_FORMATS:
-        expected_viewbox = CANVAS_FORMATS[expected_format]['viewbox']
+        expected_viewbox = parse_project_viewbox(
+            CANVAS_FORMATS[expected_format]['viewbox'],
+            context=f"canvas format {expected_format!r}",
+        )
 
-    for svg_file in svg_files[:10]:  # Check first 10 files
+    for svg_file in svg_files:
         try:
-            with open(svg_file, 'r', encoding='utf-8') as f:
-                content = f.read(2000)  # Only read first 2000 characters
-                match = viewbox_pattern.search(content)
-                if match:
-                    viewbox = match.group(1)
-                    viewboxes.add(viewbox)
-
-                    # If expected format is specified, check for match
-                    if expected_viewbox and viewbox != expected_viewbox:
-                        warnings.append(
-                            f"{svg_file.name}: viewBox '{viewbox}' does not match expected format "
-                            f"'{expected_format}' (expected: '{expected_viewbox}')"
-                        )
-                else:
-                    warnings.append(f"{svg_file.name}: viewBox attribute not found")
-        except Exception as e:
-            warnings.append(f"{svg_file.name}: Failed to read - {e}")
+            viewbox = read_project_viewbox(svg_file)
+        except CanvasContractError as exc:
+            warnings.append(str(exc))
+            continue
+        viewboxes[svg_file.name] = viewbox
+        if expected_viewbox and viewbox != expected_viewbox:
+            warnings.append(
+                f"{svg_file.name}: root viewBox '{viewbox.canonical}' must match "
+                f"project format '{expected_format}' ({expected_viewbox.canonical})"
+            )
 
     # Check for multiple different viewBoxes
-    if len(viewboxes) > 1:
-        warnings.append(f"Multiple different viewBox settings detected: {viewboxes}")
+    distinct = {viewbox for viewbox in viewboxes.values()}
+    if len(distinct) > 1:
+        details = ", ".join(
+            f"{name}={viewbox.canonical}"
+            for name, viewbox in sorted(viewboxes.items())
+        )
+        warnings.append(
+            "All project SVG root viewBoxes must match; found " + details
+        )
 
     return warnings
 
@@ -374,7 +549,7 @@ def find_all_projects(base_dir: str) -> List[Path]:
             # Check if it's a valid project directory (contains svg_output or design spec)
             has_svg_output = (item / 'svg_output').exists()
             has_spec = any((item / f).exists() for f in
-                           ['设计规范与内容大纲.md', 'design_specification.md', '设计规范.md'])
+                           ['design_spec.md', '设计规范与内容大纲.md', 'design_specification.md', '设计规范.md'])
 
             if has_svg_output or has_spec:
                 projects.append(item)
@@ -439,38 +614,47 @@ def get_project_stats(project_path: str) -> Dict:
     return stats
 
 
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser for the diagnostic entry point."""
+    parser = argparse.ArgumentParser(description="Inspect and validate a PPT Master project.")
+    parser.add_argument("project_path", help="Project directory")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the diagnostic CLI entry point."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    project_path = args.project_path
+    info = get_project_info(project_path)
+
+    print(f"\nProject Info: {info['dir_name']}")
+    print("=" * 60)
+    print(f"Project Name: {info['name']}")
+    print(f"Canvas Format: {info['format_name']} ({info['format']})")
+    print(f"Created: {info['date_formatted']}")
+    print(f"SVG Files: {info['svg_count']}")
+    print(f"README: {'Yes' if info['has_readme'] else 'No'}")
+    print(f"Design Spec: {'Yes' if info['has_spec'] else 'No'}")
+
+    print("\nValidation Results:")
+    print("-" * 60)
+    is_valid, errors, warnings = validate_project_structure(project_path)
+
+    if errors:
+        print("[ERROR]")
+        for error in errors:
+            print(f"  - {error}")
+
+    if warnings:
+        print("[WARN]")
+        for warning in warnings:
+            print(f"  - {warning}")
+
+    if is_valid and not warnings:
+        print("[OK] Project structure is complete, no issues found")
+    return 0 if is_valid else 1
+
+
 if __name__ == '__main__':
-    # Test code
-    import sys
-
-    if len(sys.argv) > 1:
-        project_path = sys.argv[1]
-        info = get_project_info(project_path)
-
-        print(f"\nProject Info: {info['dir_name']}")
-        print("=" * 60)
-        print(f"Project Name: {info['name']}")
-        print(f"Canvas Format: {info['format_name']} ({info['format']})")
-        print(f"Created: {info['date_formatted']}")
-        print(f"SVG Files: {info['svg_count']}")
-        print(f"README: {'Yes' if info['has_readme'] else 'No'}")
-        print(f"Design Spec: {'Yes' if info['has_spec'] else 'No'}")
-
-        print("\nValidation Results:")
-        print("-" * 60)
-        is_valid, errors, warnings = validate_project_structure(project_path)
-
-        if errors:
-            print("[ERROR]")
-            for error in errors:
-                print(f"  - {error}")
-
-        if warnings:
-            print("[WARN]")
-            for warning in warnings:
-                print(f"  - {warning}")
-
-        if is_valid and not warnings:
-            print("[OK] Project structure is complete, no issues found")
-    else:
-        print("Usage: python3 project_utils.py <project_path>")
+    raise SystemExit(main())

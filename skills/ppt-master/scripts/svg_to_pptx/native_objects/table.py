@@ -1,0 +1,2019 @@
+"""Native PowerPoint table conversion."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from typing import Any
+from xml.etree import ElementTree as ET
+
+from semantic_table import expand_semantic_table_payload
+
+from .marker_attributes import native_import_source
+
+from ..drawingml.context import ConvertContext, ShapeResult
+from ..drawingml.theme_colors import ThemeColorSpec, color_node_xml
+from ..drawingml.utils import (
+    _xml_escape,
+    detect_text_lang,
+    font_px_to_hpt,
+    px_to_emu,
+    text_has_rtl_characters,
+    text_uses_rtl,
+)
+from .chart_style import _font_face_xml
+from .marker_common import (
+    TABLE_URI,
+    _bool_attr,
+    _bounds,
+    _clean_hex,
+    _fallback_shape_records,
+    _fallback_text_records,
+    _first_present,
+    _font_size_hpt,
+    _hex_or_none,
+    _maybe_number,
+    _normalized_fallback_text,
+    _number,
+    _powerpoint_emu,
+    _powerpoint_line_width_emu,
+    _visible_fallback_texts,
+)
+
+
+def _table_text_run(
+    text: str,
+    *,
+    color: str | None,
+    bold: bool | None,
+    font_size: int | None,
+    font_face: str | None,
+    language: str | None,
+    default_language: str | None,
+    theme_color_spec: ThemeColorSpec | None,
+    italic: bool | None = None,
+    underline: bool | None = None,
+    strike: bool | None = None,
+    alt_language: str | None = None,
+    exact_font_face: bool = False,
+    baseline: int | None = None,
+    outline: _TableBorderSpec | None = None,
+) -> str:
+    size_attr = f' sz="{font_size}"' if font_size is not None else ""
+    bold_attr = f' b="{_bool_attr(bold)}"' if bold is not None else ""
+    italic_attr = f' i="{_bool_attr(italic)}"' if italic is not None else ""
+    underline_attr = (
+        f' u="{"sng" if underline else "none"}"'
+        if underline is not None else ""
+    )
+    strike_attr = (
+        f' strike="{"sngStrike" if strike else "noStrike"}"'
+        if strike is not None else ""
+    )
+    resolved_language = language or detect_text_lang(text, default_language)
+    language_attr = f' lang="{_xml_escape(resolved_language)}"'
+    alt_language_attr = (
+        f' altLang="{_xml_escape(alt_language)}"' if alt_language else ""
+    )
+    baseline_attr = f' baseline="{baseline}"' if baseline is not None else ""
+    color_xml = (
+        f'<a:solidFill>{color_node_xml(color, theme_color_spec, "text")}</a:solidFill>'
+        if color else ""
+    )
+    if exact_font_face and font_face:
+        escaped_face = _xml_escape(font_face)
+        font_xml = (
+            f'<a:latin typeface="{escaped_face}"/>'
+            f'<a:ea typeface="{escaped_face}"/>'
+            f'<a:cs typeface="{escaped_face}"/>'
+        )
+    else:
+        font_xml = _font_face_xml(font_face)
+    outline_xml = ""
+    if outline is not None and outline.style == "solid":
+        assert outline.color is not None and outline.width is not None
+        width = _powerpoint_line_width_emu(
+            outline.width,
+            "table text outline width",
+        )
+        outline_xml = (
+            f'<a:ln w="{width}">'
+            '<a:solidFill>'
+            f'{color_node_xml(outline.color, theme_color_spec, "stroke")}'
+            '</a:solidFill><a:prstDash val="solid"/></a:ln>'
+        )
+    rtl_xml = '<a:rtl val="1"/>' if text_has_rtl_characters(text) else ''
+    space_attr = ' xml:space="preserve"' if text != text.strip() else ""
+    return (
+        f'<a:r><a:rPr{language_attr}{alt_language_attr}{size_attr}{bold_attr}'
+        f'{italic_attr}{underline_attr}{strike_attr}{baseline_attr}>'
+        f'{outline_xml}'
+        f'{color_xml}'
+        f'{font_xml}'
+        f'{rtl_xml}'
+        "</a:rPr>"
+        f"<a:t{space_attr}>{_xml_escape(text)}</a:t></a:r>"
+    )
+
+
+def _table_paragraph_properties(
+    align: str,
+    *,
+    emit_align: bool,
+    text: str,
+    language: str | None,
+    line_spacing_percent: float | None = None,
+) -> str:
+    """Build table paragraph properties with project-aware direction."""
+    attrs = []
+    if emit_align:
+        attrs.append(f'algn="{align}"')
+    if text_uses_rtl(text, language):
+        attrs.append('rtl="1"')
+    suffix = f" {' '.join(attrs)}" if attrs else ''
+    if line_spacing_percent is None:
+        return f'<a:pPr{suffix}/>'
+    spacing = round(line_spacing_percent * 1000)
+    return (
+        f'<a:pPr{suffix}><a:lnSpc><a:spcPct val="{spacing}"/>'
+        '</a:lnSpc></a:pPr>'
+    )
+
+
+def _cell_payload(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {"text": "" if value is None else str(value)}
+
+
+_TABLE_CANONICAL_SPAN_KEYS = {
+    "col_span",
+    "row_span",
+}
+_TABLE_UNSUPPORTED_SPAN_KEYS = {
+    "colSpan",
+    "grid_span",
+    "gridSpan",
+    "hMerge",
+    "merge",
+    "merged",
+    "rowSpan",
+    "vMerge",
+}
+_TABLE_TOP_LEVEL_SPAN_KEYS = {
+    "merge_cells",
+    "merged_cells",
+    "merges",
+    "spans",
+}
+_TABLE_MAX_ROWS = 1000
+_TABLE_MAX_COLUMNS = 1000
+
+
+@dataclass(frozen=True)
+class _TableMergeRegion:
+    row: int
+    col: int
+    row_span: int
+    col_span: int
+
+
+@dataclass(frozen=True)
+class _TableBorderSpec:
+    style: str
+    color: str | None = None
+    width: float | None = None
+
+
+@dataclass(frozen=True)
+class _TableRun:
+    text: str
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool | None = None
+    strike: bool | None = None
+    color: str | None = None
+    font_size: int | None = None
+    font_family: str | None = None
+    lang: str | None = None
+    alt_lang: str | None = None
+    baseline: int | None = None
+    outline: _TableBorderSpec | None = None
+
+
+@dataclass(frozen=True)
+class _TableParagraph:
+    text: str
+    align: str | None = None
+    runs: tuple[_TableRun, ...] | None = None
+    line_spacing_percent: float | None = None
+
+
+def _table_rows(payload: dict[str, Any]) -> list[list[Any]]:
+    columns = payload.get("columns") or []
+    rows = payload.get("rows") or []
+    if not isinstance(columns, list) or not isinstance(rows, list):
+        raise RuntimeError("Native PPTX table requires columns/rows lists")
+    for idx, row in enumerate(rows, start=1):
+        if not isinstance(row, list):
+            raise RuntimeError(f"Native PPTX table row {idx} must be a list")
+
+    table_rows = [list(columns)] if columns else []
+    table_rows.extend(list(row) for row in rows)
+    return table_rows
+
+
+def _table_cell_paragraphs(
+    cell_data: dict[str, Any],
+) -> tuple[_TableParagraph, ...] | None:
+    if "paragraphs" not in cell_data:
+        return None
+    if "text" in cell_data:
+        raise RuntimeError(
+            "Native PPTX table cell text and paragraphs are mutually exclusive"
+        )
+    raw_paragraphs = cell_data.get("paragraphs")
+    if not isinstance(raw_paragraphs, list) or not raw_paragraphs:
+        raise RuntimeError(
+            "Native PPTX table cell paragraphs must be a non-empty list"
+        )
+
+    paragraphs: list[_TableParagraph] = []
+    for idx, value in enumerate(raw_paragraphs, start=1):
+        if isinstance(value, str):
+            paragraphs.append(_TableParagraph(value))
+            continue
+        if not isinstance(value, dict):
+            raise RuntimeError(
+                f"Native PPTX table paragraph {idx} must be a string or object"
+            )
+        if set(value) - {"text", "runs", "align", "line_spacing_percent"}:
+            raise RuntimeError(
+                "Native PPTX table paragraph "
+                f"{idx} accepts text/runs/align/line_spacing_percent only"
+            )
+        has_text = "text" in value
+        has_runs = "runs" in value
+        if has_text == has_runs:
+            raise RuntimeError(
+                f"Native PPTX table paragraph {idx} requires exactly one of text/runs"
+            )
+        align = value.get("align")
+        if align is not None and align not in {"l", "ctr", "r", "just"}:
+            raise RuntimeError(
+                "Native PPTX table paragraph "
+                f"{idx} align must be l, ctr, r, or just"
+            )
+        line_spacing_percent: float | None = None
+        if value.get("line_spacing_percent") is not None:
+            line_spacing_percent = _number(
+                value["line_spacing_percent"],
+                f"table paragraph {idx} line_spacing_percent",
+            )
+            if not 0 < line_spacing_percent <= 1000:
+                raise RuntimeError(
+                    "Native PPTX table paragraph "
+                    f"{idx} line_spacing_percent must be in (0, 1000]"
+                )
+        if has_text:
+            text = value.get("text")
+            if not isinstance(text, str):
+                raise RuntimeError(
+                    f"Native PPTX table paragraph {idx} text must be a string"
+                )
+            paragraphs.append(
+                _TableParagraph(
+                    text,
+                    align,
+                    line_spacing_percent=line_spacing_percent,
+                )
+            )
+            continue
+
+        raw_runs = value.get("runs")
+        if not isinstance(raw_runs, list) or not raw_runs:
+            raise RuntimeError(
+                f"Native PPTX table paragraph {idx} runs must be a non-empty list"
+            )
+        runs = tuple(
+            _table_run(run, paragraph_idx=idx, run_idx=run_idx)
+            for run_idx, run in enumerate(raw_runs, start=1)
+        )
+        paragraphs.append(
+            _TableParagraph(
+                "".join(run.text for run in runs),
+                align,
+                runs,
+                line_spacing_percent,
+            )
+        )
+    return tuple(paragraphs)
+
+
+def _table_run(
+    value: Any,
+    *,
+    paragraph_idx: int,
+    run_idx: int,
+) -> _TableRun:
+    label = f"paragraph {paragraph_idx} run {run_idx}"
+    if not isinstance(value, dict) or "text" not in value:
+        raise RuntimeError(f"Native PPTX table {label} must be a text object")
+    allowed = {
+        "text", "bold", "italic", "underline", "strike", "color",
+        "font_size", "font_family", "lang", "alt_lang",
+        "baseline_percent", "outline",
+    }
+    unknown = set(value) - allowed
+    if unknown:
+        fields = ", ".join(sorted(unknown))
+        raise RuntimeError(
+            f"Native PPTX table {label} contains unsupported field(s): {fields}"
+        )
+    text = value.get("text")
+    if not isinstance(text, str):
+        raise RuntimeError(f"Native PPTX table {label} text must be a string")
+
+    booleans: dict[str, bool | None] = {}
+    for field in ("bold", "italic", "underline", "strike"):
+        raw = value.get(field)
+        if raw is not None and not isinstance(raw, bool):
+            raise RuntimeError(
+                f"Native PPTX table {label} {field} must be a JSON boolean"
+            )
+        booleans[field] = raw
+
+    color: str | None = None
+    if value.get("color") is not None:
+        if not isinstance(value["color"], str):
+            raise RuntimeError(f"Native PPTX table {label} color must be a string")
+        color = _hex_or_none(value["color"])
+        if color is None:
+            raise RuntimeError(f"Native PPTX table {label} color is unsupported")
+
+    font_size: int | None = None
+    if value.get("font_size") is not None:
+        font_size_px = _number(value["font_size"], f"table {label} font_size")
+        if not 100 / 75 <= font_size_px <= 400000 / 75:
+            raise RuntimeError(
+                f"Native PPTX table {label} font_size is outside DrawingML range"
+            )
+        font_size = font_px_to_hpt(font_size_px)
+        if not 100 <= font_size <= 400000:
+            raise RuntimeError(
+                f"Native PPTX table {label} font_size is outside DrawingML range"
+            )
+
+    font_family: str | None = None
+    if value.get("font_family") is not None:
+        if not isinstance(value["font_family"], str):
+            raise RuntimeError(
+                f"Native PPTX table {label} font_family must be a string"
+            )
+        font_family = value["font_family"].strip()
+        if not font_family or "," in font_family:
+            raise RuntimeError(
+                f"Native PPTX table {label} font_family must be one typeface"
+            )
+
+    languages: dict[str, str | None] = {}
+    for field in ("lang", "alt_lang"):
+        raw = value.get(field)
+        if raw is None:
+            languages[field] = None
+            continue
+        if not isinstance(raw, str) or not raw.strip():
+            raise RuntimeError(
+                f"Native PPTX table {label} {field} must be a non-empty string"
+            )
+        languages[field] = raw.strip()
+
+    baseline: int | None = None
+    if value.get("baseline_percent") is not None:
+        baseline_percent = _number(
+            value["baseline_percent"],
+            f"table {label} baseline_percent",
+        )
+        if not -100 <= baseline_percent <= 100:
+            raise RuntimeError(
+                f"Native PPTX table {label} baseline_percent must be in [-100, 100]"
+            )
+        baseline = round(baseline_percent * 1000)
+
+    outline: _TableBorderSpec | None = None
+    if value.get("outline") is not None:
+        outline = _table_border_override(value["outline"], "text outline")
+
+    return _TableRun(
+        text=text,
+        bold=booleans["bold"],
+        italic=booleans["italic"],
+        underline=booleans["underline"],
+        strike=booleans["strike"],
+        color=color,
+        font_size=font_size,
+        font_family=font_family,
+        lang=languages["lang"],
+        alt_lang=languages["alt_lang"],
+        baseline=baseline,
+        outline=outline,
+    )
+
+
+def _table_span_value(
+    cell_data: dict[str, Any],
+    key: str,
+    *,
+    row_idx: int,
+    col_idx: int,
+) -> int:
+    value = cell_data.get(key, 1)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise RuntimeError(
+            f"Native PPTX table cell R{row_idx}C{col_idx} {key} must be a "
+            "positive JSON integer"
+        )
+    return value
+
+
+def _merge_covered_cell_is_blank(value: Any) -> bool:
+    if value is None or value == "":
+        return True
+    if not isinstance(value, dict):
+        return False
+    if set(value) - {"merge_continuation", "text"}:
+        return False
+    if (
+        "merge_continuation" in value
+        and value["merge_continuation"] is not True
+    ):
+        return False
+    return value.get("text") in {None, ""}
+
+
+def _resolve_table_merge_layout(
+    payload: dict[str, Any],
+    table_rows: list[list[Any]],
+    col_count: int,
+) -> dict[tuple[int, int], _TableMergeRegion]:
+    for key in _TABLE_TOP_LEVEL_SPAN_KEYS:
+        if key in payload:
+            raise RuntimeError(
+                f"Native PPTX table uses unsupported top-level merged-cell field: {key}"
+            )
+
+    owners: dict[tuple[int, int], _TableMergeRegion] = {}
+    for row_idx, row in enumerate(table_rows, start=1):
+        for col_idx, cell in enumerate(row, start=1):
+            if isinstance(cell, dict):
+                used_keys = sorted(
+                    key for key in _TABLE_UNSUPPORTED_SPAN_KEYS if key in cell
+                )
+                if used_keys:
+                    keys = ", ".join(used_keys)
+                    raise RuntimeError(
+                        f"Native PPTX table cell R{row_idx}C{col_idx} uses "
+                        f"unsupported merged-cell field(s): {keys}; use row_span/col_span "
+                        "on the merge anchor"
+                    )
+
+            position = (row_idx - 1, col_idx - 1)
+            owner = owners.get(position)
+            if owner is not None:
+                if isinstance(cell, dict) and any(
+                    key in cell for key in _TABLE_CANONICAL_SPAN_KEYS
+                ):
+                    raise RuntimeError(
+                        f"Native PPTX table merge anchor R{row_idx}C{col_idx} overlaps "
+                        f"merge rooted at R{owner.row + 1}C{owner.col + 1}"
+                    )
+                if not _merge_covered_cell_is_blank(cell):
+                    raise RuntimeError(
+                        f"Native PPTX table merge-covered cell R{row_idx}C{col_idx} "
+                        "must be blank"
+                    )
+                continue
+
+            cell_data = _cell_payload(cell)
+            row_span = _table_span_value(
+                cell_data, "row_span", row_idx=row_idx, col_idx=col_idx,
+            )
+            col_span = _table_span_value(
+                cell_data, "col_span", row_idx=row_idx, col_idx=col_idx,
+            )
+            if row_span == 1 and col_span == 1:
+                continue
+            if (
+                row_idx - 1 + row_span > len(table_rows)
+                or col_idx - 1 + col_span > col_count
+            ):
+                raise RuntimeError(
+                    f"Native PPTX table merge rooted at R{row_idx}C{col_idx} exceeds "
+                    f"the resolved {len(table_rows)}x{col_count} grid"
+                )
+
+            region = _TableMergeRegion(
+                row=row_idx - 1,
+                col=col_idx - 1,
+                row_span=row_span,
+                col_span=col_span,
+            )
+            for covered_row in range(region.row, region.row + region.row_span):
+                for covered_col in range(region.col, region.col + region.col_span):
+                    covered_position = (covered_row, covered_col)
+                    prior = owners.get(covered_position)
+                    if prior is not None:
+                        raise RuntimeError(
+                            f"Native PPTX table merge rooted at R{row_idx}C{col_idx} "
+                            f"overlaps merge rooted at R{prior.row + 1}C{prior.col + 1}"
+                        )
+                    owners[covered_position] = region
+    return owners
+
+
+def _grid_is_strict(payload: dict[str, Any]) -> bool:
+    value = payload.get("strict_grid")
+    return _table_bool(value, "strict_grid", default=False)
+
+
+def _table_bool(value: Any, field_name: str, *, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raise RuntimeError(
+        f"Native PPTX table {field_name} must be a JSON boolean"
+    )
+
+
+def _table_header_rows(payload: dict[str, Any], row_count: int) -> int:
+    default = 1 if payload.get("columns") else 0
+    value = _number(payload.get("header_rows", default), "table header_rows")
+    if not value.is_integer():
+        raise RuntimeError("Native PPTX table header_rows must be an integer")
+    header_rows = int(value)
+    if not 0 <= header_rows <= row_count:
+        raise RuntimeError(
+            "Native PPTX table header_rows must be between zero and the resolved row count"
+        )
+    return header_rows
+
+
+def _validate_table_lengths(payload: dict[str, Any], table_rows: list[list[Any]]) -> int:
+    if not table_rows:
+        raise RuntimeError("Native PPTX table requires at least one row")
+    col_count = max(len(row) for row in table_rows)
+    if col_count <= 0:
+        raise RuntimeError("Native PPTX table requires at least one column")
+    if len(table_rows) > _TABLE_MAX_ROWS or col_count > _TABLE_MAX_COLUMNS:
+        raise RuntimeError("Native PPTX table supports at most 1000 rows and columns")
+    if _grid_is_strict(payload) and any(len(row) != col_count for row in table_rows):
+        raise RuntimeError("Native PPTX table strict_grid requires every row to have the same length")
+
+    column_widths = payload.get("column_widths")
+    if column_widths is not None:
+        if not isinstance(column_widths, list) or len(column_widths) != col_count:
+            raise RuntimeError("Native PPTX table column_widths must match the resolved column count")
+        _table_weights(column_widths, "column_widths")
+
+    row_heights = payload.get("row_heights")
+    if row_heights is not None:
+        if not isinstance(row_heights, list) or len(row_heights) != len(table_rows):
+            raise RuntimeError("Native PPTX table row_heights must match the resolved row count")
+        _table_weights(row_heights, "row_heights")
+
+    return col_count
+
+
+def _validate_table_cell_formatting(payload: dict[str, Any], table_rows: list[list[Any]]) -> None:
+    style = payload.get("style") if isinstance(payload.get("style"), dict) else {}
+    _table_bool(style.get("band_row"), "style.band_row", default=True)
+    if "borders" in style:
+        raise RuntimeError(
+            "Native PPTX table per-side borders are supported on cells only"
+        )
+    for row in table_rows:
+        for cell in row:
+            cell_data = _cell_payload(cell)
+            if "merge_continuation" in cell_data and not isinstance(
+                cell_data["merge_continuation"],
+                bool,
+            ):
+                raise RuntimeError(
+                    "Native PPTX table merge_continuation must be a JSON boolean"
+                )
+            _table_cell_paragraphs(cell_data)
+            if "bold" in cell_data:
+                _table_bool(cell_data["bold"], "cell bold", default=False)
+            for side in ("left", "right", "top", "bottom"):
+                _table_padding_value(cell_data, style, side)
+            for border in _table_border_specs(cell_data, style).values():
+                if border is None or border.style == "none":
+                    continue
+                assert border.width is not None
+                _powerpoint_line_width_emu(
+                    border.width,
+                    "table border_width",
+                )
+            _table_anchor(cell_data, style)
+            _table_cell_extra_attrs(cell_data)
+            _table_fill_opacity(cell_data)
+
+
+def _validate_table_payload(
+    payload: dict[str, Any],
+) -> tuple[
+    dict[str, Any],
+    list[list[Any]],
+    int,
+    dict[tuple[int, int], _TableMergeRegion],
+]:
+    authored_payload = payload
+    authored_rows = _table_rows(authored_payload)
+    payload = expand_semantic_table_payload(payload)
+    table_rows = _table_rows(payload)
+    col_count = _validate_table_lengths(payload, table_rows)
+    for row in table_rows:
+        row.extend([""] * (col_count - len(row)))
+    for row in authored_rows:
+        row.extend([""] * (col_count - len(row)))
+    merge_layout = _resolve_table_merge_layout(
+        authored_payload,
+        authored_rows,
+        col_count,
+    )
+    _table_header_rows(payload, len(table_rows))
+    _validate_table_cell_formatting(payload, table_rows)
+    return payload, table_rows, col_count, merge_layout
+
+
+def _table_cell_text_parts(cell: Any) -> list[str]:
+    """Return normalized paragraph lines for one table cell."""
+    cell_data = _cell_payload(cell)
+    paragraphs = _table_cell_paragraphs(cell_data)
+    values = (
+        [paragraph.text for paragraph in paragraphs]
+        if paragraphs is not None
+        else [cell_data.get("text")]
+    )
+    return [
+        text
+        for text in (
+            _normalized_fallback_text(value)
+            for value in values
+            if value is not None
+        )
+        if text
+    ]
+
+
+def _native_table_metadata_texts(table_rows: list[list[Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in table_rows:
+        for cell in row:
+            parts = _table_cell_text_parts(cell)
+            variants = list(parts)
+            if len(parts) > 1:
+                variants.extend({
+                    _normalized_fallback_text("".join(parts)),
+                    _normalized_fallback_text(" ".join(parts)),
+                })
+            for text in variants:
+                counts[text] = counts.get(text, 0) + 1
+    return counts
+
+
+def _table_fallback_frame(
+    elem: ET.Element,
+    payload: dict[str, Any],
+) -> tuple[float, float, float, float] | None:
+    values = tuple(_maybe_number(payload.get(key)) for key in ("x", "y", "width", "height"))
+    if all(value is not None for value in values):
+        x, y, width, height = values
+        assert x is not None and y is not None and width is not None and height is not None
+        if width > 0 and height > 0:
+            return x, y, width, height
+
+    raw_bounds = elem.get("data-pptx-bounds")
+    if raw_bounds:
+        parts = [_maybe_number(value) for value in raw_bounds.replace(",", " ").split()]
+        if len(parts) == 4 and all(value is not None for value in parts):
+            x, y, width, height = parts
+            assert x is not None and y is not None and width is not None and height is not None
+            if width > 0 and height > 0:
+                return x, y, width, height
+    return None
+
+
+def _dedupe_table_edges(values: list[float], tolerance: float = 2.0) -> list[float]:
+    edges: list[float] = []
+    for value in sorted(values):
+        if edges and abs(edges[-1] - value) <= tolerance:
+            edges[-1] = (edges[-1] + value) / 2
+        else:
+            edges.append(value)
+    return edges
+
+
+def _table_fallback_grid(
+    elem: ET.Element,
+    payload: dict[str, Any],
+    table_rows: list[list[Any]],
+) -> tuple[list[float], list[float], list[Any], list[Any]] | None:
+    frame = _table_fallback_frame(elem, payload)
+    if frame is None or not table_rows:
+        return None
+    x, y, width, height = frame
+    col_count = max(len(row) for row in table_rows)
+    raw_widths = payload.get("column_widths")
+    weights = (
+        [_number(value, "table fallback column width") for value in raw_widths]
+        if isinstance(raw_widths, list) and len(raw_widths) == col_count
+        else [1.0] * col_count
+    )
+    weight_total = sum(weights)
+    if weight_total <= 0:
+        return None
+    payload_column_edges = [x]
+    for weight in weights:
+        payload_column_edges.append(
+            payload_column_edges[-1] + width * weight / weight_total
+        )
+
+    shape_records = _fallback_shape_records(elem)
+    vertical_candidates = [x, x + width]
+    for record in shape_records:
+        x1, y1, x2, y2 = record.bounds
+        if (
+            record.tag == "line"
+            and record.stroke is not None
+            and abs(x2 - x1) <= 1
+            and y2 - y1 >= height * 0.5
+        ):
+            vertical_candidates.append((x1 + x2) / 2)
+    fallback_column_edges = _dedupe_table_edges(vertical_candidates)
+    column_edges = (
+        fallback_column_edges
+        if len(fallback_column_edges) == col_count + 1
+        else payload_column_edges
+    )
+
+    row_candidates: list[float] = []
+    for record in shape_records:
+        x1, y1, x2, y2 = record.bounds
+        if record.tag == "rect" and record.fill is not None and x2 - x1 >= width * 0.85:
+            if x1 <= x + width * 0.1 and x2 >= x + width * 0.9:
+                row_candidates.extend((y1, y2))
+        elif (
+            record.tag == "line"
+            and record.stroke is not None
+            and abs(y2 - y1) <= 1
+            and x2 - x1 >= width * 0.75
+        ):
+            row_candidates.append((y1 + y2) / 2)
+    row_candidates = [
+        value
+        for value in row_candidates
+        if y - 5 <= value <= y + height + 5
+    ]
+    row_edges = _dedupe_table_edges(row_candidates)
+    expected_count = len(table_rows) + 1
+    if len(row_edges) < expected_count:
+        row_edges = _dedupe_table_edges(row_edges + [y, y + height])
+    if len(row_edges) != expected_count:
+        return None
+    return column_edges, row_edges, shape_records, _fallback_text_records(elem)
+
+
+def _table_cell_at(
+    x: float | None,
+    y: float | None,
+    column_edges: list[float],
+    row_edges: list[float],
+) -> tuple[int, int] | None:
+    if x is None or y is None:
+        return None
+    col_idx = next(
+        (
+            idx
+            for idx in range(len(column_edges) - 1)
+            if column_edges[idx] - 1 <= x <= column_edges[idx + 1] + 1
+        ),
+        None,
+    )
+    row_idx = next(
+        (
+            idx
+            for idx in range(len(row_edges) - 1)
+            if row_edges[idx] - 1 <= y <= row_edges[idx + 1] + 1
+        ),
+        None,
+    )
+    if row_idx is None or col_idx is None:
+        return None
+    return row_idx, col_idx
+
+
+def _table_cell_texts(cell: Any) -> set[str]:
+    parts = _table_cell_text_parts(cell)
+    texts = set(parts)
+    if len(parts) > 1:
+        texts.add(_normalized_fallback_text("".join(parts)))
+        texts.add(_normalized_fallback_text(" ".join(parts)))
+    return texts
+
+
+def _table_cell_parity_text_style(
+    cell: Any,
+) -> tuple[bool | None, str | None]:
+    """Resolve cell-level parity style, falling back to uniform run values."""
+    cell_data = _cell_payload(cell)
+    paragraphs = _table_cell_paragraphs(cell_data)
+    runs = (
+        [run for paragraph in paragraphs for run in paragraph.runs or ()]
+        if paragraphs is not None
+        and all(paragraph.runs is not None for paragraph in paragraphs)
+        else []
+    )
+
+    uniform_bold: bool | None = None
+    run_bold = {run.bold for run in runs}
+    if runs and None not in run_bold and len(run_bold) == 1:
+        uniform_bold = run_bold.pop()
+
+    uniform_color: str | None = None
+    run_colors = {run.color for run in runs}
+    if runs and None not in run_colors and len(run_colors) == 1:
+        uniform_color = run_colors.pop()
+
+    bold = cell_data.get("bold") if "bold" in cell_data else uniform_bold
+    color = (
+        _hex_or_none(cell_data.get("color"))
+        if "color" in cell_data
+        else uniform_color
+    )
+    return bold, color
+
+
+def _table_text_cells(
+    text_records: list[Any],
+    table_rows: list[list[Any]],
+    column_edges: list[float],
+    row_edges: list[float],
+) -> list[tuple[Any, int, int]]:
+    records: list[tuple[Any, int, int]] = []
+    for record in text_records:
+        position = _table_cell_at(record.x, record.y, column_edges, row_edges)
+        if position is None:
+            continue
+        row_idx, col_idx = position
+        if row_idx >= len(table_rows) or col_idx >= len(table_rows[row_idx]):
+            continue
+        if record.text not in _table_cell_texts(table_rows[row_idx][col_idx]):
+            continue
+        records.append((record, row_idx, col_idx))
+    return records
+
+
+def _fallback_table_alignment(anchor: str) -> str:
+    return {
+        "middle": "ctr",
+        "end": "r",
+        "right": "r",
+    }.get(anchor, "l")
+
+
+def _native_table_header_warnings(
+    payload: dict[str, Any],
+    table_rows: list[list[Any]],
+    column_edges: list[float],
+    row_edges: list[float],
+    shape_records: list[Any],
+    text_cells: list[tuple[Any, int, int]],
+) -> list[str]:
+    header_rows = _table_header_rows(payload, len(table_rows))
+    if header_rows <= 0:
+        return []
+    style = payload.get("style") if isinstance(payload.get("style"), dict) else {}
+    header_text_cells = [item for item in text_cells if item[1] < header_rows]
+    if not header_text_cells:
+        return []
+
+    missing: list[str] = []
+    table_left, table_right = column_edges[0], column_edges[-1]
+    header_top, header_bottom = row_edges[0], row_edges[header_rows]
+    header_fill = next(
+        (
+            record.fill
+            for record in sorted(
+                shape_records,
+                key=lambda item: (item.bounds[2] - item.bounds[0]) * (item.bounds[3] - item.bounds[1]),
+                reverse=True,
+            )
+            if (
+                record.tag == "rect"
+                and record.fill is not None
+                and record.bounds[0] <= table_left + 3
+                and record.bounds[2] >= table_right - 3
+                and record.bounds[1] <= header_top + 3
+                and record.bounds[3] >= header_bottom - 3
+            )
+        ),
+        None,
+    )
+    if header_fill is not None and style.get("header_fill") is None:
+        if not all(
+            _hex_or_none(_cell_payload(cell).get("fill")) == header_fill
+            for row in table_rows[:header_rows]
+            for cell in row
+        ):
+            missing.append("style.header_fill")
+
+    header_colors = [record.fill for record, _, _ in header_text_cells if record.fill]
+    header_text_color = max(set(header_colors), key=header_colors.count) if header_colors else None
+    if header_text_color is not None and style.get("header_text") is None:
+        if not all(
+            _table_cell_parity_text_style(
+                table_rows[row_idx][col_idx]
+            )[1] == record.fill
+            for record, row_idx, col_idx in header_text_cells
+            if record.fill is not None
+        ):
+            missing.append("style.header_text")
+
+    if any(
+        record.bold
+        and _table_cell_parity_text_style(
+            table_rows[row_idx][col_idx]
+        )[0] is not True
+        for record, row_idx, col_idx in header_text_cells
+    ):
+        missing.append("columns[].bold")
+    # Header cells export centred unless the payload sets align, so a missing
+    # align only matches a fallback whose header text is centred.
+    unmatched_anchors = sorted({
+        _fallback_table_alignment(record.anchor)
+        for record, row_idx, col_idx in header_text_cells
+        if (_cell_payload(table_rows[row_idx][col_idx]).get("align") or "ctr")
+        != _fallback_table_alignment(record.anchor)
+    })
+    if unmatched_anchors:
+        missing.append(
+            "columns[].align "
+            + "/".join(f'"{value}"' for value in unmatched_anchors)
+            + " (header cells export centred unless align is set)"
+        )
+    if not missing:
+        return []
+    return [
+        "Native PPTX table header style not projected from fallback: "
+        + ", ".join(missing)
+    ]
+
+
+def _native_table_fill_warnings(
+    table_rows: list[list[Any]],
+    header_rows: int,
+    column_edges: list[float],
+    row_edges: list[float],
+    shape_records: list[Any],
+) -> list[str]:
+    warnings: list[str] = []
+    col_count = len(column_edges) - 1
+    row_count = len(row_edges) - 1
+
+    def edge_index(value: float, edges: list[float]) -> int | None:
+        return next(
+            (idx for idx, edge in enumerate(edges) if abs(edge - value) <= 3),
+            None,
+        )
+
+    seen: set[tuple[str, int, int, str]] = set()
+    for record in shape_records:
+        if record.tag != "rect" or record.fill in {None, "FFFFFF"}:
+            continue
+        x1, y1, x2, y2 = record.bounds
+        start_col = edge_index(x1, column_edges)
+        end_col = edge_index(x2, column_edges)
+        start_row = edge_index(y1, row_edges)
+        end_row = edge_index(y2, row_edges)
+        if None in {start_col, end_col, start_row, end_row}:
+            continue
+        assert start_col is not None and end_col is not None
+        assert start_row is not None and end_row is not None
+        if end_col <= start_col or end_row <= start_row:
+            continue
+
+        label: tuple[str, int, int, str] | None = None
+        targets: list[tuple[int, int]] = []
+        if start_col == 0 and end_col == col_count and start_row >= header_rows:
+            label = ("row", start_row, end_row, record.fill)
+            targets = [
+                (row_idx, col_idx)
+                for row_idx in range(start_row, end_row)
+                for col_idx in range(col_count)
+            ]
+        elif (
+            start_row <= header_rows
+            and end_row == row_count
+            and end_col - start_col < col_count
+        ):
+            body_start = max(start_row, header_rows)
+            label = ("column", start_col, end_col, record.fill)
+            targets = [
+                (row_idx, col_idx)
+                for row_idx in range(body_start, end_row)
+                for col_idx in range(start_col, end_col)
+            ]
+        if label is None or label in seen or not targets:
+            continue
+        seen.add(label)
+        if all(
+            _hex_or_none(_cell_payload(table_rows[row_idx][col_idx]).get("fill"))
+            == record.fill
+            for row_idx, col_idx in targets
+        ):
+            continue
+        axis, start, end, color = label
+        human_start = start + 1
+        human_end = end
+        span = str(human_start) if human_start == human_end else f"{human_start}-{human_end}"
+        hint = (
+            f" (one fallback rect spanning several {axis}s reads as one whole-{axis} fill;"
+            " draw one rect per column or row when their payload fills differ)"
+            if human_start != human_end
+            else ""
+        )
+        warnings.append(
+            f"Native PPTX table whole {axis} {span} fill #{color} is not projected to cell fill{hint}"
+        )
+    return warnings
+
+
+def _native_table_body_text_warnings(
+    payload: dict[str, Any],
+    table_rows: list[list[Any]],
+    header_rows: int,
+    text_cells: list[tuple[Any, int, int]],
+) -> list[str]:
+    """Report fallback body text colours the payload would not carry."""
+    style = payload.get("style") if isinstance(payload.get("style"), dict) else {}
+    style_body_text = _hex_or_none(style.get("body_text"))
+    body_records = [item for item in text_cells if item[1] >= header_rows]
+    if not body_records:
+        return []
+    body_colors = [
+        record.fill
+        for record, _, col_idx in body_records
+        if col_idx != 0 and record.fill
+    ]
+    body_color = max(set(body_colors), key=body_colors.count) if body_colors else None
+    missing_colors: set[str] = set()
+    for record, row_idx, col_idx in body_records:
+        if record.fill is None:
+            continue
+        if col_idx == 0 and record.fill != body_color:
+            continue  # first-column emphasis is reported separately
+        cell_color = _table_cell_parity_text_style(table_rows[row_idx][col_idx])[1]
+        if cell_color is None:
+            cell_color = style_body_text
+        if cell_color != record.fill:
+            missing_colors.add(record.fill)
+    if not missing_colors:
+        return []
+    return [
+        "Native PPTX table body text color "
+        + "/".join(f"#{color}" for color in sorted(missing_colors))
+        + " is not projected to cell color, defaults.run.color, or style.body_text"
+    ]
+
+
+def _native_table_first_column_warnings(
+    table_rows: list[list[Any]],
+    header_rows: int,
+    text_cells: list[tuple[Any, int, int]],
+    *,
+    style_body_text: str | None = None,
+) -> list[str]:
+    """Report first-column emphasis the payload would not carry.
+
+    A first column drawn in the table's own body text colour is carried by
+    ``style.body_text`` even when the other columns are coloured per cell, so
+    only a colour no layer resolves to is reported.
+    """
+    body_records = [item for item in text_cells if item[1] >= header_rows]
+    first_column = [item for item in body_records if item[2] == 0]
+    if not first_column:
+        return []
+    body_colors = [
+        record.fill
+        for record, _, col_idx in body_records
+        if col_idx != 0 and record.fill
+    ]
+    body_color = max(set(body_colors), key=body_colors.count) if body_colors else None
+    missing: list[str] = []
+    if any(
+        record.bold
+        and _table_cell_parity_text_style(
+            table_rows[row_idx][col_idx]
+        )[0] is not True
+        for record, row_idx, col_idx in first_column
+    ):
+        missing.append("bold")
+    missing_colors = sorted({
+        record.fill
+        for record, row_idx, col_idx in first_column
+        if (
+            record.fill is not None
+            and record.fill != body_color
+            and (
+                _table_cell_parity_text_style(table_rows[row_idx][col_idx])[1]
+                or style_body_text
+            ) != record.fill
+        )
+    })
+    if missing_colors:
+        missing.append("color " + "/".join(f"#{color}" for color in missing_colors))
+    if not missing:
+        return []
+    return [
+        "Native PPTX table first-column text style not projected from fallback: "
+        + ", ".join(missing)
+    ]
+
+
+def _native_table_inset_graphic_warnings(
+    table_rows: list[list[Any]],
+    header_rows: int,
+    column_edges: list[float],
+    row_edges: list[float],
+    shape_records: list[Any],
+    text_cells: list[tuple[Any, int, int]],
+) -> list[str]:
+    for record in shape_records:
+        if record.tag != "rect" or record.fill in {None, "FFFFFF"}:
+            continue
+        x1, y1, x2, y2 = record.bounds
+        for row_idx in range(header_rows, len(row_edges) - 1):
+            for col_idx in range(len(column_edges) - 1):
+                cell_x1, cell_x2 = column_edges[col_idx], column_edges[col_idx + 1]
+                cell_y1, cell_y2 = row_edges[row_idx], row_edges[row_idx + 1]
+                cell_width = cell_x2 - cell_x1
+                cell_height = cell_y2 - cell_y1
+                if not (
+                    x1 > cell_x1 + max(1, cell_width * 0.02)
+                    and x2 < cell_x2 - max(1, cell_width * 0.02)
+                    and y1 > cell_y1 + max(1, cell_height * 0.02)
+                    and y2 < cell_y2 - max(1, cell_height * 0.02)
+                    and x2 - x1 <= cell_width * 0.9
+                    and y2 - y1 <= cell_height * 0.9
+                ):
+                    continue
+                has_text = any(
+                    text_row == row_idx
+                    and text_col == col_idx
+                    and text_record.x is not None
+                    and text_record.y is not None
+                    and x1 <= text_record.x <= x2
+                    and y1 <= text_record.y <= y2
+                    for text_record, text_row, text_col in text_cells
+                )
+                if has_text:
+                    return [
+                        "Native PPTX table contains an inset graphical cell with text; "
+                        "the a:tbl schema cannot express it and the object should be Native-ready=no"
+                    ]
+    return []
+
+
+def _native_table_border_topology_warnings(
+    payload: dict[str, Any],
+    table_rows: list[list[Any]],
+    column_edges: list[float],
+    row_edges: list[float],
+    shape_records: list[Any],
+) -> list[str]:
+    style = payload.get("style") if isinstance(payload.get("style"), dict) else {}
+    cells = [_cell_payload(cell) for row in table_rows for cell in row]
+    per_side = any(
+        isinstance(cell.get("borders"), dict)
+        and any(
+            side in cell["borders"]
+            for side in ("left", "right", "top", "bottom")
+        )
+        for cell in cells
+    )
+    style_width = _maybe_number(style.get("border_width"))
+    style_uniform = style.get("border_color") is not None or (
+        style_width is not None and style_width > 0
+    )
+    cell_uniform = any(
+        cell.get("border_color") is not None
+        or (_maybe_number(cell.get("border_width")) or 0) > 0
+        for cell in cells
+    )
+    if per_side or not (style_uniform or cell_uniform):
+        return []
+
+    covered: set[tuple[str, int, int]] = set()
+    row_count = len(row_edges) - 1
+    col_count = len(column_edges) - 1
+    for record in shape_records:
+        if record.tag != "line" or record.stroke is None:
+            continue
+        x1, y1, x2, y2 = record.bounds
+        if abs(y2 - y1) <= 1:
+            boundary = next(
+                (idx for idx, edge in enumerate(row_edges) if abs(edge - y1) <= 2),
+                None,
+            )
+            if boundary is None:
+                continue
+            for col_idx in range(col_count):
+                if x1 <= column_edges[col_idx] + 2 and x2 >= column_edges[col_idx + 1] - 2:
+                    covered.add(("h", boundary, col_idx))
+        elif abs(x2 - x1) <= 1:
+            boundary = next(
+                (idx for idx, edge in enumerate(column_edges) if abs(edge - x1) <= 2),
+                None,
+            )
+            if boundary is None:
+                continue
+            for row_idx in range(row_count):
+                if y1 <= row_edges[row_idx] + 2 and y2 >= row_edges[row_idx + 1] - 2:
+                    covered.add(("v", boundary, row_idx))
+    full_count = (row_count + 1) * col_count + (col_count + 1) * row_count
+    if not covered or len(covered) >= full_count:
+        return []
+    return [
+        "Native PPTX table border topology not projected: fallback rules cover only "
+        f"{len(covered)} of {full_count} cardinal cell edges, but payload has only a uniform border"
+    ]
+
+
+def _native_table_warnings(
+    elem: ET.Element,
+    payload: dict[str, Any],
+    table_rows: list[list[Any]],
+) -> list[str]:
+    fallback_texts = _visible_fallback_texts(elem)
+    warnings: list[str] = []
+    if fallback_texts:
+        metadata_counts = _native_table_metadata_texts(table_rows)
+        missing: list[str] = []
+        seen_counts: dict[str, int] = {}
+        for text in fallback_texts:
+            seen_counts[text] = seen_counts.get(text, 0) + 1
+            if seen_counts[text] > metadata_counts.get(text, 0):
+                missing.append(text)
+        if missing:
+            sample = ", ".join(repr(text) for text in missing[:5])
+            suffix = "" if len(missing) <= 5 else f", and {len(missing) - 5} more"
+            warnings.append(
+                "Native PPTX table fallback text is missing from metadata columns/rows "
+                f"and will disappear with --native-charts-and-tables: {sample}{suffix}"
+            )
+
+    grid = _table_fallback_grid(elem, payload, table_rows)
+    if grid is None:
+        return warnings
+    column_edges, row_edges, shape_records, text_records = grid
+    text_cells = _table_text_cells(
+        text_records,
+        table_rows,
+        column_edges,
+        row_edges,
+    )
+    fallback_heights = [
+        row_edges[idx + 1] - row_edges[idx]
+        for idx in range(len(row_edges) - 1)
+    ]
+    non_uniform = (
+        max(fallback_heights) - min(fallback_heights)
+        > max(1.0, max(fallback_heights) * 0.02)
+    )
+    raw_heights = payload.get("row_heights")
+    payload_uniform = not isinstance(raw_heights, list) or not raw_heights or (
+        max(_number(value, "table row height") for value in raw_heights)
+        - min(_number(value, "table row height") for value in raw_heights)
+        <= 1e-6
+    )
+    if non_uniform and payload_uniform:
+        warnings.append(
+            "Native PPTX table fallback row heights are non-uniform, but payload "
+            "row_heights is missing or uniform"
+        )
+
+    header_rows = _table_header_rows(payload, len(table_rows))
+    warnings.extend(
+        _native_table_header_warnings(
+            payload,
+            table_rows,
+            column_edges,
+            row_edges,
+            shape_records,
+            text_cells,
+        )
+    )
+    warnings.extend(
+        _native_table_fill_warnings(
+            table_rows,
+            header_rows,
+            column_edges,
+            row_edges,
+            shape_records,
+        )
+    )
+    table_style = payload.get("style") if isinstance(payload.get("style"), dict) else {}
+    warnings.extend(
+        _native_table_first_column_warnings(
+            table_rows,
+            header_rows,
+            text_cells,
+            style_body_text=_hex_or_none(table_style.get("body_text")),
+        )
+    )
+    warnings.extend(
+        _native_table_body_text_warnings(
+            payload,
+            table_rows,
+            header_rows,
+            text_cells,
+        )
+    )
+    warnings.extend(
+        _native_table_border_topology_warnings(
+            payload,
+            table_rows,
+            column_edges,
+            row_edges,
+            shape_records,
+        )
+    )
+    warnings.extend(
+        _native_table_inset_graphic_warnings(
+            table_rows,
+            header_rows,
+            column_edges,
+            row_edges,
+            shape_records,
+            text_cells,
+        )
+    )
+    return warnings
+
+
+def _weighted_lengths(
+    total: int,
+    count: int,
+    weights: list[Any] | None,
+    *,
+    field_name: str,
+) -> list[int]:
+    if total < count:
+        raise RuntimeError(
+            f"Native PPTX table {field_name} cannot fit {count} positive grid lengths"
+        )
+    if weights is None:
+        base, remainder = divmod(total, count)
+        return [base + (1 if idx < remainder else 0) for idx in range(count)]
+
+    numeric = _table_weights(weights, field_name)
+    largest = max(numeric)
+    normalized = [weight / largest for weight in numeric]
+    normalized_total = sum(normalized)
+    distributable = total - count
+    quotas = [distributable * weight / normalized_total for weight in normalized]
+    extras = [int(quota) for quota in quotas]
+    remainder = distributable - sum(extras)
+    if remainder < 0 or remainder > count:
+        raise RuntimeError(f"Native PPTX table {field_name} allocation overflowed")
+    order = sorted(
+        range(count),
+        key=lambda idx: (quotas[idx] - extras[idx], normalized[idx], -idx),
+        reverse=True,
+    )
+    for idx in order[:remainder]:
+        extras[idx] += 1
+    return [extra + 1 for extra in extras]
+
+
+def _table_weights(weights: list[Any], field_name: str) -> list[float]:
+    numeric = [
+        _number(weight, f"{field_name}[{idx}]")
+        for idx, weight in enumerate(weights, start=1)
+    ]
+    if any(weight < 0 for weight in numeric):
+        raise RuntimeError(f"Native PPTX table {field_name} values must be non-negative")
+    if max(numeric, default=0.0) <= 0:
+        raise RuntimeError(
+            f"Native PPTX table {field_name} values must sum to a positive number"
+        )
+    return numeric
+
+
+def _table_padding_value(
+    cell_data: dict[str, Any],
+    style: dict[str, Any],
+    side: str,
+) -> int | None:
+    direct_key = f"padding_{side}"
+
+    def from_source(source: dict[str, Any]) -> Any:
+        if direct_key in source:
+            return source[direct_key]
+        padding = source.get("padding")
+        if isinstance(padding, dict):
+            if side in padding:
+                return padding[side]
+        elif padding is not None:
+            return padding
+        return None
+
+    value = from_source(cell_data)
+    if value is None:
+        value = from_source(style)
+    if value is None:
+        return None
+    pixels = max(_number(value, f"table {side} padding"), 0.0)
+    return _powerpoint_emu(pixels, f"table {side} padding")
+
+
+_TEXT_LINE_FACTOR = 1.4  # PowerPoint line box per em, covering CJK faces' tall metrics
+
+
+def _table_text_height_emu(paragraphs_xml: str) -> int:
+    """Estimate the vertical space the cell's paragraphs need in PowerPoint."""
+    sizes = [int(value) for value in re.findall(r' sz="(\d+)"', paragraphs_xml)]
+    paragraph_count = max(1, paragraphs_xml.count("<a:p>"))
+    if not sizes:
+        return 0
+    line_px = max(sizes) / 100 / 0.75 * _TEXT_LINE_FACTOR
+    return px_to_emu(line_px * paragraph_count)
+
+
+def _table_padding_attrs(
+    cell_data: dict[str, Any],
+    style: dict[str, Any],
+    *,
+    row_height: int | None = None,
+    paragraphs_xml: str | None = None,
+) -> str:
+    values = {
+        side: _table_padding_value(cell_data, style, side)
+        for side in ("left", "right", "top", "bottom")
+    }
+    # An authored row height is geometry; vertical padding is style. When the
+    # text line plus both margins would exceed the row, PowerPoint grows the
+    # row instead, so shrink the margins to what the row can hold.
+    if row_height is not None and paragraphs_xml is not None:
+        top = values["top"] or 0
+        bottom = values["bottom"] or 0
+        room = row_height - _table_text_height_emu(paragraphs_xml)
+        if top + bottom > room > 0:
+            scale = room / (top + bottom)
+            values["top"] = int(top * scale) if values["top"] is not None else None
+            values["bottom"] = int(bottom * scale) if values["bottom"] is not None else None
+        elif top + bottom > room:
+            values["top"] = 0 if values["top"] is not None else None
+            values["bottom"] = 0 if values["bottom"] is not None else None
+    attrs = []
+    for attr, side in (
+        ("marL", "left"),
+        ("marR", "right"),
+        ("marT", "top"),
+        ("marB", "bottom"),
+    ):
+        value = values[side]
+        if value is not None:
+            attrs.append(f'{attr}="{value}"')
+    return (" " + " ".join(attrs)) if attrs else ""
+
+
+def _table_anchor(cell_data: dict[str, Any], style: dict[str, Any]) -> str:
+    raw = _first_present(
+        cell_data.get("valign"),
+        style.get("valign"),
+        "middle",
+    )
+    values = {
+        "bottom": "b",
+        "middle": "ctr",
+        "top": "t",
+    }
+    anchor = values.get(raw) if isinstance(raw, str) else None
+    if not anchor:
+        raise RuntimeError("Native PPTX table valign must be one of: top, middle, bottom")
+    return anchor
+
+
+def _table_cell_extra_attrs(cell_data: dict[str, Any]) -> str:
+    attrs: list[str] = []
+    if "anchor_center" in cell_data:
+        anchor_center = _table_bool(
+            cell_data["anchor_center"],
+            "cell anchor_center",
+            default=False,
+        )
+        attrs.append(f'anchorCtr="{_bool_attr(anchor_center)}"')
+    horizontal_overflow = cell_data.get("horizontal_overflow")
+    if horizontal_overflow is not None:
+        if horizontal_overflow not in {"clip", "overflow"}:
+            raise RuntimeError(
+                "Native PPTX table horizontal_overflow must be clip or overflow"
+            )
+        attrs.append(f'horzOverflow="{horizontal_overflow}"')
+    return (" " + " ".join(attrs)) if attrs else ""
+
+
+def _table_fill_opacity(cell_data: dict[str, Any]) -> float | None:
+    raw = cell_data.get("fill_opacity")
+    if raw is None:
+        return None
+    if cell_data.get("fill") is None:
+        raise RuntimeError(
+            "Native PPTX table fill_opacity requires an explicit cell fill"
+        )
+    opacity = _number(raw, "table cell fill_opacity")
+    if not 0 <= opacity <= 1:
+        raise RuntimeError(
+            "Native PPTX table fill_opacity must be between zero and one"
+        )
+    return opacity
+
+
+def _table_border_width(cell_data: dict[str, Any], style: dict[str, Any]) -> float:
+    width_raw = cell_data.get("border_width", style.get("border_width"))
+    color_raw = cell_data.get("border_color", style.get("border_color"))
+    if width_raw is None and color_raw is None:
+        return 0.0
+    return _number(1 if width_raw is None else width_raw, "table border_width")
+
+
+_TABLE_BORDER_SIDES = (
+    "left",
+    "right",
+    "top",
+    "bottom",
+    "diagonal_down",
+    "diagonal_up",
+)
+_TABLE_BORDER_TAGS = {
+    "left": "lnL",
+    "right": "lnR",
+    "top": "lnT",
+    "bottom": "lnB",
+    "diagonal_down": "lnTlToBr",
+    "diagonal_up": "lnBlToTr",
+}
+
+
+def _strict_table_border_color(value: Any, side: str) -> str:
+    raw = value if isinstance(value, str) else ""
+    if len(raw) != 7 or not raw.startswith("#"):
+        raise RuntimeError(
+            f"Native PPTX table {side} border color must be #RRGGBB"
+        )
+    try:
+        int(raw[1:], 16)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Native PPTX table {side} border color must be #RRGGBB"
+        ) from exc
+    return raw[1:].upper()
+
+
+def _table_border_override(value: Any, side: str) -> _TableBorderSpec:
+    if not isinstance(value, dict):
+        raise RuntimeError(
+            f"Native PPTX table {side} border must be an object"
+        )
+    border_style = value.get("style")
+    if border_style == "none":
+        if set(value) != {"style"}:
+            raise RuntimeError(
+                f"Native PPTX table {side} border style none accepts no other fields"
+            )
+        return _TableBorderSpec("none")
+    if border_style != "solid":
+        raise RuntimeError(
+            f"Native PPTX table {side} border style must be solid or none"
+        )
+    if set(value) != {"style", "color", "width"}:
+        raise RuntimeError(
+            f"Native PPTX table {side} solid border requires style/color/width only"
+        )
+    width = _number(value.get("width"), f"table {side} border width")
+    if width <= 0:
+        raise RuntimeError(
+            f"Native PPTX table {side} solid border width must be positive"
+        )
+    _powerpoint_line_width_emu(width, f"table {side} border width")
+    return _TableBorderSpec(
+        "solid",
+        color=_strict_table_border_color(value.get("color"), side),
+        width=width,
+    )
+
+
+def _table_border_specs(
+    cell_data: dict[str, Any],
+    style: dict[str, Any],
+) -> dict[str, _TableBorderSpec | None]:
+    raw_borders = cell_data.get("borders")
+    if raw_borders is None:
+        border_overrides: dict[str, Any] = {}
+    elif not isinstance(raw_borders, dict):
+        raise RuntimeError("Native PPTX table cell borders must be an object")
+    else:
+        unknown = sorted(set(raw_borders) - set(_TABLE_BORDER_SIDES))
+        if unknown:
+            raise RuntimeError(
+                "Native PPTX table cell borders use unsupported side(s): "
+                + ", ".join(unknown)
+            )
+        border_overrides = raw_borders
+
+    legacy_width = _table_border_width(cell_data, style)
+    legacy_spec = (
+        _TableBorderSpec(
+            "solid",
+            color=_clean_hex(
+                cell_data.get("border_color", style.get("border_color")),
+                "#D9DEE7",
+            ),
+            width=legacy_width,
+        )
+        if legacy_width > 0
+        else None
+    )
+    return {
+        side: (
+            _table_border_override(border_overrides[side], side)
+            if side in border_overrides
+            else legacy_spec if side in {"left", "right", "top", "bottom"}
+            else None
+        )
+        for side in _TABLE_BORDER_SIDES
+    }
+
+
+def _table_border_xml(
+    cell_data: dict[str, Any],
+    style: dict[str, Any],
+    theme_color_spec: ThemeColorSpec | None,
+) -> str:
+    border_xml: list[str] = []
+    for side, border in _table_border_specs(cell_data, style).items():
+        if border is None:
+            continue
+        tag = _TABLE_BORDER_TAGS[side]
+        if border.style == "none":
+            border_xml.append(f'<a:{tag}><a:noFill/></a:{tag}>')
+            continue
+        assert border.color is not None and border.width is not None
+        line_width = _powerpoint_line_width_emu(
+            border.width, f"table {side} border width",
+        )
+        border_xml.append(
+            f'<a:{tag} w="{line_width}">'
+            f'<a:solidFill>{color_node_xml(border.color, theme_color_spec, "stroke")}'
+            '</a:solidFill>'
+            '<a:prstDash val="solid"/>'
+            f'</a:{tag}>'
+        )
+    return "".join(border_xml)
+
+
+def _table_fill_xml(
+    fill: str | None,
+    opacity: float | None,
+    theme_color_spec: ThemeColorSpec | None,
+) -> str:
+    if fill is None:
+        return ""
+    alpha_xml = (
+        f'<a:alpha val="{round(opacity * 100000)}"/>'
+        if opacity is not None and opacity < 1
+        else ""
+    )
+    return (
+        '<a:solidFill>'
+        f'{color_node_xml(fill, theme_color_spec, "fill", alpha_xml)}'
+        '</a:solidFill>'
+    )
+
+
+def _table_merge_attrs(
+    region: _TableMergeRegion | None,
+    row_idx: int,
+    col_idx: int,
+) -> str:
+    if region is None:
+        return ""
+    attrs: list[str] = []
+    if row_idx == region.row and region.row_span > 1:
+        attrs.append(f'rowSpan="{region.row_span}"')
+    if col_idx == region.col and region.col_span > 1:
+        attrs.append(f'gridSpan="{region.col_span}"')
+    if col_idx > region.col:
+        attrs.append('hMerge="1"')
+    if row_idx > region.row:
+        attrs.append('vMerge="1"')
+    return (" " + " ".join(attrs)) if attrs else ""
+
+
+def _build_native_table(elem: ET.Element, ctx: ConvertContext, payload: dict[str, Any]) -> ShapeResult:
+    payload, table_rows, col_count, merge_layout = _validate_table_payload(payload)
+    header_rows = _table_header_rows(payload, len(table_rows))
+    preserve_source_style = native_import_source(elem) == "pptx"
+
+    style = payload.get("style") if isinstance(payload.get("style"), dict) else {}
+    # Fills are only what the payload says: a cell that resolves to no fill
+    # exports as noFill so the slide background shows through, matching a
+    # fallback that draws no cell rect. Text colour keeps a legible default
+    # because an invisible run is worse than a wrong one.
+    header_fill = _hex_or_none(style.get("header_fill"))
+    body_fill = _hex_or_none(style.get("body_fill"))
+    band_fill = _hex_or_none(style.get("band_fill"))
+    body_text = _clean_hex(style.get("body_text"), "#1F2937")
+    header_text = _clean_hex(
+        style.get("header_text"),
+        "#FFFFFF" if header_fill is not None else body_text,
+    )
+    font_face = str(style["font_family"]) if style.get("font_family") else None
+    body_font_size = _font_size_hpt(style.get("font_size"), 18)
+    band_rows_enabled = _table_bool(
+        style.get("band_row"),
+        "style.band_row",
+        default=True,
+    )
+    header_font_size = _font_size_hpt(
+        style.get("header_font_size", style.get("font_size")),
+        18,
+    )
+
+    off_x, off_y, ext_cx, ext_cy = _bounds(elem, payload, ctx)
+
+    column_widths = payload.get("column_widths")
+    grid_widths = _weighted_lengths(
+        ext_cx,
+        col_count,
+        column_widths if isinstance(column_widths, list) else None,
+        field_name="column_widths",
+    )
+    row_heights_raw = payload.get("row_heights")
+    row_heights = _weighted_lengths(
+        ext_cy,
+        len(table_rows),
+        row_heights_raw if isinstance(row_heights_raw, list) else None,
+        field_name="row_heights",
+    )
+
+    grid_xml = "".join(f'<a:gridCol w="{width}"/>' for width in grid_widths)
+    rows_xml: list[str] = []
+    for row_idx, row in enumerate(table_rows):
+        is_header = row_idx < header_rows
+        cells_xml: list[str] = []
+        for col_idx, cell in enumerate(row):
+            cell_data = _cell_payload(cell)
+            merge_region = merge_layout.get((row_idx, col_idx))
+            merge_attrs = _table_merge_attrs(merge_region, row_idx, col_idx)
+            if merge_region is not None and (
+                row_idx != merge_region.row or col_idx != merge_region.col
+            ):
+                continuation_attrs = ""
+                continuation_border_xml = ""
+                continuation_fill_xml = ""
+                if cell_data.get("merge_continuation") is True:
+                    continuation_attrs = (
+                        _table_padding_attrs(cell_data, style)
+                        + _table_cell_extra_attrs(cell_data)
+                    )
+                    continuation_border_xml = _table_border_xml(
+                        cell_data,
+                        style,
+                        ctx.theme_color_spec,
+                    )
+                    continuation_fill = (
+                        _clean_hex(cell_data.get("fill"), "#FFFFFF")
+                        if cell_data.get("fill") is not None
+                        else None
+                    )
+                    continuation_fill_xml = _table_fill_xml(
+                        continuation_fill,
+                        _table_fill_opacity(cell_data),
+                        ctx.theme_color_spec,
+                    )
+                cells_xml.append(
+                    f'<a:tc{merge_attrs}>'
+                    '<a:txBody><a:bodyPr/><a:lstStyle/><a:p/></a:txBody>'
+                    f'<a:tcPr{continuation_attrs}>'
+                    f'{continuation_border_xml}{continuation_fill_xml}'
+                    '</a:tcPr>'
+                    '</a:tc>'
+                )
+                continue
+
+            if preserve_source_style:
+                fill = (
+                    _clean_hex(cell_data.get("fill"), "#FFFFFF")
+                    if cell_data.get("fill") is not None else None
+                )
+                color = (
+                    _clean_hex(cell_data.get("color"), "#000000")
+                    if cell_data.get("color") is not None else None
+                )
+                align = str(cell_data.get("align") or "l")
+            else:
+                fill = _hex_or_none(cell_data.get("fill"))
+                if fill is None:
+                    banded = (
+                        band_rows_enabled
+                        and band_fill is not None
+                        and row_idx % 2 == 0
+                        and row_idx
+                    )
+                    fill = header_fill if is_header else (
+                        band_fill if banded else body_fill
+                    )
+                color = _clean_hex(
+                    cell_data.get("color"),
+                    header_text if is_header else body_text,
+                )
+                align = str(cell_data.get("align") or ("ctr" if is_header else "l"))
+            if align not in {"l", "ctr", "r", "just"}:
+                align = "l"
+            paragraphs = _table_cell_paragraphs(cell_data)
+            if preserve_source_style:
+                bold = (
+                    _table_bool(cell_data["bold"], "cell bold", default=False)
+                    if "bold" in cell_data else None
+                )
+                cell_font_size = (
+                    _font_size_hpt(cell_data.get("font_size"), 18)
+                    if "font_size" in cell_data else None
+                )
+            else:
+                bold = _table_bool(cell_data.get("bold"), "cell bold", default=is_header)
+                cell_font_size = (
+                    _font_size_hpt(cell_data.get("font_size"), 18)
+                    if "font_size" in cell_data
+                    else body_font_size
+                )
+                if is_header and "font_size" not in cell_data:
+                    cell_font_size = header_font_size
+            language = (
+                str(cell_data.get("lang") or style.get("lang") or "").strip()
+                or None
+            )
+            if paragraphs is None:
+                text = (
+                    "" if cell_data.get("text") is None
+                    else str(cell_data.get("text"))
+                )
+                default_language = language or ctx.primary_language
+                paragraph_props = _table_paragraph_properties(
+                    align,
+                    emit_align=align != "l",
+                    text=text,
+                    language=default_language,
+                )
+                text_run_xml = _table_text_run(
+                    text,
+                    color=color,
+                    bold=bold,
+                    font_size=cell_font_size,
+                    font_face=font_face,
+                    language=language,
+                    default_language=ctx.primary_language,
+                    theme_color_spec=ctx.theme_color_spec,
+                )
+                paragraphs_xml = (
+                    f"<a:p>{paragraph_props}{text_run_xml}</a:p>"
+                )
+            else:
+                paragraph_parts: list[str] = []
+                for paragraph in paragraphs:
+                    paragraph_align = paragraph.align or align
+                    paragraph_text = (
+                        paragraph.text
+                        if paragraph.runs is None
+                        else ''.join(run.text for run in paragraph.runs)
+                    )
+                    paragraph_props = _table_paragraph_properties(
+                        paragraph_align,
+                        emit_align=(
+                            paragraph.align is not None
+                            or paragraph_align != "l"
+                        ),
+                        text=paragraph_text,
+                        language=language or ctx.primary_language,
+                        line_spacing_percent=paragraph.line_spacing_percent,
+                    )
+                    if paragraph.runs is None:
+                        text_run_xml = _table_text_run(
+                            paragraph.text,
+                            color=color,
+                            bold=bold,
+                            font_size=cell_font_size,
+                            font_face=font_face,
+                            language=language,
+                            default_language=ctx.primary_language,
+                            theme_color_spec=ctx.theme_color_spec,
+                        )
+                    else:
+                        text_run_xml = "".join(
+                            _table_text_run(
+                                run.text,
+                                color=run.color or color,
+                                bold=run.bold if run.bold is not None else bold,
+                                font_size=(
+                                    run.font_size
+                                    if run.font_size is not None
+                                    else cell_font_size
+                                ),
+                                font_face=run.font_family or font_face,
+                                language=run.lang or language,
+                                default_language=ctx.primary_language,
+                                theme_color_spec=ctx.theme_color_spec,
+                                italic=run.italic,
+                                underline=run.underline,
+                                strike=run.strike,
+                                alt_language=run.alt_lang,
+                                exact_font_face=run.font_family is not None,
+                                baseline=run.baseline,
+                                outline=run.outline,
+                            )
+                            for run in paragraph.runs
+                        )
+                    paragraph_parts.append(
+                        f"<a:p>{paragraph_props}{text_run_xml}</a:p>"
+                    )
+                paragraphs_xml = "".join(paragraph_parts)
+            anchor_keys = {"valign"}
+            anchor_attr = ""
+            if not preserve_source_style or anchor_keys.intersection(cell_data) or anchor_keys.intersection(style):
+                anchor_attr = f' anchor="{_table_anchor(cell_data, style)}"'
+            tc_pr_attrs = (
+                f'{anchor_attr}'
+                f'{_table_padding_attrs(cell_data, style, row_height=row_heights[row_idx], paragraphs_xml=paragraphs_xml)}'
+                f'{_table_cell_extra_attrs(cell_data)}'
+            )
+            border_xml = _table_border_xml(
+                cell_data,
+                style,
+                ctx.theme_color_spec,
+            )
+            if fill is None and not preserve_source_style:
+                fill_xml = "<a:noFill/>"
+            else:
+                fill_xml = _table_fill_xml(
+                    fill,
+                    _table_fill_opacity(cell_data),
+                    ctx.theme_color_spec,
+                )
+            cells_xml.append(
+                f"<a:tc{merge_attrs}>"
+                "<a:txBody><a:bodyPr/><a:lstStyle/>"
+                f"{paragraphs_xml}"
+                "</a:txBody>"
+                f'<a:tcPr{tc_pr_attrs}>{border_xml}{fill_xml}</a:tcPr>'
+                "</a:tc>"
+            )
+        rows_xml.append(f'<a:tr h="{row_heights[row_idx]}">{"".join(cells_xml)}</a:tr>')
+
+    shape_id = ctx.claim_shape_id(
+        elem.get("data-pptx-shape-id"),
+        elem.get("data-pptx-shape-scope"),
+    )
+    first_row = _bool_attr(header_rows > 0)
+    band_row = _bool_attr(band_rows_enabled)
+    table_style_id = style.get("table_style_id")
+    if table_style_id is None and not preserve_source_style:
+        table_style_id = "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"
+    table_style_xml = (
+        f'<a:tableStyleId>{_xml_escape(str(table_style_id))}</a:tableStyleId>'
+        if table_style_id else ""
+    )
+    name = _xml_escape(str(payload.get("name") or elem.get("id") or f"Native Table {shape_id}"))
+    xml = f'''<p:graphicFrame>
+<p:nvGraphicFramePr>
+<p:cNvPr id="{shape_id}" name="{name}"/>
+<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>
+<p:nvPr/>
+</p:nvGraphicFramePr>
+<p:xfrm><a:off x="{off_x}" y="{off_y}"/><a:ext cx="{ext_cx}" cy="{ext_cy}"/></p:xfrm>
+<a:graphic>
+<a:graphicData uri="{TABLE_URI}">
+<a:tbl>
+<a:tblPr firstRow="{first_row}" bandRow="{band_row}">
+{table_style_xml}
+</a:tblPr>
+<a:tblGrid>{grid_xml}</a:tblGrid>
+{''.join(rows_xml)}
+</a:tbl>
+</a:graphicData>
+</a:graphic>
+</p:graphicFrame>'''
+    return ShapeResult(xml=xml, bounds_emu=(off_x, off_y, off_x + ext_cx, off_y + ext_cy))

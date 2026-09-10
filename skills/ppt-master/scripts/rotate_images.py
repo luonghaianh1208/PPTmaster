@@ -6,18 +6,31 @@ Provides visual image orientation filtering, fix code generation,
 and batch image rotation functionality.
 
 Usage:
+    python3 scripts/rotate_images.py sheet <images_directory>
     python3 scripts/rotate_images.py gen <images_directory>
     python3 scripts/rotate_images.py fix <fixes.json>
+    python3 scripts/rotate_images.py auto <images_directory>
 """
 
 
-import os
-import sys
+import argparse
 import json
+import os
 import re
 from pathlib import Path
 from typing import List, Dict, Union, Any, Optional
-from PIL import Image, ExifTags
+
+from console_encoding import configure_utf8_stdio
+
+configure_utf8_stdio()
+
+from PIL import (
+    ExifTags,
+    Image,
+    ImageDraw,
+    ImageFont,
+    ImageOps,
+)
 
 
 ORIENTATION_TAG_ID = 274  # 0x0112
@@ -96,26 +109,180 @@ class ImageRotator:
             Number of images fixed
         """
         target_path = Path(target_dir)
-        if not target_path.exists():
-            return 0
+        if not target_path.is_dir():
+            raise FileNotFoundError(f"Directory not found: {target_path}")
 
         print(f"[AUTO] Checking EXIF orientation information...")
         fixed_count = 0
+        failed_count = 0
         valid_exts = {'.jpg', '.jpeg', '.webp'} # PNG typically does not carry rotation EXIF
 
         # Pre-collect file list to avoid issues caused by modifying during iteration
         files = [f for f in target_path.iterdir() if f.is_file() and f.suffix.lower() in valid_exts]
 
         for f in files:
-            if self._fix_single_exif(f):
-                fixed_count += 1
+            try:
+                if self._fix_single_exif(f):
+                    fixed_count += 1
+            except RuntimeError as e:
+                print(f"  [WARN] {e}")
+                failed_count += 1
 
         if fixed_count > 0:
             print(f"[OK] Auto-fixed EXIF orientation for {fixed_count} image(s)")
-        else:
+        elif not failed_count:
             print(f"[INFO] No images requiring EXIF correction found")
 
+        if failed_count:
+            raise RuntimeError(f"EXIF correction failed for {failed_count} of {len(files)} image(s)")
         return fixed_count
+
+    def generate_contact_sheet(
+        self,
+        target_dir: Union[str, Path],
+        output_path: Optional[Union[str, Path]] = None,
+    ) -> str:
+        """Generate a labeled, read-only contact sheet for visual review."""
+        target_path = Path(target_dir).resolve()
+        if not target_path.is_dir():
+            raise FileNotFoundError(f"Directory not found: {target_path}")
+
+        valid_exts = {
+            '.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff', '.webp'
+        }
+        files = sorted(
+            (
+                path for path in target_path.iterdir()
+                if path.is_file() and path.suffix.lower() in valid_exts
+            ),
+            key=lambda path: self._natural_sort_key(path.name),
+        )
+        if not files:
+            raise ValueError("No image files found")
+
+        columns = 6
+        thumbnail_width = 180
+        thumbnail_height = 180
+        label_height = 34
+        padding = 12
+        cell_width = thumbnail_width + padding * 2
+        cell_height = thumbnail_height + label_height + padding * 2
+        rows = (len(files) + columns - 1) // columns
+
+        sheet = Image.new(
+            'RGB',
+            (columns * cell_width, rows * cell_height),
+            'white',
+        )
+        draw = ImageDraw.Draw(sheet)
+        try:
+            font = ImageFont.truetype('DejaVuSans.ttf', 13)
+        except OSError:
+            font = ImageFont.load_default()
+        resampling = getattr(Image, 'Resampling', Image)
+
+        for index, file_path in enumerate(files):
+            column = index % columns
+            row = index // columns
+            cell_x = column * cell_width
+            cell_y = row * cell_height
+            draw.rectangle(
+                (
+                    cell_x,
+                    cell_y,
+                    cell_x + cell_width - 1,
+                    cell_y + cell_height - 1,
+                ),
+                outline='#D0D7DE',
+            )
+
+            details = 'unreadable'
+            try:
+                with Image.open(file_path) as img:
+                    if getattr(img, 'is_animated', False):
+                        img.seek(0)
+                    prepared = ImageOps.exif_transpose(img)
+                    try:
+                        source_width, source_height = prepared.size
+                        preview = prepared.convert('RGBA')
+                    finally:
+                        if prepared is not img:
+                            prepared.close()
+
+                preview.thumbnail(
+                    (thumbnail_width, thumbnail_height),
+                    resampling.LANCZOS,
+                )
+                preview_x = cell_x + padding + (thumbnail_width - preview.width) // 2
+                preview_y = cell_y + padding + (thumbnail_height - preview.height) // 2
+                sheet.paste(preview, (preview_x, preview_y), preview)
+                preview.close()
+                details = f'{source_width}x{source_height}'
+            except (
+                EOFError,
+                OSError,
+                SyntaxError,
+                ValueError,
+                Image.DecompressionBombError,
+            ):
+                draw.line(
+                    (
+                        cell_x + padding,
+                        cell_y + padding,
+                        cell_x + cell_width - padding,
+                        cell_y + thumbnail_height,
+                    ),
+                    fill='#CF222E',
+                    width=2,
+                )
+                draw.line(
+                    (
+                        cell_x + cell_width - padding,
+                        cell_y + padding,
+                        cell_x + padding,
+                        cell_y + thumbnail_height,
+                    ),
+                    fill='#CF222E',
+                    width=2,
+                )
+
+            label = file_path.name
+            if len(label) > 30:
+                label = f'{label[:13]}...{label[-14:]}'
+            label_y = cell_y + padding + thumbnail_height + 2
+            for line_index, text in enumerate((label, details)):
+                text_bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = text_bbox[2] - text_bbox[0]
+                draw.text(
+                    (
+                        cell_x + (cell_width - text_width) / 2,
+                        label_y + line_index * 15,
+                    ),
+                    text,
+                    fill='#24292F',
+                    font=font,
+                )
+
+        if output_path is None:
+            resolved_output = (
+                target_path.parent
+                / 'analysis'
+                / f'{target_path.name}_orientation_contact_sheet.jpg'
+            )
+        else:
+            resolved_output = Path(output_path).expanduser().resolve()
+
+        suffix = resolved_output.suffix.lower()
+        if suffix not in {'.jpg', '.jpeg', '.png'}:
+            sheet.close()
+            raise ValueError("Contact sheet output must use .jpg, .jpeg, or .png")
+        resolved_output.parent.mkdir(parents=True, exist_ok=True)
+        if suffix == '.png':
+            sheet.save(resolved_output, format='PNG', optimize=True)
+        else:
+            sheet.save(resolved_output, format='JPEG', quality=90, optimize=True)
+        sheet.close()
+        return str(resolved_output)
 
     def generate_html_tool(self, target_dir: str, output_filename: str = "image_orientation_tool.html") -> str:
         """Generate the image filtering HTML tool
@@ -196,19 +363,43 @@ class ImageRotator:
                     raise ValueError("Invalid input: not a file path nor a valid JSON string")
         elif isinstance(json_source, list):
             tasks = json_source
+        else:
+            raise ValueError("Rotation tasks must be a JSON array")
+
+        if not isinstance(tasks, list):
+            raise ValueError("Rotation tasks must be a JSON array")
+
+        gif_paths = []
+        for task in tasks:
+            if not isinstance(task, dict) or not isinstance(task.get('path'), str):
+                continue
+            task_path = self._normalize_task_path(task.get('path', ''))
+            if Path(task_path).suffix.lower() == '.gif':
+                gif_paths.append(task_path)
+        if gif_paths:
+            raise ValueError(
+                "GIF rotation is unsupported; preserve GIF files unchanged: "
+                + ", ".join(gif_paths)
+            )
 
         print(f"[WORK] Starting {len(tasks)} manual rotation task(s)...")
         print("=" * 60)
 
         cwd = Path(os.getcwd())
         repo_root = self._repo_root()
-        stats = {'total': len(tasks), 'success': 0}
+        stats = {'total': len(tasks), 'success': 0, 'failed': 0}
 
         for task in tasks:
+            if not isinstance(task, dict) or not isinstance(task.get('path'), str):
+                print(f"[ERROR] Invalid rotation task: {task!r}")
+                stats['failed'] += 1
+                continue
             rel_path = self._normalize_task_path(task.get('path', ''))
             rotation = task.get('rotation')
 
             if not rel_path or rotation is None:
+                print(f"[ERROR] Rotation task requires path and rotation: {task!r}")
+                stats['failed'] += 1
                 continue
 
             # Absolute paths should stay absolute; repo-relative paths should resolve from repo root.
@@ -232,6 +423,7 @@ class ImageRotator:
 
             if not target_file.exists():
                 print(f"[SKIP] File not found: {rel_path}")
+                stats['failed'] += 1
                 continue
 
             try:
@@ -240,6 +432,7 @@ class ImageRotator:
                 stats['success'] += 1
             except Exception as e:
                 print(f"[ERROR] {target_file.name}: {e}")
+                stats['failed'] += 1
 
         return stats
 
@@ -285,8 +478,7 @@ class ImageRotator:
             )
             return True
         except Exception as e:
-            print(f"  [WARN] Failed to read EXIF for {file_path.name}: {e}")
-            return False
+            raise RuntimeError(f"Failed to fix EXIF for {file_path.name}: {e}") from e
 
     def _get_exif_orientation(self, img: Image.Image) -> Optional[int]:
         """Get the Orientation value"""
@@ -327,14 +519,15 @@ class ImageRotator:
             if ccw_angle == 0:
                 return
 
+            prepared = ImageOps.exif_transpose(img)
             if ccw_angle == 90:
-                rotated = img.transpose(T.ROTATE_90)
+                rotated = prepared.transpose(T.ROTATE_90)
             elif ccw_angle == 180:
-                rotated = img.transpose(T.ROTATE_180)
+                rotated = prepared.transpose(T.ROTATE_180)
             elif ccw_angle == 270:
-                rotated = img.transpose(T.ROTATE_270)
+                rotated = prepared.transpose(T.ROTATE_270)
             else:
-                rotated = img.rotate(ccw_angle, expand=True)
+                rotated = prepared.rotate(ccw_angle, expand=True)
 
             rotated.load()
 
@@ -520,51 +713,83 @@ class ImageRotator:
 </html>
 """
 
-def main():
-    """Main function"""
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser."""
+    parser = argparse.ArgumentParser(
+        description="Manage image orientation and manual rotation fixes.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  python3 scripts/rotate_images.py sheet projects/demo/images
+  python3 scripts/rotate_images.py gen projects/demo/images
+  python3 scripts/rotate_images.py fix fixes.json
+  python3 scripts/rotate_images.py auto projects/demo/images
+""",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    command = sys.argv[1]
+    sheet = subparsers.add_parser(
+        "sheet",
+        help="Generate a static contact sheet without modifying images",
+    )
+    sheet.add_argument("images_directory", help="Images directory")
+    sheet.add_argument(
+        "-o",
+        "--output",
+        help="Output .jpg or .png path (default: sibling analysis directory)",
+    )
+
+    gen = subparsers.add_parser("gen", help="Generate the visual rotation HTML tool")
+    gen.add_argument("images_directory", help="Images directory")
+
+    fix = subparsers.add_parser("fix", help="Apply rotations from a fixes JSON file")
+    fix.add_argument("fixes_json", help="Path to fixes.json")
+
+    auto = subparsers.add_parser("auto", help="Automatically fix EXIF orientation")
+    auto.add_argument("images_directory", help="Images directory")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the CLI entry point."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
     rotator = ImageRotator()
 
-    if command == 'gen':
-        if len(sys.argv) < 3:
-            print("[ERROR] Error: images directory path is required")
-            print("Usage: python3 scripts/rotate_images.py gen <images_directory>")
-            sys.exit(1)
+    if args.command == 'sheet':
+        try:
+            output_path = rotator.generate_contact_sheet(
+                args.images_directory,
+                args.output,
+            )
+            print(f"[REPORT] Image orientation contact sheet: {output_path}")
+        except (OSError, ValueError) as e:
+            print(f"[ERROR] Contact sheet generation failed: {e}")
+            return 1
+        return 0
 
-        target_dir = sys.argv[2]
+    if args.command == 'gen':
+        target_dir = args.images_directory
         try:
             output_path = rotator.generate_html_tool(target_dir)
             print(f"[OK] HTML tool created: {output_path}")
             print(f"[LINK] Open in browser: file:///{Path(output_path).as_posix()}")
         except Exception as e:
             print(f"[ERROR] Generation failed: {e}")
-            sys.exit(1)
+            return 1
+        return 0
 
-    elif command == 'fix':
-        if len(sys.argv) < 3:
-            print("[ERROR] Error: fixes.json path is required")
-            print("Usage: python3 scripts/rotate_images.py fix <fixes.json>")
-            sys.exit(1)
-
-        json_file = sys.argv[2]
+    if args.command == 'fix':
+        json_file = args.fixes_json
         try:
             stats = rotator.apply_fixes(json_file)
             print(f"\n[DONE] Processing complete: {stats['success']} succeeded / {stats['total']} total")
         except Exception as e:
             print(f"[ERROR] Execution failed: {e}")
-            sys.exit(1)
+            return 1
+        return 1 if stats['failed'] else 0
 
-    elif command == 'auto':
-        if len(sys.argv) < 3:
-            print("[ERROR] Error: images directory path is required")
-            print("Usage: python3 scripts/rotate_images.py auto <images_directory>")
-            sys.exit(1)
-
-        target_dir = sys.argv[2]
+    if args.command == 'auto':
+        target_dir = args.images_directory
         try:
             # Only perform automatic EXIF fix
             count = rotator.auto_fix_exif(Path(target_dir))
@@ -572,12 +797,10 @@ def main():
                 print("[INFO] No images requiring automatic fix found")
         except Exception as e:
             print(f"[ERROR] Automatic fix failed: {e}")
-            sys.exit(1)
+            return 1
+        return 0
 
-    else:
-        print(f"[ERROR] Error: unknown command '{command}'")
-        print(__doc__)
-        sys.exit(1)
+    parser.error(f"Unknown command: {args.command}")
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

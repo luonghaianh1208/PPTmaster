@@ -35,16 +35,9 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 
-# Fix garbled Chinese output on Windows
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except AttributeError:
-        # Python < 3.7
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+from console_encoding import configure_utf8_stdio
+
+configure_utf8_stdio()
 
 # Import canvas format configuration
 try:
@@ -54,8 +47,8 @@ except ImportError:
     CANVAS_FORMATS = {
         'ppt169': {'name': 'PPT 16:9', 'dimensions': '1280×720', 'viewbox': '0 0 1280 720'},
         'ppt43': {'name': 'PPT 4:3', 'dimensions': '1024×768', 'viewbox': '0 0 1024 768'},
-        'facebook_tiktok': {'name': 'Facebook/TikTok', 'dimensions': '1242×1660', 'viewbox': '0 0 1242 1660'},
-        'social_square': {'name': 'Zalo/Instagram', 'dimensions': '1080×1080', 'viewbox': '0 0 1080 1080'},
+        'xiaohongshu': {'name': 'Xiaohongshu (RED)', 'dimensions': '1242×1660', 'viewbox': '0 0 1242 1660'},
+        'moments': {'name': 'WeChat Moments', 'dimensions': '1080×1080', 'viewbox': '0 0 1080 1080'},
     }
 
 
@@ -92,7 +85,7 @@ class CoordinateSystem:
         Initialize the coordinate system
 
         Args:
-            canvas_format: Canvas format (ppt169, ppt43, facebook_tiktok, social_square, etc.)
+            canvas_format: Canvas format (ppt169, ppt43, xiaohongshu, moments, etc.)
             chart_area: Chart area; uses default values if not specified
         """
         self.canvas_format = canvas_format
@@ -851,18 +844,14 @@ class SVGPositionValidator:
 
     def _extract_attribute(self, content: str, element_id: str, attr: str) -> Optional[float]:
         """Extract attribute value from SVG content"""
-        # Find element containing the ID
-        pattern = rf'id="{element_id}"[^>]*{attr}="([^"]+)"'
+        pattern = rf'<[^>]*(?<![\w:-])id\s*=\s*([\'"]){re.escape(element_id)}\1[^>]*>'
         match = re.search(pattern, content)
-
-        if not match:
-            # Try reverse order
-            pattern = rf'{attr}="([^"]+)"[^>]*id="{element_id}"'
-            match = re.search(pattern, content)
-
         if match:
+            value = extract_attr(match.group(0), attr)
+            if value is None:
+                return None
             try:
-                return float(match.group(1))
+                return float(value)
             except ValueError:
                 return None
 
@@ -888,26 +877,36 @@ class SVGPositionValidator:
         positions = {}
 
         # Extract rect elements
-        rect_pattern = r'<rect[^>]*(?:id="([^"]*)")?[^>]*x="([^"]*)"[^>]*y="([^"]*)"[^>]*(?:width="([^"]*)")?[^>]*(?:height="([^"]*)")?'
-        for match in re.finditer(rect_pattern, svg_content):
-            id_val = match.group(1) or f"rect_{len(positions)}"
-            positions[id_val] = {
-                'x': float(match.group(2)) if match.group(2) else 0,
-                'y': float(match.group(3)) if match.group(3) else 0,
-            }
-            if match.group(4):
-                positions[id_val]['width'] = float(match.group(4))
-            if match.group(5):
-                positions[id_val]['height'] = float(match.group(5))
+        for match in re.finditer(r'<rect[^>]*/?>', svg_content):
+            elem = match.group(0)
+            x = extract_attr(elem, 'x')
+            y = extract_attr(elem, 'y')
+            if x is None or y is None:
+                continue
+            id_val = extract_attr(elem, 'id') or f"rect_{len(positions)}"
+            try:
+                positions[id_val] = {'x': float(x), 'y': float(y)}
+                width = extract_attr(elem, 'width')
+                height = extract_attr(elem, 'height')
+                if width is not None:
+                    positions[id_val]['width'] = float(width)
+                if height is not None:
+                    positions[id_val]['height'] = float(height)
+            except ValueError:
+                continue
 
         # Extract circle elements
-        circle_pattern = r'<circle[^>]*(?:id="([^"]*)")?[^>]*cx="([^"]*)"[^>]*cy="([^"]*)"'
-        for match in re.finditer(circle_pattern, svg_content):
-            id_val = match.group(1) or f"circle_{len(positions)}"
-            positions[id_val] = {
-                'cx': float(match.group(2)),
-                'cy': float(match.group(3)),
-            }
+        for match in re.finditer(r'<circle[^>]*/?>', svg_content):
+            elem = match.group(0)
+            cx = extract_attr(elem, 'cx')
+            cy = extract_attr(elem, 'cy')
+            if cx is None or cy is None:
+                continue
+            id_val = extract_attr(elem, 'id') or f"circle_{len(positions)}"
+            try:
+                positions[id_val] = {'cx': float(cx), 'cy': float(cy)}
+            except ValueError:
+                continue
 
         return positions
 
@@ -935,7 +934,8 @@ class SVGPositionValidator:
             )
 
         lines.append("")
-        lines.append(f"Passed: {passed_count}/{len(results)} ({passed_count/len(results)*100:.1f}%)")
+        pct = passed_count / len(results) * 100 if results else 0
+        lines.append(f"Passed: {passed_count}/{len(results)} ({pct:.1f}%)")
 
         return "\n".join(lines)
 
@@ -987,9 +987,9 @@ def parse_tuple(s: str) -> Tuple[float, ...]:
 
 def extract_attr(element: str, attr_name: str) -> Optional[str]:
     """Extract attribute value from element string (attribute order independent)"""
-    pattern = rf'{attr_name}="([^"]*)"'
+    pattern = rf'(?<![\w:-]){re.escape(attr_name)}\s*=\s*([\'"])(.*?)\1'
     match = re.search(pattern, element)
-    return match.group(1) if match else None
+    return match.group(2) if match else None
 
 
 def analyze_svg_file(svg_file: str) -> None:
@@ -1007,7 +1007,7 @@ def analyze_svg_file(svg_file: str) -> None:
     print(f"{'='*70}")
 
     # Extract viewBox
-    viewbox_match = re.search(r'viewBox="([^"]+)"', content)
+    viewbox_match = re.search(r'viewBox\s*=\s*["\']([^"\']+)["\']', content)
     if viewbox_match:
         print(f"Canvas viewBox: {viewbox_match.group(1)}")
 
@@ -1293,7 +1293,8 @@ def from_json_config(config_file: str) -> None:
         print(" ".join(points_list))
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
+    """Run the CLI entry point."""
     parser = argparse.ArgumentParser(
         description='SVG Position Calculation and Validation Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1315,11 +1316,11 @@ Common commands:
         """
     )
 
-    subparsers = parser.add_subparsers(dest='command', help='Command')
+    subparsers = parser.add_subparsers(dest='command', help='Command', required=True)
 
     # calc subcommand
     calc_parser = subparsers.add_parser('calc', help='Calculate coordinates')
-    calc_subparsers = calc_parser.add_subparsers(dest='chart_type', help='Chart type')
+    calc_subparsers = calc_parser.add_subparsers(dest='chart_type', help='Chart type', required=True)
 
     # Bar chart
     bar_parser = calc_subparsers.add_parser('bar', help='Bar chart')
@@ -1328,6 +1329,7 @@ Common commands:
     bar_parser.add_argument('--area', help='Chart area "x_min,y_min,x_max,y_max"')
     bar_parser.add_argument('--bar-width', type=float, default=50, help='Bar width')
     bar_parser.add_argument('--horizontal', action='store_true', help='Horizontal bar chart')
+    bar_parser.add_argument('--value-range', help='Value axis range "min,max" (from axis tick labels; omit to auto-normalize)')
 
     # Pie chart
     pie_parser = calc_subparsers.add_parser('pie', help='Pie / donut chart')
@@ -1364,6 +1366,7 @@ Common commands:
     # validate subcommand
     validate_parser = subparsers.add_parser('validate', help='Validate SVG')
     validate_parser.add_argument('svg_file', help='SVG file path')
+    validate_parser.add_argument('--expected', help='Expected coordinates JSON file')
     validate_parser.add_argument('--extract', action='store_true', help='Extract all position information')
     validate_parser.add_argument('--tolerance', type=float, default=1.0, help='Tolerance (pixels)')
 
@@ -1378,7 +1381,7 @@ Common commands:
     json_parser = subparsers.add_parser('from-json', help='Calculate from JSON config file')
     json_parser.add_argument('config_file', help='JSON config file path')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.command == 'calc':
         # Parse chart area
@@ -1392,12 +1395,31 @@ Common commands:
             coord = CoordinateSystem(canvas, chart_area)
             calc = BarChartCalculator(coord)
             data = parse_data_string(args.data)
-            positions = calc.calculate(data, bar_width=args.bar_width, horizontal=args.horizontal)
+
+            # Parse value-range from axis tick labels (if provided)
+            v_min, v_max = 0, None
+            scale_source = 'auto (max*1.1)'
+            if hasattr(args, 'value_range') and args.value_range:
+                try:
+                    vr = parse_tuple(args.value_range)
+                except ValueError:
+                    parser.error('calc bar --value-range must be numeric "min,max"')
+                if len(vr) != 2:
+                    parser.error('calc bar --value-range must contain exactly two values: "min,max"')
+                v_min, v_max = vr[0], vr[1]
+                if v_max <= v_min:
+                    parser.error('calc bar --value-range max must be greater than min')
+                scale_source = f'axis ticks ({v_min}-{v_max})'
+
+            positions = calc.calculate(data, bar_width=args.bar_width,
+                                      horizontal=args.horizontal,
+                                      y_min=v_min, y_max=v_max)
 
             print(f"\n=== Bar Chart Coordinate Calculation ===")
             print(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
             print(f"Chart area: ({coord.chart_area.x_min}, {coord.chart_area.y_min}) - "
                   f"({coord.chart_area.x_max}, {coord.chart_area.y_max})")
+            print(f"Value scale: {scale_source}")
             print()
             print(calc.format_table(positions))
 
@@ -1446,6 +1468,7 @@ Common commands:
 
         else:
             parser.print_help()
+            return 1
 
     elif args.command == 'validate':
         validator = SVGPositionValidator(tolerance=args.tolerance)
@@ -1465,8 +1488,19 @@ Common commands:
                 print(f"{element_id}:")
                 for attr, value in attrs.items():
                     print(f"  {attr}: {value}")
+        elif args.expected:
+            import json
+            expected_path = Path(args.expected)
+            if not expected_path.exists():
+                print(f"[Error] Expected coordinates file does not exist: {args.expected}")
+                return 1
+            with open(expected_path, 'r', encoding='utf-8') as f:
+                expected_coords = json.load(f)
+            results = validator.validate_from_file(args.svg_file, expected_coords)
+            print(validator.format_results(results))
         else:
-            print("Validation mode requires an expected coordinates file; use --extract to extract coordinates first")
+            print("Validation mode requires --expected <json_file>; use --extract to extract coordinates first")
+            return 1
 
     elif args.command == 'analyze':
         analyze_svg_file(args.svg_file)
@@ -1479,7 +1513,10 @@ Common commands:
 
     else:
         parser.print_help()
+        return 1
+
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

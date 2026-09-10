@@ -1,0 +1,508 @@
+#!/usr/bin/env python3
+"""
+Shared helpers for image generation backends.
+"""
+
+import sys
+from pathlib import Path
+
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from console_encoding import configure_utf8_stdio  # noqa: E402
+
+configure_utf8_stdio()
+
+if __name__ == "__main__":
+    print(__doc__)
+    print("This is an internal helper module used by image_gen.py backends.")
+    raise SystemExit(0 if any(arg in {"-h", "--help", "help"} for arg in sys.argv[1:]) else 1)
+
+import base64
+import io
+import os
+import re
+import time
+
+import requests
+
+try:
+    from PIL import Image as PILImage, ImageOps as PILImageOps
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 10
+RETRY_BACKOFF = 2
+
+_TRANSIENT_CLIENT_STATUSES = {408, 409, 423, 425, 429}
+_HTTP_ERROR_STATUS = re.compile(r"\(([1-5][0-9]{2})\):")
+_GLOBAL_PERMANENT_ERROR_TYPES = {
+    "authenticationerror",
+}
+_ITEM_PERMANENT_ERROR_TYPES = {
+    "badrequesterror",
+    "notfounderror",
+    "permissiondeniederror",
+    "unprocessableentityerror",
+}
+_GLOBAL_PERMANENT_ERROR_MARKERS = (
+    "prepayment credits are depleted",
+    "prepaid credits are depleted",
+    "credits are depleted",
+    "insufficient credits",
+    "insufficient balance",
+    "insufficient_quota",
+    "exceeded your current quota",
+    "payment required",
+    "billing is not enabled",
+    "billing not enabled",
+    "billing must be enabled",
+    "billing is disabled",
+    "invalid api key",
+    "api key not valid",
+    "incorrect api key",
+    "no api key found",
+    "missing api key",
+    "api key required",
+    "api key is required",
+    "api key not set",
+    "api key is not set",
+    "api key expired",
+    "expired api key",
+    "authentication failed",
+    "authentication required",
+    "unauthorized",
+)
+_ITEM_PERMANENT_ERROR_MARKERS = (
+    "permission denied",
+    "forbidden",
+    "invalid_argument",
+    "invalid argument",
+    "invalid request",
+    "bad request",
+    "failed_precondition",
+    "failed precondition",
+    "invalid image size",
+    "invalid aspect ratio",
+    "unsupported image size",
+    "unsupported aspect ratio",
+    "unsupported model",
+    "model not found",
+    "model does not exist",
+    "content policy",
+    "request moderated",
+    "content moderated",
+    "prompt was rejected",
+    "blocked by safety",
+)
+
+
+class _RetryableBackendError(RuntimeError):
+    """A backend failure whose enclosing operation should be repeated."""
+
+
+def resolve_output_path(prompt: str, output_dir: str = None,
+                        filename: str = None, ext: str = ".png") -> str:
+    """Compute the final output file path based on parameters."""
+    if filename:
+        file_name = os.path.splitext(filename)[0]
+    else:
+        safe = "".join(c for c in prompt if c.isalnum() or c in (" ", "_")).rstrip()
+        safe = safe.replace(" ", "_").lower()[:30]
+        file_name = safe or "generated_image"
+
+    full_name = f"{file_name}{ext}"
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        return os.path.join(output_dir, full_name)
+    return full_name
+
+
+CONTENT_TYPE_TO_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/bmp": ".bmp",
+    "image/tiff": ".tiff",
+}
+
+EXT_TO_PIL_FORMAT = {
+    ".png": "PNG",
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".webp": "WEBP",
+    ".gif": "GIF",
+    ".bmp": "BMP",
+    ".tiff": "TIFF",
+    ".tif": "TIFF",
+}
+
+
+def detect_image_extension(image_bytes: bytes, content_type: str = None) -> str | None:
+    """Best-effort detection of the real image format."""
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if image_bytes.startswith(b"GIF87a") or image_bytes.startswith(b"GIF89a"):
+        return ".gif"
+    if image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        return ".webp"
+    if image_bytes.startswith(b"BM"):
+        return ".bmp"
+    if image_bytes.startswith((b"II*\x00", b"MM\x00*")):
+        return ".tiff"
+    if content_type:
+        clean_type = content_type.split(";", 1)[0].strip().lower()
+        if clean_type in CONTENT_TYPE_TO_EXT:
+            return CONTENT_TYPE_TO_EXT[clean_type]
+    return None
+
+
+DATA_URI_HEADER = re.compile(
+    r"data:(?P<mime>image/[A-Za-z0-9.+-]+)(?P<params>;[^,]*)?,",
+    re.IGNORECASE,
+)
+
+
+def decode_data_uri(value: str) -> tuple[bytes, str | None]:
+    """
+    Decode a base64 image data URI into raw bytes plus its declared content type.
+
+    The declared type is returned so callers can hand it to `save_image_bytes` instead of
+    assuming the payload matches the output extension.
+    """
+    header = DATA_URI_HEADER.match(value.strip())
+    if not header:
+        raise ValueError("Expected a base64 image data URI (data:image/...;base64,...).")
+
+    params = (header.group("params") or "").lower()
+    if "base64" not in params:
+        raise ValueError("Only base64-encoded image data URIs are supported.")
+
+    payload = "".join(value.strip()[header.end():].split())
+    payload += "=" * (-len(payload) % 4)
+    return base64.urlsafe_b64decode(payload), header.group("mime").lower()
+
+
+def find_data_uri(content) -> str | None:
+    """
+    Return the first base64 image data URI inside a chat completion `content` value.
+
+    OpenAI-compatible gateways differ here: some return a dedicated image field, others
+    inline the image in the message text (often as `![image](data:image/png;base64,...)`)
+    or in a content-part list.
+    """
+    if isinstance(content, str):
+        header = DATA_URI_HEADER.search(content)
+        if not header:
+            return None
+        payload = re.match(r"[A-Za-z0-9+/=_-]*", content[header.end():]).group(0)
+        return content[header.start():header.end()] + payload
+
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict):
+                nested = part.get("image_url")
+                if isinstance(nested, dict):
+                    nested = nested.get("url")
+                found = find_data_uri(nested if nested else part.get("text"))
+            else:
+                found = find_data_uri(part)
+            if found:
+                return found
+
+    return None
+
+
+def _normalize_extension(ext: str) -> str:
+    """Normalize equivalent image extensions to a canonical form."""
+    ext = ext.lower()
+    if ext == ".jpeg":
+        return ".jpg"
+    if ext == ".tif":
+        return ".tiff"
+    return ext
+
+
+def save_image_bytes(image_bytes: bytes, path: str, content_type: str = None) -> str:
+    """
+    Save image bytes to disk while keeping the file extension and the real bytes aligned.
+
+    If the target extension differs from the actual bytes, transcode through Pillow when
+    available. Otherwise fail loudly instead of writing a misleading file.
+    """
+    target_ext = _normalize_extension(os.path.splitext(path)[1])
+    actual_ext = _normalize_extension(detect_image_extension(image_bytes, content_type) or "")
+
+    if not target_ext:
+        raise ValueError(f"Output path must include an image extension: {path}")
+
+    if actual_ext and target_ext == actual_ext:
+        with open(path, "wb") as f:
+            f.write(image_bytes)
+        print(f"  File saved to: {path}")
+        report_resolution(path)
+        return path
+
+    if not HAS_PIL:
+        actual_label = actual_ext or "unknown"
+        raise RuntimeError(
+            f"Image format mismatch for {path}: target extension is {target_ext}, "
+            f"but the actual image bytes are {actual_label}. "
+            "Install Pillow to enable automatic format conversion."
+        )
+
+    target_format = EXT_TO_PIL_FORMAT.get(target_ext)
+    if not target_format:
+        raise ValueError(f"Unsupported output image extension: {target_ext}")
+
+    with PILImage.open(io.BytesIO(image_bytes)) as source:
+        image = PILImageOps.exif_transpose(source)
+        try:
+            if target_format == "JPEG":
+                has_alpha = (
+                    image.mode in ("RGBA", "LA")
+                    or "transparency" in getattr(image, "info", {})
+                )
+                if has_alpha:
+                    rgba = image.convert("RGBA")
+                    alpha = rgba.getchannel("A")
+                    rgb = rgba.convert("RGB")
+                    converted = PILImage.new("RGB", image.size, (255, 255, 255))
+                    converted.paste(rgb, mask=alpha)
+                    rgb.close()
+                    alpha.close()
+                    rgba.close()
+                    if image is not source:
+                        image.close()
+                    image = converted
+                elif image.mode != "RGB":
+                    converted = image.convert("RGB")
+                    if image is not source:
+                        image.close()
+                    image = converted
+            image.save(path, format=target_format)
+        finally:
+            if image is not source:
+                image.close()
+
+    if actual_ext and actual_ext != target_ext:
+        print(f"  Converted:    {actual_ext} -> {target_ext}")
+    print(f"  File saved to: {path}")
+    report_resolution(path)
+    return path
+
+
+def validate_image_file(path: str) -> str:
+    """Require an existing regular file that Pillow can read as an image."""
+    image_path = Path(path)
+    if not image_path.exists():
+        raise RuntimeError(f"Image output path does not exist: {path}")
+    if not image_path.is_file():
+        raise RuntimeError(f"Image output path is not a file: {path}")
+    if not HAS_PIL:
+        raise RuntimeError(
+            "Pillow is required to verify generated images. "
+            "Install it with: pip install Pillow"
+        )
+
+    try:
+        with PILImage.open(image_path) as image:
+            image.verify()
+    except (OSError, ValueError, SyntaxError) as exc:
+        raise RuntimeError(f"Image output is not readable: {path}: {exc}") from exc
+    return str(image_path)
+
+
+def report_resolution(path: str) -> None:
+    """Try to report image resolution using PIL."""
+    if HAS_PIL:
+        try:
+            img = PILImage.open(path)
+            print(f"  Resolution:   {img.size[0]}x{img.size[1]}")
+        except Exception:
+            pass
+
+
+def normalize_image_size(image_size: str) -> str:
+    """Normalize image size input to standard format."""
+    s = image_size.strip()
+    upper = s.upper()
+    if upper in ("1K", "2K", "4K"):
+        return upper
+    if upper in ("512PX", "512"):
+        return "512px"
+    return s
+
+
+def _error_status_code(exc: Exception) -> int | None:
+    """Extract an HTTP-like status code from common SDK exception shapes."""
+    candidates = (
+        getattr(exc, "status_code", None),
+        getattr(exc, "code", None),
+        getattr(getattr(exc, "response", None), "status_code", None),
+    )
+    for value in candidates:
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+
+    match = _HTTP_ERROR_STATUS.search(str(exc))
+    return int(match.group(1)) if match else None
+
+
+def is_global_permanent_error(exc: Exception) -> bool:
+    """Return whether every unchanged request would fail for this backend."""
+    if isinstance(exc, _RetryableBackendError):
+        return False
+
+    status_code = _error_status_code(exc)
+    if status_code in {401, 402}:
+        return True
+
+    error_name = type(exc).__name__.lower()
+    if error_name in _GLOBAL_PERMANENT_ERROR_TYPES:
+        return True
+
+    err_str = str(exc).lower()
+    return any(marker in err_str for marker in _GLOBAL_PERMANENT_ERROR_MARKERS)
+
+
+def is_permanent_error(exc: Exception) -> bool:
+    """Return whether retrying the unchanged backend request cannot succeed."""
+    if isinstance(exc, _RetryableBackendError):
+        return False
+    if is_global_permanent_error(exc):
+        return True
+    if isinstance(exc, (FileNotFoundError, NotImplementedError, PermissionError)):
+        return True
+
+    status_code = _error_status_code(exc)
+    if (
+        status_code is not None
+        and 400 <= status_code < 500
+        and status_code not in _TRANSIENT_CLIENT_STATUSES
+    ):
+        return True
+
+    error_name = type(exc).__name__.lower()
+    if error_name in _ITEM_PERMANENT_ERROR_TYPES:
+        return True
+
+    err_str = str(exc).lower()
+    return any(marker in err_str for marker in _ITEM_PERMANENT_ERROR_MARKERS)
+
+
+def is_rate_limit_error(exc: Exception) -> bool:
+    """Check whether the exception appears to be rate limiting."""
+    if is_permanent_error(exc):
+        return False
+
+    err_str = str(exc).lower()
+    status_code = getattr(exc, "status_code", None)
+    error_code = getattr(exc, "code", None)
+    response = getattr(exc, "response", None)
+    error_name = type(exc).__name__.lower()
+    if (
+        status_code == 429
+        or error_code == 429
+        or getattr(response, "status_code", None) == 429
+        or error_name in {"ratelimiterror", "toomanyrequestserror"}
+    ):
+        return True
+    return (
+        "429" in err_str
+        or "rate limit" in err_str
+        or "rate-limit" in err_str
+        or "rate_limit" in err_str
+        or "too many requests" in err_str
+        or "quota" in err_str
+        or "resource_exhausted" in err_str
+        or "resource exhausted" in err_str
+        or "throttl" in err_str
+    )
+
+
+def retry_delay(attempt: int, rate_limited: bool) -> int:
+    """Return the retry delay for a given attempt."""
+    if rate_limited:
+        return RETRY_BASE_DELAY * (RETRY_BACKOFF ** attempt)
+    return 5
+
+
+def download_image(url: str, path: str, headers: dict = None, timeout: int = 180) -> str:
+    """Download an image URL and save it to disk."""
+    try:
+        response = requests.get(url, headers=headers or {}, timeout=timeout)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise _RetryableBackendError(f"Image download failed: {exc}") from exc
+    return save_image_bytes(
+        response.content,
+        path,
+        content_type=response.headers.get("Content-Type"),
+    )
+
+
+def require_api_key(*candidates: str, message: str) -> str:
+    """Return the first non-empty env var from candidates or raise."""
+    for name in candidates:
+        value = os.environ.get(name)
+        if value:
+            return value
+    raise ValueError(message)
+
+
+def http_error(response: requests.Response, label: str) -> RuntimeError:
+    """Convert an HTTP response into a readable RuntimeError."""
+    body = response.text.strip()
+    if len(body) > 500:
+        body = body[:500] + "..."
+    return RuntimeError(f"{label} failed ({response.status_code}): {body}")
+
+
+def poll_json(
+    url: str,
+    headers: dict[str, str],
+    *,
+    interval_seconds: float = 2.0,
+    timeout_seconds: int = 300,
+    status_label: str = "status",
+    ready_values: list[str] | None = None,
+    failed_values: list[str] | None = None,
+) -> dict:
+    """Poll a JSON endpoint until it reports a ready or failed status."""
+    ready = {value.lower() for value in (ready_values or ["ready", "success", "succeeded"])}
+    failed = {value.lower() for value in (failed_values or ["error", "failed", "fail"])}
+
+    start = time.time()
+    while True:
+        response = requests.get(url, headers=headers, timeout=180)
+        response.raise_for_status()
+        payload = response.json()
+        raw_status = str(payload.get(status_label, "")).strip()
+        status = raw_status.lower()
+
+        if raw_status:
+            print(f"  Status:       {raw_status}")
+
+        if status in ready:
+            return payload
+
+        if status in failed:
+            raise RuntimeError(f"Remote generation failed: {payload}")
+
+        if time.time() - start > timeout_seconds:
+            raise RuntimeError(
+                f"Timed out after {timeout_seconds}s while polling {url}"
+            )
+
+        time.sleep(interval_seconds)
