@@ -30,6 +30,9 @@ function Stop-Sync([string]$Message) {
 
 Push-Location $RepoRoot
 
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Stop-Sync 'Không tìm thấy git trong PATH.' }
+if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) { Stop-Sync "Không tìm thấy Python: $Python" }
+
 $dirty = git status --porcelain --untracked-files=no
 if ($dirty) { Stop-Sync 'Cây làm việc còn thay đổi chưa commit.' }
 
