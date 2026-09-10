@@ -2,7 +2,7 @@
 
 - **Ngày:** 2026-09-10
 - **Người phụ trách:** Lương Hải Anh — 2Anh AI Education
-- **Trạng thái:** Đã duyệt thiết kế, chờ review spec
+- **Trạng thái:** Đã duyệt; đang triển khai M1 (plan: `2026-09-10-m1-plan.md`)
 - **Repo:** `luonghaianh1208/PPTmaster` (công khai, miễn phí)
 - **Nền tảng:** upstream `hugohe3/ppt-master` tag `v6.3.2` (MIT, © 2025-2026 Hugo He)
 
@@ -14,7 +14,7 @@ Khách hàng (giáo viên, nhân viên, người làm nội dung — phần lớ
 
 ### Tiêu chí thành công
 
-1. Trên một máy Windows sạch (Windows Sandbox), làm theo `docs/vi/cai-dat-windows.md` → `CAI-DAT.bat` → `KIEM-TRA.bat` báo toàn bộ mục **bắt buộc** ✅.
+1. Mô phỏng trên máy phát triển 3 kịch bản PATH — (a) không có Python, (b) chỉ có lối tắt Microsoft Store, (c) có Python ≥ 3.10 trong môi trường ảo tách biệt: `CAI-DAT` cho đúng thông báo và mã thoát; ở (c) `KIEM-TRA` báo toàn bộ mục **bắt buộc** ✅. (Máy phát triển không chạy được Windows Sandbox vì ảo hoá firmware đang tắt; chủ repo chọn chỉ mô phỏng.)
 2. Mở thư mục trong Claude Code, Cursor và Antigravity; nhập "Tạo 3 slide giới thiệu trường THPT" → AI trả lời tiếng Việt, xuất PPTX mở được trong PowerPoint, chữ tiếng Việt hiển thị đúng dấu.
 3. `python skills/ppt-master/scripts/attribution_guard.py` trả về exit 0 trên mọi commit của `main`.
 4. `git diff v6.3.2 main -- skills/` chỉ gồm: 5 thư mục template tiếng Việt + `decks_index.json` + `brands_index.json`.
@@ -82,9 +82,9 @@ PPTmaster/
 ├── KIEM-TRA.bat                  # (mới) bấm đúp để kiểm tra môi trường
 ├── CAP-NHAT.bat                  # (mới) bấm đúp để cập nhật
 ├── .cursor/rules/ppt-master-vi.mdc   # (mới) nạp AGENTS.vi.md cho Cursor
-├── .agent/rules/ppt-master-vi.md     # (mới) nạp AGENTS.vi.md cho Antigravity (xem §5.4)
+├── .agents/rules/ppt-master-vi.md    # (mới) nạp AGENTS.vi.md cho Antigravity (xem §5.4)
 ├── tools/vi/
-│   ├── setup.ps1                 # bộ cài Windows
+│   ├── pptmaster.ps1             # trình khởi chạy Windows: -Action setup | check | update
 │   ├── setup.sh                  # bộ cài tối giản macOS/Linux
 │   ├── doctor.py                 # kiểm tra môi trường + smoke test
 │   ├── sync_upstream.ps1         # (chủ repo) đồng bộ bản upstream mới
@@ -104,7 +104,7 @@ PPTmaster/
     └── brands/{doan_thanh_nien,2anh_ai}/
 ```
 
-`.gitignore` của upstream `v6.3.2` chỉ chặn `.claude/`, không chặn `.cursor/` hay `.agent/` → không cần sửa `.gitignore`. `test_vi_layer.py` kiểm tra 2 file rule vẫn được git theo dõi sau mỗi lần đồng bộ.
+`.gitignore` của upstream `v6.3.2` chỉ chặn `.claude/`, không chặn `.cursor/` hay `.agents/` → không cần sửa `.gitignore`. `test_vi_layer.py` kiểm tra 2 file rule vẫn được git theo dõi sau mỗi lần đồng bộ.
 
 ---
 
@@ -136,15 +136,15 @@ README ghi công ở đầu trang (ngay dưới tiêu đề) và mục "Giấy p
 
 ### 5.3 Bộ cài, kiểm tra, cập nhật
 
-Các `.bat` gọi PowerShell với `-NoProfile -ExecutionPolicy Bypass -File` (tránh lỗi execution policy) và `chcp 65001` (hiển thị tiếng Việt). File `.ps1` lưu UTF-8 **có BOM** để Windows PowerShell 5.1 đọc đúng tiếng Việt.
+Ba file `.bat` chỉ chứa ký tự ASCII và cùng gọi `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action <setup|check|update>` (tránh lỗi execution policy). Mọi thông báo tiếng Việt nằm trong `pptmaster.ps1` (UTF-8 **có BOM**, đặt `[Console]::OutputEncoding` UTF-8) để Windows PowerShell 5.1 hiển thị đúng. Tham số `-NonInteractive`: không hỏi Y/N, không cài phần mềm (dùng khi kiểm thử).
 
-**`CAI-DAT.bat` → `tools/vi/setup.ps1`**
+**`CAI-DAT.bat` → `pptmaster.ps1 -Action setup`**
 
 1. Tìm `python` trong PATH. Nếu không có, hoặc đường dẫn nằm trong `WindowsApps` và `python --version` thất bại (alias Microsoft Store), hoặc phiên bản < 3.10:
    - Nếu có `winget`: hỏi Y/N rồi `winget install -e --id Python.Python.3.12`; sau đó yêu cầu đóng/mở lại cửa sổ và chạy lại `CAI-DAT.bat`.
    - Nếu không có `winget`: in link python.org + nhắc tick "Add python.exe to PATH", mở `docs/vi/cai-dat-windows.md`, thoát mã 1.
    - Nếu phát hiện alias Store: hướng dẫn tắt tại *Settings → Apps → Advanced app settings → App execution aliases*.
-2. `python -m pip install --upgrade pip` rồi `python -m pip install -r requirements.txt`. Thất bại → in 20 dòng log cuối + gợi ý trong `docs/vi/xu-ly-loi.md`, thoát mã 1.
+2. `python -m pip install --upgrade pip` rồi `python -m pip install -r requirements.txt`. Thất bại → giữ nguyên log pip trên màn hình, in gợi ý trong `docs/vi/xu-ly-loi.md`, thoát mã 1.
 3. Nếu chưa có `.env` ở thư mục gốc: sao chép từ `.env.example`.
 4. Hỏi Y/N cài công cụ tuỳ chọn qua `winget` (nếu có): Git (`Git.Git`), Pandoc (`JohnMacFarlane.Pandoc`), FFmpeg (`Gyan.FFmpeg`). ID gói được xác minh bằng `winget show` khi triển khai.
 5. Chạy `python tools/vi/doctor.py` và thoát theo mã của doctor.
@@ -153,7 +153,7 @@ Chạy lại nhiều lần an toàn (idempotent).
 
 **`tools/vi/setup.sh`** (macOS/Linux, cho người rành kỹ thuật): kiểm tra `python3` ≥ 3.10, `python3 -m pip install -r requirements.txt`, sao chép `.env` nếu thiếu, chạy doctor. Không tự cài phần mềm hệ thống.
 
-**`KIEM-TRA.bat` → `python tools/vi/doctor.py`**
+**`KIEM-TRA.bat` → `pptmaster.ps1 -Action check` → `python tools/vi/doctor.py`**
 
 Chỉ dùng thư viện chuẩn Python; ngay đầu gọi `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` và tương tự cho `sys.stderr`. In bảng ✅ / ⚠️ / ❌ bằng tiếng Việt, mỗi lỗi kèm một dòng cách sửa.
 
@@ -162,7 +162,7 @@ Chỉ dùng thư viện chuẩn Python; ngay đầu gọi `sys.stdout.reconfigur
 | Python ≥ 3.10 | Bắt buộc | `sys.version_info` | Chạy `CAI-DAT.bat` |
 | Thư viện Python | Bắt buộc | Đọc `skills/ppt-master/requirements.txt`: bỏ dòng trống/comment, bỏ phần phiên bản (`>=`, `==`, `~=`…), marker (`; …`) và extras (`[…]`) → với mỗi tên gói, `importlib.metadata.distribution(<tên>)` phải tồn tại | Liệt kê gói thiếu, chạy `CAI-DAT.bat` |
 | Tính toàn vẹn skill | Bắt buộc | `attribution_guard.py` exit 0 | Tải lại bản đầy đủ; không sửa `LICENSE`/`SKILL.md`/`SPONSORS*` |
-| Smoke test xuất PPTX | Bắt buộc | Xuất `tools/vi/fixtures/smoke/` (1 SVG 1280×720 chứa "Kiểm tra tiếng Việt") bằng chuỗi lệnh xuất của upstream vào thư mục tạm; pass khi `.pptx` tồn tại, `python-pptx` mở được, có đúng 1 slide chứa chuỗi trên | In lệnh lỗi + log, trỏ `docs/vi/xu-ly-loi.md` |
+| Smoke test xuất PPTX | Bắt buộc | Chép `tools/vi/fixtures/smoke/01_smoke.svg` (1280×720, chứa "Kiểm tra tiếng Việt") vào `<tmp>/svg_output/`, chạy `finalize_svg.py <tmp> -q` rồi `svg_to_pptx.py <tmp> -s final -o <tmp>/smoke.pptx --no-notes --no-animations -q` (chế độ chẩn đoán của upstream, không cần `spec_lock.md`); pass khi file là zip hợp lệ, có đúng 1 `ppt/slides/slideN.xml` chứa chuỗi trên. Đã chạy thật trên v6.3.2: ~2,5 giây | In bước lỗi + 3 dòng log cuối, trỏ `docs/vi/xu-ly-loi.md` |
 | Git | Khuyến nghị | `shutil.which("git")` | Cần để dùng `CAP-NHAT.bat` |
 | Pandoc | Tuỳ chọn | `shutil.which("pandoc")` | Chỉ cần cho định dạng tài liệu cũ |
 | FFmpeg / FFprobe | Tuỳ chọn | `shutil.which` | Chỉ cần cho thuyết minh/video |
@@ -170,9 +170,9 @@ Chỉ dùng thư viện chuẩn Python; ngay đầu gọi `sys.stdout.reconfigur
 
 - Mã thoát: `0` khi mọi mục bắt buộc pass; `1` nếu có mục bắt buộc lỗi.
 - Tuỳ chọn `--no-smoke`: bỏ smoke test (dùng trong `sync_upstream.ps1` khi cần nhanh).
-- Chuỗi lệnh smoke test cụ thể được xác định ở bước lập plan bằng cách chạy thử trên `v6.3.2`, và ghi vào đầu `doctor.py`.
+- Smoke test chỉ chạy khi mục Thư viện và Tính toàn vẹn đều đạt.
 
-**`CAP-NHAT.bat`**: `python skills\ppt-master\scripts\update_repo.py` (upstream: kiểm tra git + cây sạch, `git pull --ff-only`, cài lại thư viện nếu requirements đổi), sau đó `python tools\vi\doctor.py --no-smoke`. Nếu không có `.git` (tải ZIP): in hướng dẫn tải bản mới, thoát mã 1.
+**`CAP-NHAT.bat` → `pptmaster.ps1 -Action update`**: `python skills\ppt-master\scripts\update_repo.py` (upstream: kiểm tra git + cây sạch, `git pull --ff-only`, cài lại thư viện nếu requirements đổi), sau đó `python tools\vi\doctor.py --no-smoke`. Nếu không có `.git` (tải ZIP): in hướng dẫn tải bản mới, thoát mã 1.
 
 ### 5.4 Kết nối AI editor — `AGENTS.vi.md`
 
@@ -181,15 +181,15 @@ Cơ chế nạp (không cần người dùng thao tác):
 | Công cụ | Cơ chế |
 |---|---|
 | Claude Code | `CLAUDE.md` chứa `@AGENTS.md` và `@AGENTS.vi.md` |
-| Cursor | `.cursor/rules/ppt-master-vi.mdc` với `alwaysApply: true`, nội dung yêu cầu đọc `AGENTS.vi.md` |
-| Antigravity | `.agent/rules/ppt-master-vi.md` trỏ tới `AGENTS.vi.md` |
+| Cursor | Tự đọc `AGENTS.md`; thêm `.cursor/rules/ppt-master-vi.mdc` với `alwaysApply: true` tham chiếu `@AGENTS.vi.md` |
+| Antigravity | `.agents/rules/ppt-master-vi.md` (thư mục mặc định; vẫn hỗ trợ `.agent/rules`) tham chiếu `@../../AGENTS.md` và `@../../AGENTS.vi.md` (đường dẫn tính từ file rule); frontmatter `trigger: always_on` — tài liệu chính thức chưa nêu cú pháp frontmatter nên phải kiểm chứng |
 
 Mỗi cơ chế phải được kiểm chứng bằng tay ở M1 (hỏi AI "Bạn đang áp dụng quy tắc nào của bản Việt?"). Nếu cơ chế của một công cụ không nạp được, phương án dự phòng: thêm **một dòng** cuối `AGENTS.md` trỏ tới `AGENTS.vi.md` (bổ sung vào danh sách file upstream được sửa ở §4).
 
 Nội dung bắt buộc của `AGENTS.vi.md` (bổ sung, không mâu thuẫn `SKILL.md`):
 
 1. **Ưu tiên:** quy tắc trong `skills/ppt-master/SKILL.md` luôn thắng; file này chỉ bổ sung ngữ cảnh Việt Nam. Không bao giờ sửa, bỏ qua hay "sửa chữa" `attribution_guard.py`.
-2. **Ngôn ngữ:** trả lời tiếng Việt trừ khi người dùng yêu cầu khác; ngôn ngữ nội dung mặc định `vi-VN`.
+2. **Ngôn ngữ:** không ghi cứng ngôn ngữ trả lời (quy ước `docs/rules/language.md` của upstream) — giữ quy tắc của `SKILL.md` là trả lời theo ngôn ngữ người dùng; khi người dùng viết tiếng Việt, đặt `primary_language` của dự án là `vi`.
 3. **Từ khoá kích hoạt:** "tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide" → dùng skill `ppt-master`.
 4. **Windows:** nếu `python3` lỗi (không tìm thấy / mã 49 / mở Microsoft Store) → dùng `python`. Không dùng `cp`, `mkdir -p`, `/tmp`, heredoc bash trên Windows — dùng lệnh PowerShell tương đương hoặc Python.
 5. **Ánh xạ định dạng** (tên người Việt hay nói → key upstream):
@@ -221,7 +221,7 @@ Nội dung bắt buộc của `AGENTS.vi.md` (bổ sung, không mâu thuẫn `SK
 | `docs/vi/phat-trien/bao-tri.md` | Quy trình `sync_upstream.ps1`, chạy test, cập nhật `CHANGELOG-VI.md`, gắn tag, tạo Release |
 | `CHANGELOG-VI.md` | Mục cho `v6.3.2-vi.1`, `v6.3.2-vi.2` |
 
-Ảnh chụp màn hình cho `cai-dat-windows.md` và `bat-dau-nhanh.md` được chụp trong lần chạy Windows Sandbox ở M1, lưu `docs/vi/assets/`.
+M1 không kèm ảnh chụp màn hình (không có máy sạch để chụp); bổ sung sau nếu cần.
 
 ### 5.6 Template tiếng Việt (M2)
 
@@ -239,7 +239,7 @@ Mỗi gói được tạo theo đúng quy trình upstream `workflows/create-temp
 - Brand `doan_thanh_nien`: `design_spec.md` ghi lưu ý sử dụng huy hiệu đúng quy định nhận diện của Đoàn TNCS Hồ Chí Minh (không biến dạng, đúng màu).
 - Logo do chủ repo cung cấp; lưu trong `images/` của workspace.
 
-### 5.7 Đồng bộ upstream — `tools/vi/sync_upstream.ps1 <tag>` (dành cho chủ repo)
+### 5.7 Đồng bộ upstream — `tools/vi/sync_upstream.ps1 -Tag <tag> [-Python <đường dẫn>] [-SkipSmoke]` (dành cho chủ repo)
 
 1. Dừng nếu cây làm việc không sạch.
 2. `git fetch upstream --tags`; dừng nếu `<tag>` không tồn tại.
@@ -302,7 +302,8 @@ Upstream ra tag mới
 | Unit (`unittest`, stdlib) | `tools/vi/tests/test_doctor.py`: từng check với mock (`shutil.which`, `importlib.metadata`, `subprocess`), mã thoát, không lộ key | M1 |
 | Nhất quán | `tools/vi/tests/test_vi_layer.py` (§5.8) | M1, mở rộng ở M2 |
 | Toàn vẹn | `attribution_guard.py` exit 0 | Mọi commit |
-| Thủ công – Windows Sandbox | 3 kịch bản: (a) chưa có Python; (b) PATH trỏ alias Store; (c) đã đủ → `CAI-DAT.bat` → `KIEM-TRA.bat` → tạo 3 slide trong Claude Code, Cursor, Antigravity → mở trong PowerPoint | M1 |
+| Mô phỏng – máy phát triển | 3 kịch bản PATH (tiêu chí #1) chạy `pptmaster.ps1 -NonInteractive` và các `.bat`; bản sao không có `.git` cho `-Action update`; `setup.sh` qua Git Bash | M1 |
+| Kiểm chứng AI editor | Claude Code headless xác nhận đã nạp `AGENTS.vi.md`; chủ repo tự tạo thử 3 slide trong Claude Code/Cursor/Antigravity (tiêu chí #2) | M1 |
 | Diễn tập đồng bộ | Nhánh thử từ `v6.3.1` + lớp Việt → `sync_upstream.ps1 v6.3.2` (tiêu chí #6) | M1 |
 | Template | `--template-mode` pass; PPTX xem thử được chủ repo duyệt; tạo 1 bài thật với mỗi gói | M2 |
 | Review code | `code-reviewer` + `qa` subagent cho `doctor.py`, `setup.ps1`, `sync_upstream.ps1` trước khi phát hành | M1 |
@@ -344,6 +345,7 @@ Nếu upstream ra tag mới trước khi M2 xong: đồng bộ bằng `sync_upst
 | Upstream đổi guard, cấu trúc template hoặc key định dạng | `sync_upstream.ps1` chạy guard + `test_vi_layer.py`; test đỏ → cập nhật lớp Việt trước khi phát hành |
 | Alias `python3`/`python` của Microsoft Store | `setup.ps1` phát hiện và hướng dẫn tắt; `AGENTS.vi.md` quy định fallback `python` |
 | Máy không có `winget` (Windows cũ/LTSC) | Hướng dẫn cài tay trong `cai-dat-windows.md` |
+| Không có máy Windows sạch để thử thật | Mô phỏng PATH; `xu-ly-loi.md` bao phủ lỗi cài đặt; thu thập phản hồi khách sau vi.1 |
 | Cơ chế nạp rule của Cursor/Antigravity không hoạt động | Kiểm chứng ở M1; dự phòng thêm 1 dòng cuối `AGENTS.md` |
 | Khách sửa file trong repo → `update_repo.py` từ chối pull | `xu-ly-loi.md` hướng dẫn đưa dự án vào `projects/` (đã gitignore) và khôi phục file |
 | Người dùng bản cũ mất `examples/` sau khi pull | `CHANGELOG-VI.md` + README nêu rõ, trỏ tới repo ví dụ của upstream và tag `v2-vi-legacy` |
