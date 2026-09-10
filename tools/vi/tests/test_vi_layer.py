@@ -117,5 +117,19 @@ class EditorWiringTest(unittest.TestCase):
             self.assertEqual(git("ls-files", "--error-unmatch", path).returncode, 0, path)
 
 
+class ScriptEncodingTest(unittest.TestCase):
+    def test_powershell_scripts_have_utf8_bom(self):
+        scripts = sorted((REPO_ROOT / "tools" / "vi").glob("*.ps1"))
+        self.assertTrue(scripts, "Chưa có script PowerShell")
+        for path in scripts:
+            self.assertTrue(path.read_bytes().startswith(b"\xef\xbb\xbf"), path.name)
+
+    def test_batch_files_are_ascii_and_call_launcher(self):
+        for name, action in (("CAI-DAT.bat", "setup"), ("KIEM-TRA.bat", "check"), ("CAP-NHAT.bat", "update")):
+            text = (REPO_ROOT / name).read_bytes().decode("ascii")
+            self.assertIn(r"tools\vi\pptmaster.ps1", text)
+            self.assertIn(f"-Action {action}", text)
+
+
 if __name__ == "__main__":
     unittest.main()
