@@ -51,11 +51,34 @@ function Get-PythonInfo {
     }
 }
 
+function Get-LauncherPython {
+    $launcher = Get-Command py -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $launcher) { return $null }
+    try {
+        $raw = @(& $launcher.Source -3 -c "import sys; print(sys.executable); print('%d.%d' % sys.version_info[:2])" 2>$null)
+        if ($LASTEXITCODE -ne 0 -or $raw.Count -lt 2) { return $null }
+        $version = [version]("$($raw[$raw.Count - 1])".Trim())
+    } catch { return $null }
+    if ($version -lt [version]'3.10') { return $null }
+    return [pscustomobject]@{
+        Path    = "$($raw[$raw.Count - 2])".Trim()
+        Version = $version
+    }
+}
+
 function Resolve-Python([bool]$OfferInstall) {
     $py = Get-PythonInfo
     if ($py -and $py.Version -and $py.Version -ge [version]'3.10') {
         Write-Ok "Python $($py.Version) tại $($py.Path)"
         return $py
+    }
+    $installed = Get-LauncherPython
+    if ($installed) {
+        Write-Fail "Đã cài Python $($installed.Version) tại $($installed.Path) nhưng bản này chưa có trong PATH."
+        Write-Host 'Cách sửa: Settings → Apps → Installed apps → Python 3.x → Modify → tick "Add Python to environment variables" (hoặc chạy lại bộ cài tải từ python.org và chọn Modify).'
+        Write-Host 'Sau đó đóng cửa sổ này, mở lại rồi bấm lại CAI-DAT.bat.'
+        Write-Host "Hướng dẫn chi tiết: $FixDoc (mục Đã cài Python nhưng bộ cài báo không tìm thấy)"
+        return $null
     }
     if (-not $py) {
         Write-Fail 'Chưa tìm thấy Python trong PATH.'
@@ -113,6 +136,7 @@ function Invoke-Setup {
         @{ Command = 'pandoc'; Id = 'JohnMacFarlane.Pandoc'; Label = 'Pandoc (chuyển tài liệu định dạng cũ)' },
         @{ Command = 'ffmpeg'; Id = 'Gyan.FFmpeg'; Label = 'FFmpeg (thuyết minh, video)' }
     )
+    $installedAny = $false
     foreach ($tool in $optional) {
         if (Get-Command $tool.Command -ErrorAction SilentlyContinue) {
             Write-Ok "$($tool.Label): đã có"
@@ -120,9 +144,13 @@ function Invoke-Setup {
         }
         if ((Test-Winget) -and (Confirm-Choice "Cài $($tool.Label) bằng winget?")) {
             winget install -e --id $tool.Id --accept-package-agreements --accept-source-agreements | Out-Host
+            $installedAny = $true
         } else {
             Write-Host "Bỏ qua: $($tool.Label)"
         }
+    }
+    if ($installedAny) {
+        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
     }
 
     Write-Step 'Kiểm tra lại toàn bộ'
@@ -138,7 +166,7 @@ function Invoke-Check {
 function Invoke-Update {
     if (-not (Test-Path (Join-Path $RepoRoot '.git'))) {
         Write-Fail 'Thư mục này được tải dạng ZIP nên không tự cập nhật được.'
-        Write-Host 'Tải bản mới tại https://github.com/luonghaianh1208/PPTmaster rồi chép thư mục projects\ của bạn sang.'
+        Write-Host 'Tải bản mới tại https://github.com/luonghaianh1208/PPTmaster rồi chép thư mục projects\ và file .env của bạn sang.'
         return 1
     }
     $py = Resolve-Python $false
