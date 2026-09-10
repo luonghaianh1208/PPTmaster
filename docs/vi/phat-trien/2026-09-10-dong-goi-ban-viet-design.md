@@ -248,8 +248,8 @@ Mỗi gói được tạo theo đúng quy trình upstream `workflows/create-temp
 5. Nếu xung đột:
    - `decks_index.json` / `brands_index.json` / `layouts_index.json` / `styles_index.json` → `git checkout --theirs`, rồi `python skills/ppt-master/scripts/register_template.py --rebuild-all --kind <kind>`, `git add`.
    - File khác → liệt kê, dừng với mã 1 để xử lý tay (không tự commit).
-6. Kiểm tra: `attribution_guard.py` exit 0 → `python -m unittest discover -s tools/vi/tests` pass → `doctor.py` pass.
-7. Commit merge (nếu còn mở), in tóm tắt và nhắc cập nhật `CHANGELOG-VI.md`. **Không tự push.**
+6. Commit merge (nếu còn mở). Merge luôn được commit trước khi kiểm tra, vì test ranh giới (§5.8) xác định tag upstream bằng `git describe` từ HEAD — trước khi commit, HEAD còn trỏ tag cũ.
+7. Kiểm tra: `attribution_guard.py` exit 0 → `python -m unittest discover -s tools/vi/tests` pass → `doctor.py` pass. Nếu một kiểm tra thất bại: dừng, in hướng dẫn "merge đã commit nhưng chưa push — sửa lớp Việt rồi commit tiếp, hoặc hoàn tác bằng `git reset --keep ORIG_HEAD`". Không tự push.
 
 ### 5.8 Kiểm tra tính nhất quán lớp Việt — `tools/vi/tests/test_vi_layer.py`
 

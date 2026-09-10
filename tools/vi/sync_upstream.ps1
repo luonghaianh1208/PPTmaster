@@ -40,6 +40,7 @@ git rev-parse -q --verify "refs/tags/$Tag" | Out-Null
 if ($LASTEXITCODE -ne 0) { Stop-Sync "Không có tag $Tag." }
 
 git config merge.ours.driver true
+if ($LASTEXITCODE -ne 0) { Stop-Sync 'Không bật được merge.ours.driver (git config thất bại).' }
 
 Write-Host "==> Merge $Tag" -ForegroundColor Cyan
 git merge --no-ff --no-edit -m "merge: sync upstream hugohe3/ppt-master $Tag" $Tag | Out-Host
@@ -63,22 +64,24 @@ if ($LASTEXITCODE -ne 0) {
         Stop-Sync 'Merge chưa hoàn tất. Sửa các file trên, git add, rồi git commit.'
     }
     git commit --no-edit | Out-Host
-    if ($LASTEXITCODE -ne 0) { Stop-Sync 'Không commit được merge.' }
+    if ($LASTEXITCODE -ne 0) { Stop-Sync 'Không commit được merge. Merge đang dang dở: sửa rồi git commit, hoặc hủy bằng: git merge --abort' }
 }
+
+$UndoHint = 'Merge đã được commit nhưng CHƯA push. Sửa lớp Việt rồi commit tiếp, hoặc hoàn tác merge bằng: git reset --keep ORIG_HEAD'
 
 Write-Host '==> Kiểm tra toàn vẹn skill' -ForegroundColor Cyan
 & $Python 'skills/ppt-master/scripts/attribution_guard.py' | Out-Host
-if ($LASTEXITCODE -ne 0) { Stop-Sync 'attribution_guard.py thất bại sau khi đồng bộ.' }
+if ($LASTEXITCODE -ne 0) { Stop-Sync "attribution_guard.py thất bại sau khi đồng bộ. $UndoHint" }
 
 Write-Host '==> Test lớp Việt hoá' -ForegroundColor Cyan
 & $Python -m unittest discover -s tools/vi/tests | Out-Host
-if ($LASTEXITCODE -ne 0) { Stop-Sync 'Test lớp Việt hoá thất bại. Cập nhật lớp Việt cho khớp upstream mới rồi commit.' }
+if ($LASTEXITCODE -ne 0) { Stop-Sync "Test lớp Việt hoá thất bại. Cập nhật lớp Việt cho khớp upstream mới rồi commit. $UndoHint" }
 
 Write-Host '==> Kiểm tra môi trường' -ForegroundColor Cyan
 $doctorArgs = @()
 if ($SkipSmoke) { $doctorArgs = @('--no-smoke') }
 & $Python 'tools/vi/doctor.py' @doctorArgs | Out-Host
-if ($LASTEXITCODE -ne 0) { Stop-Sync 'doctor.py còn lỗi bắt buộc.' }
+if ($LASTEXITCODE -ne 0) { Stop-Sync "doctor.py còn lỗi bắt buộc. $UndoHint" }
 
 Write-Host "[XONG] Đã đồng bộ $Tag. Việc còn lại: cập nhật CHANGELOG-VI.md, gắn tag phiên bản, push, tạo Release." -ForegroundColor Green
 Pop-Location
