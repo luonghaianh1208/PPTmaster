@@ -1,0 +1,28 @@
+PPT Master — Bản Việt (Vietnamese Edition)
+==========================================
+
+Dự án gốc / Original project
+- PPT Master — https://github.com/hugohe3/ppt-master
+- Copyright (c) 2025-2026 Hugo He
+- Giấy phép MIT / MIT License — xem file LICENSE / see LICENSE
+
+Bản Việt hoá và đóng gói / Vietnamese edition and packaging
+- Lương Hải Anh — 2Anh AI Education
+- https://github.com/luonghaianh1208/PPTmaster
+- Phần bổ sung / Additions: bộ cài và kiểm tra môi trường cho Windows
+  (CAI-DAT.bat, KIEM-TRA.bat, CAP-NHAT.bat, tools/vi/), quy tắc cho AI editor
+  (AGENTS.vi.md, .cursor/rules/, .agents/rules/), tài liệu tiếng Việt
+  (README.md, docs/vi/). Phần bổ sung phát hành theo cùng giấy phép MIT.
+  Additions are released under the same MIT License.
+
+Phụ thuộc bên thứ ba / Third-party dependencies
+- Thư viện Python do người dùng tự cài từ PyPI qua requirements.txt, không đóng
+  gói kèm repo. PyMuPDF dùng giấy phép AGPL.
+  Python packages are installed by the user from PyPI and are not bundled.
+  PyMuPDF is AGPL-licensed.
+- Giấy phép icon và âm thanh / Icon and sound licenses:
+  skills/ppt-master/templates/icons/THIRD_PARTY_NOTICES.md
+  skills/ppt-master/templates/sounds/THIRD_PARTY_NOTICES.md
+
+Khi phân phối lại, giữ nguyên LICENSE và NOTICE.
+When redistributing, keep LICENSE and NOTICE intact.

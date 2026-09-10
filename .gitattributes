@@ -1,0 +1,8 @@
+# Bản Việt: luôn giữ README tiếng Việt khi đồng bộ upstream
+# (cần chạy một lần: git config merge.ours.driver true)
+README.md merge=ours
+
+# Kết thúc dòng cho script của lớp Việt hoá
+*.bat text eol=crlf
+tools/vi/*.ps1 text eol=crlf
+tools/vi/*.sh text eol=lf
