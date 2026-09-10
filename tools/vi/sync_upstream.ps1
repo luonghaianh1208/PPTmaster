@@ -54,6 +54,7 @@ if ($LASTEXITCODE -ne 0) {
     foreach ($path in $conflicts) {
         if ($IndexKinds.ContainsKey($path)) {
             git checkout --theirs -- $path | Out-Host
+            if ($LASTEXITCODE -ne 0) { $unresolved += $path; continue }
             & $Python 'skills/ppt-master/scripts/register_template.py' --rebuild-all --kind $IndexKinds[$path] | Out-Host
             if ($LASTEXITCODE -ne 0) { $unresolved += $path; continue }
             git add -- $path | Out-Host
