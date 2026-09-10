@@ -166,6 +166,24 @@ def read_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def find_malformed_env_lines(path: Path) -> list[int]:
+    """Số dòng (tính từ 1) mà upstream (scripts/config.py) sẽ báo lỗi: thiếu '=' hoặc thiếu tên biến."""
+    malformed = []
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as f:
+            for lineno, raw in enumerate(f, start=1):
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):].lstrip()
+                if "=" not in line or not line.split("=", 1)[0].strip():
+                    malformed.append(lineno)
+    except OSError:
+        return []
+    return malformed
+
+
 def env_file_has_bom(path: Path) -> bool:
     try:
         with path.open("rb") as f:
@@ -174,13 +192,25 @@ def env_file_has_bom(path: Path) -> bool:
         return False
 
 
-def check_api_keys(environ: Mapping[str, str], env_values: Mapping[str, str], env_has_bom: bool = False) -> CheckResult:
+def check_api_keys(
+    environ: Mapping[str, str],
+    env_values: Mapping[str, str],
+    env_has_bom: bool = False,
+    malformed_lines: Sequence[int] = (),
+) -> CheckResult:
     name = "API key dịch vụ AI"
     if env_has_bom:
         return CheckResult(
             name, OPTIONAL, False,
             "File .env được lưu kèm BOM nên dòng đầu tiên sẽ bị bỏ qua",
             "Mở .env bằng Notepad → File → Save As → Encoding: UTF-8 (không chọn \"UTF-8 with BOM\"), rồi chạy lại KIEM-TRA.bat",
+        )
+    if malformed_lines:
+        numbers = ", ".join(str(number) for number in malformed_lines)
+        return CheckResult(
+            name, OPTIONAL, False,
+            f"Dòng {numbers} trong .env không đúng dạng KEY=VALUE",
+            "Sửa các dòng đó thành dạng TÊN_BIẾN=giá_trị (xem docs/vi/lay-api-key.md), rồi chạy lại KIEM-TRA.bat",
         )
     merged = dict(env_values)
     merged.update(environ)
@@ -254,8 +284,8 @@ def exit_code(results: Iterable[CheckResult]) -> int:
 
 def _icon(result: CheckResult) -> str:
     if result.ok:
-        return "✅"
-    return "❌" if result.level == REQUIRED else "⚠️"
+        return "✅ [ĐẠT]"
+    return "❌ [LỖI]" if result.level == REQUIRED else "⚠️ [CẢNH BÁO]"
 
 
 def render(results: Sequence[CheckResult]) -> str:
@@ -293,6 +323,7 @@ def collect(no_smoke: bool) -> list[CheckResult]:
         os.environ,
         read_env_file(env_file) if env_file else {},
         env_has_bom=env_file_has_bom(env_file) if env_file else False,
+        malformed_lines=find_malformed_env_lines(env_file) if env_file else (),
     ))
     return results
 

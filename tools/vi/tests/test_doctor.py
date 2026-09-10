@@ -2,6 +2,8 @@
 
 import importlib.metadata
 import io
+import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,6 +14,21 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import doctor  # noqa: E402
+
+UPSTREAM_SCRIPTS = Path(__file__).resolve().parents[3] / "skills" / "ppt-master" / "scripts"
+
+
+def import_upstream_config():
+    """Nạp scripts/config.py của upstream. Import lỗi chính là tín hiệu upstream đã đổi."""
+    sys.path.insert(0, str(UPSTREAM_SCRIPTS))
+    try:
+        with mock.patch.dict(os.environ, {"PPT_MASTER_DISABLE_WORKFLOW_TRANSCRIPT": "1"}):
+            import config
+    except SystemExit as exc:
+        raise RuntimeError(f"Import config.py của upstream thoát với mã {exc.code}") from exc
+    finally:
+        sys.path.remove(str(UPSTREAM_SCRIPTS))
+    return config
 
 
 def make_pptx(path, slide_texts):
@@ -237,6 +254,56 @@ class EnvTest(unittest.TestCase):
         self.assertIn("KIEM-TRA.bat", result.fix)
         self.assertNotIn("abc", result.detail + result.fix)
 
+    def test_find_malformed_env_lines_reports_line_numbers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text(
+                "# ghi chú\n\nGEMINI_API_KEY=abc\nAIzaSyBAREKEY\nexport OPENAI_API_KEY=def\n"
+                "=novalue\nexport =x\n   \nexport\n  # comment thụt lề\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(doctor.find_malformed_env_lines(path), [4, 6, 7, 9])
+
+    def test_find_malformed_env_lines_counts_crlf_lines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_bytes(b"A=1\r\n\r\nbroken\r\nB=2\r\n")
+            self.assertEqual(doctor.find_malformed_env_lines(path), [3])
+
+    def test_find_malformed_env_lines_valid_and_missing_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text('# c\nGEMINI_API_KEY="a=b" # note\nexport OPENAI_API_KEY=\n', encoding="utf-8")
+            self.assertEqual(doctor.find_malformed_env_lines(path), [])
+            self.assertEqual(doctor.find_malformed_env_lines(Path(tmp) / "absent.env"), [])
+
+    def test_check_api_keys_reports_malformed_lines_without_leaking(self):
+        result = doctor.check_api_keys({}, {"GEMINI_API_KEY": "abc"}, malformed_lines=[4, 6])
+        self.assertFalse(result.ok)
+        self.assertEqual(result.level, doctor.OPTIONAL)
+        self.assertEqual(result.detail, "Dòng 4, 6 trong .env không đúng dạng KEY=VALUE")
+        self.assertIn("docs/vi/lay-api-key.md", result.fix)
+        self.assertNotIn("abc", result.detail + result.fix)
+
+    def test_check_api_keys_bom_takes_precedence_over_malformed_lines(self):
+        result = doctor.check_api_keys({}, {}, env_has_bom=True, malformed_lines=[2])
+        self.assertFalse(result.ok)
+        self.assertIn("BOM", result.detail)
+        self.assertNotIn("KEY=VALUE", result.detail)
+
+    def test_malformed_env_file_never_leaks_line_content(self):
+        secret = "AIzaSySECRETVALUE123"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text(f"GEMINI_API_KEY=abc\n{secret}\n", encoding="utf-8")
+            result = doctor.check_api_keys(
+                {}, doctor.read_env_file(path), malformed_lines=doctor.find_malformed_env_lines(path),
+            )
+        text = doctor.render([result])
+        self.assertIn("Dòng 2 trong .env không đúng dạng KEY=VALUE", text)
+        self.assertNotIn(secret, text)
+        self.assertNotIn("abc", text)
+
 
 class VerifyPptxTest(unittest.TestCase):
     def test_accepts_single_slide_with_vietnamese_text(self):
@@ -352,9 +419,9 @@ class RenderAndExitCodeTest(unittest.TestCase):
             doctor.CheckResult("Pandoc", doctor.OPTIONAL, False, "Chưa cài", "Chỉ cần khi chuyển tài liệu"),
             doctor.CheckResult("Thư viện Python", doctor.REQUIRED, False, "Thiếu: flask", "Chạy CAI-DAT.bat"),
         ])
-        self.assertIn("✅ Python", text)
-        self.assertIn("⚠️ Pandoc", text)
-        self.assertIn("❌ Thư viện Python", text)
+        self.assertIn("✅ [ĐẠT] Python", text)
+        self.assertIn("⚠️ [CẢNH BÁO] Pandoc", text)
+        self.assertIn("❌ [LỖI] Thư viện Python", text)
         self.assertIn("→ Chạy CAI-DAT.bat", text)
         self.assertIn("còn lỗi bắt buộc", text)
 
@@ -417,6 +484,98 @@ class MainTest(unittest.TestCase):
             results = doctor.collect(no_smoke=True)
         self.assertEqual(results, [failed_python])
         self.assertEqual(doctor.exit_code(results), 1)
+
+    def test_collect_passes_malformed_env_lines_to_api_key_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text("GEMINI_API_KEY=abc\nbroken\n", encoding="utf-8")
+            with mock.patch.object(doctor, "check_python", return_value=self._ok("Python")), \
+                    mock.patch.object(doctor, "check_packages", return_value=self._ok("Thư viện")), \
+                    mock.patch.object(doctor, "check_integrity", return_value=self._ok("Toàn vẹn")), \
+                    mock.patch.object(doctor, "check_tool", side_effect=lambda command, label, level, purpose: self._ok(label, level)), \
+                    mock.patch.object(doctor, "find_env_file", return_value=env_path), \
+                    mock.patch.object(doctor, "check_api_keys", return_value=self._ok("API", doctor.OPTIONAL)) as api:
+                doctor.collect(no_smoke=True)
+        self.assertEqual(api.call_args.kwargs["malformed_lines"], [2])
+        self.assertFalse(api.call_args.kwargs["env_has_bom"])
+
+
+class UpstreamParityTest(unittest.TestCase):
+    """So các hàm doctor sao chép từ upstream với scripts/config.py để phát hiện drift."""
+
+    SAMPLES = (
+        "abc # note",             # comment không nằm trong ngoặc
+        '"x # y" # note',         # ngoặc kép chứa #
+        '"unterminated # tail',   # ngoặc không đóng
+        "",                       # rỗng
+        "   ",                    # chỉ có khoảng trắng
+        "'x # y' # note",         # ngoặc đơn chứa #
+        "'single'",               # ngoặc đơn, không comment
+        "abc#hash",               # # sát ngay sau giá trị
+        "plain-value",            # không có comment
+        '  "lead" tail # c',      # khoảng trắng đầu + chữ sau ngoặc
+        '"',                      # một dấu ngoặc
+        "'mixed\"",               # hai loại ngoặc khác nhau
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cls.config = import_upstream_config()
+
+    def test_strip_inline_env_comment_matches_upstream(self):
+        for sample in self.SAMPLES:
+            with self.subTest(sample=sample):
+                self.assertEqual(
+                    doctor._strip_inline_env_comment(sample), self.config.strip_inline_env_comment(sample),
+                )
+
+    def test_strip_env_quotes_matches_upstream(self):
+        for sample in self.SAMPLES:
+            for value in (sample, sample.strip()):
+                with self.subTest(value=value):
+                    self.assertEqual(doctor._strip_env_quotes(value), self.config.strip_env_quotes(value))
+
+    def test_value_cleaning_pipeline_matches_upstream(self):
+        for sample in self.SAMPLES:
+            with self.subTest(sample=sample):
+                expected = self.config.strip_env_quotes(self.config.strip_inline_env_comment(sample).strip())
+                actual = doctor._strip_env_quotes(doctor._strip_inline_env_comment(sample).strip())
+                self.assertEqual(actual, expected)
+
+    def test_env_candidates_match_upstream(self):
+        self.assertEqual(
+            doctor.default_env_candidates(Path.cwd(), Path.home()), self.config.get_env_candidates(),
+        )
+
+    def test_malformed_lines_match_upstream_loader(self):
+        cases = {
+            "hợp lệ": b"GEMINI_API_KEY=abc\n# comment\n\nexport OPENAI_API_KEY=def\n",
+            "key dán thành dòng riêng": b"GEMINI_API_KEY=abc\nAIzaSyBAREKEY\n",
+            "thiếu tên biến": b"# c\n=value\n",
+            "export thiếu tên biến": b"export =value\n",
+            "chỉ có export": b"A=1\nexport\n",
+            "tên biến chỉ có khoảng trắng": b"   = x\n",
+            "CRLF": b"A=1\r\n\r\nbroken\r\n",
+            "chỉ CR": b"A=1\rbroken\r",
+            "BOM trước comment": b"\xef\xbb\xbf# comment\nA=1\n",
+        }
+        for label, content in cases.items():
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / ".env"
+                path.write_bytes(content)
+                upstream_line = None
+                with mock.patch.object(self.config, "resolve_env_path", return_value=path):
+                    try:
+                        self.config.load_prefixed_env_file(("PPTMASTER_VI_PARITY_",))
+                    except ValueError as exc:
+                        match = re.search(r":(\d+)\. ", str(exc))
+                        self.assertIsNotNone(match, str(exc))
+                        upstream_line = int(match.group(1))
+                malformed = doctor.find_malformed_env_lines(path)
+                if upstream_line is None:
+                    self.assertEqual(malformed, [])
+                else:
+                    self.assertEqual(malformed[:1], [upstream_line])
 
 
 if __name__ == "__main__":
