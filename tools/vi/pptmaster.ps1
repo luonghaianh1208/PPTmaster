@@ -1,17 +1,28 @@
 ﻿<#
 .SYNOPSIS
-  Trình khởi chạy bản Việt của PPT Master: cài đặt, kiểm tra, cập nhật.
+  Trình khởi chạy bản Việt của PPT Master: cài đặt, kiểm tra, cập nhật, cài công cụ tuỳ chọn.
 .PARAMETER Action
   setup  - kiểm tra Python, cài thư viện, tạo .env, công cụ tuỳ chọn, chạy doctor
   check  - chạy doctor
   update - cập nhật bằng git (update_repo.py của upstream) rồi kiểm tra nhanh
+  tool   - cài công cụ tuỳ chọn cho tài khoản hiện tại (dùng với -Name), in JSON
+.PARAMETER Auto
+  Dùng với setup: tự cài không hỏi (Python cho tài khoản, venv, thư viện, .env), in một đối tượng JSON ra stdout.
+.PARAMETER PlanOnly
+  Dùng với setup -Auto hoặc tool: chỉ in kế hoạch dạng JSON; không tải, không cài, không tạo file.
+.PARAMETER Name
+  Dùng với tool: ffmpeg hoặc pandoc.
 .PARAMETER NonInteractive
   Không hỏi Y/N và không tự cài phần mềm (dùng khi kiểm thử).
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('setup', 'check', 'update')]
+    [ValidateSet('setup', 'check', 'update', 'tool')]
     [string]$Action,
+    [switch]$Auto,
+    [switch]$PlanOnly,
+    [ValidateSet('ffmpeg', 'pandoc')]
+    [string]$Name,
     [switch]$NonInteractive
 )
 
@@ -23,10 +34,33 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $Doctor = Join-Path $RepoRoot 'tools\vi\doctor.py'
 $FixDoc = Join-Path $RepoRoot 'docs\vi\xu-ly-loi.md'
 $InstallDoc = Join-Path $RepoRoot 'docs\vi\cai-dat-windows.md'
+$VenvDir = Join-Path $RepoRoot 'venv'
+$VenvPython = Join-Path $VenvDir 'Scripts\python.exe'
+$MaxRepoPathLength = 80
+
+# Bộ cài python.org dự phòng khi không có winget. Đổi phiên bản: xem docs/vi/phat-trien/bao-tri.md.
+$PythonVersion = '3.12.10'
+$PythonInstallers = @{
+    amd64 = @{ Url = 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe'; Sha256 = '67B5635E80EA51072B87941312D00EC8927C4DB9BA18938F7AD2D27B328B95FB' }
+    arm64 = @{ Url = 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-arm64.exe'; Sha256 = '377AC8FD478987940088E879441E702A71B53164D2A1E6F1D51FF77A7E470258' }
+}
+$OptionalTools = @{
+    ffmpeg = @{ Id = 'Gyan.FFmpeg'; Exe = 'ffmpeg.exe'; Manual = 'https://ffmpeg.org/download.html' }
+    pandoc = @{ Id = 'JohnMacFarlane.Pandoc'; Exe = 'pandoc.exe'; Manual = 'https://pandoc.org/installing.html' }
+}
+$script:SetupError = $null
 
 function Write-Step([string]$Text) { Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
 function Write-Fail([string]$Text) { Write-Host "[LỖI] $Text" -ForegroundColor Red }
 function Write-Ok([string]$Text) { Write-Host "[OK] $Text" -ForegroundColor Green }
+
+# Chế độ cho AI (setup -Auto, -PlanOnly, tool): stdout chỉ có một dòng JSON, mọi dòng khác ra stderr.
+function Write-Log([string]$Text) { [Console]::Error.WriteLine($Text) }
+function Write-Json($Object) { [Console]::Out.WriteLine(($Object | ConvertTo-Json -Depth 6 -Compress)) }
+function Invoke-Logged([scriptblock]$Command) { & $Command 2>&1 | ForEach-Object { Write-Log "$_" } }
+function Set-SetupError([string]$Step, [string]$Message, [string]$Fix) {
+    $script:SetupError = [pscustomobject]@{ step = $Step; message = $Message; fix = $Fix }
+}
 
 function Test-Winget { return [bool](Get-Command winget -ErrorAction SilentlyContinue) }
 
@@ -66,6 +100,21 @@ function Get-LauncherPython {
     }
 }
 
+function Get-UserPythonPath {
+    if (-not $env:LOCALAPPDATA) { return $null }
+    $candidate = Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'
+    if (Test-Path $candidate) { return $candidate }
+    return $null
+}
+
+function Find-BasePython {
+    $py = Get-PythonInfo
+    if ($py -and $py.Version -and $py.Version -ge [version]'3.10') { return $py.Path }
+    $launcher = Get-LauncherPython
+    if ($launcher) { return $launcher.Path }
+    return (Get-UserPythonPath)
+}
+
 function Resolve-Python([bool]$OfferInstall) {
     $py = Get-PythonInfo
     if ($py -and $py.Version -and $py.Version -ge [version]'3.10') {
@@ -99,6 +148,14 @@ function Resolve-Python([bool]$OfferInstall) {
         Write-Host "Hướng dẫn chi tiết: $InstallDoc"
     }
     return $null
+}
+
+function Resolve-RunPython {
+    if (Test-Path $VenvPython) {
+        Write-Ok "Python của venv tại $VenvPython"
+        return [pscustomobject]@{ Path = $VenvPython }
+    }
+    return (Resolve-Python $false)
 }
 
 function Invoke-Doctor($Py, [string[]]$DoctorArgs) {
@@ -157,8 +214,235 @@ function Invoke-Setup {
     return (Invoke-Doctor $py @())
 }
 
+function Get-FolderWarnings {
+    $warnings = @()
+    foreach ($variable in 'OneDrive', 'OneDriveCommercial', 'OneDriveConsumer') {
+        $root = [Environment]::GetEnvironmentVariable($variable)
+        if ($root -and $RepoRoot.StartsWith($root.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+            $warnings += "Thư mục bộ công cụ nằm trong OneDrive ($root). Nên chuyển sang đường dẫn ngắn như D:\PPTmaster để tránh lỗi khoá file khi cài và khi xuất PPTX."
+            break
+        }
+    }
+    if ($RepoRoot.Length -gt $MaxRepoPathLength) {
+        $warnings += "Đường dẫn thư mục bộ công cụ dài $($RepoRoot.Length) ký tự (nên dưới $MaxRepoPathLength). Nên chuyển sang đường dẫn ngắn như D:\PPTmaster."
+    }
+    if ($RepoRoot -like '*PPTmaster-main\PPTmaster-main*') {
+        $warnings += 'Thư mục bị lồng PPTmaster-main\PPTmaster-main. Nên chuyển nội dung ra một thư mục ngắn như D:\PPTmaster.'
+    }
+    return $warnings
+}
+
+function Get-SetupPlan {
+    $steps = @()
+    $venvReady = Test-Path $VenvPython
+    $basePython = $null
+    if (-not $venvReady) {
+        $basePython = Find-BasePython
+        if (-not $basePython) {
+            $method = if (Test-Winget) { 'winget' } else { 'python-org' }
+            $steps += [pscustomobject]@{ step = 'python'; action = 'install'; method = $method }
+        }
+        $steps += [pscustomobject]@{ step = 'venv'; action = 'create'; method = 'python -m venv' }
+    }
+    $steps += [pscustomobject]@{ step = 'packages'; action = 'ensure'; method = 'pip' }
+    if (-not (Test-Path (Join-Path $RepoRoot '.env'))) {
+        $steps += [pscustomobject]@{ step = 'env'; action = 'create'; method = 'copy .env.example' }
+    }
+    $steps += [pscustomobject]@{ step = 'doctor'; action = 'run'; method = 'doctor.py --json' }
+    return [pscustomobject]@{ BasePython = $basePython; VenvReady = $venvReady; Steps = $steps }
+}
+
+function Install-UserPython {
+    if (Test-Winget) {
+        Write-Log "Cài Python $PythonVersion cho tài khoản này bằng winget..."
+        Invoke-Logged { winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity }
+        $found = Find-BasePython
+        if ($found) { return $found }
+        Write-Log 'winget chưa cài được Python, chuyển sang bộ cài của python.org.'
+    }
+    $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+    $installer = $PythonInstallers[$arch]
+    $file = Join-Path $env:TEMP "python-$PythonVersion-$arch.exe"
+    Write-Log "Tải bộ cài Python $PythonVersion ($arch) từ python.org..."
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $installer.Url -OutFile $file -UseBasicParsing
+    } catch {
+        Set-SetupError 'python' "Không tải được bộ cài Python: $($_.Exception.Message)" 'Kiểm tra kết nối mạng. Máy trường có thể cần mở truy cập python.org (xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md).'
+        return $null
+    }
+    $hash = (Get-FileHash -Path $file -Algorithm SHA256).Hash
+    if ($hash -ne $installer.Sha256) {
+        Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+        Set-SetupError 'python' 'Bộ cài Python tải về không khớp mã SHA256 nên đã bị huỷ.' 'Thử lại sau; nếu vẫn lỗi, mạng có thể đang chặn hoặc sửa nội dung tải về (xem docs/vi/xu-ly-loi.md).'
+        return $null
+    }
+    Write-Log 'Chạy bộ cài Python ở chế độ ngầm, chỉ cho tài khoản này...'
+    try {
+        $proc = Start-Process -FilePath $file -ArgumentList '/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_launcher=1', 'InstallLauncherAllUsers=0', 'Include_test=0' -Wait -PassThru -WindowStyle Hidden
+    } catch {
+        Set-SetupError 'python' "Không chạy được bộ cài Python: $($_.Exception.Message)" 'Máy có thể đang chặn chạy bộ cài; xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md.'
+        return $null
+    }
+    $found = Find-BasePython
+    if (-not $found) {
+        Set-SetupError 'python' "Bộ cài Python kết thúc (mã $($proc.ExitCode)) nhưng không tìm thấy Python." 'Cài Python 3.12 thủ công theo docs/vi/cai-dat-windows.md, hoặc nhờ bộ phận IT (xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md).'
+        return $null
+    }
+    return $found
+}
+
+function Get-DoctorReport([string[]]$DoctorArgs) {
+    $raw = & $VenvPython $Doctor --json @DoctorArgs
+    $text = ($raw | Out-String).Trim()
+    if (-not $text) { return $null }
+    try { return ($text | ConvertFrom-Json) } catch { return $null }
+}
+
+function Test-PackagesOk($Report) {
+    if (-not $Report) { return $false }
+    foreach ($check in $Report.checks) {
+        if ($check.name -eq 'Thư viện Python') { return [bool]$check.ok }
+    }
+    return $false
+}
+
+function Write-SetupResult([bool]$Ready, $Installed, $Warnings, $Checks) {
+    $python = if (Test-Path $VenvPython) { $VenvPython } else { $null }
+    Write-Json ([pscustomobject]@{
+        ready     = $Ready
+        python    = $python
+        installed = @($Installed)
+        warnings  = @($Warnings)
+        checks    = @($Checks)
+        error     = $script:SetupError
+    })
+}
+
+function Invoke-AutoSetup {
+    $warnings = @(Get-FolderWarnings)
+    if ($PlanOnly) {
+        $plan = Get-SetupPlan
+        $found = if ($plan.VenvReady) { $VenvPython } else { $plan.BasePython }
+        Write-Json ([pscustomobject]@{ python_found = $found; steps = @($plan.Steps); warnings = $warnings })
+        return 0
+    }
+    foreach ($warning in $warnings) { Write-Log "[CẢNH BÁO] $warning" }
+    $installed = @()
+
+    if (-not (Test-Path $VenvPython)) {
+        $base = Find-BasePython
+        if (-not $base) {
+            $base = Install-UserPython
+            if (-not $base) { Write-SetupResult $false $installed $warnings @(); return 1 }
+            $installed += 'python'
+        }
+        Write-Log "Tạo môi trường Python riêng (venv) bằng $base..."
+        Invoke-Logged { & $base -m venv $VenvDir }
+        if (-not (Test-Path $VenvPython)) {
+            Set-SetupError 'venv' 'Không tạo được thư mục venv.' 'Xoá thư mục venv trong bộ công cụ (nếu có) rồi chạy lại lệnh cài.'
+            Write-SetupResult $false $installed $warnings @()
+            return 1
+        }
+        $installed += 'venv'
+    }
+
+    if (-not (Test-PackagesOk (Get-DoctorReport @('--no-smoke')))) {
+        $pipCode = 1
+        for ($attempt = 1; $attempt -le 2 -and $pipCode -ne 0; $attempt++) {
+            Write-Log "Cài thư viện Python (lần $attempt, có thể mất vài phút)..."
+            Invoke-Logged { & $VenvPython -m pip install --upgrade pip }
+            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'requirements.txt') }
+            $pipCode = $LASTEXITCODE
+        }
+        if ($pipCode -ne 0) {
+            Set-SetupError 'packages' 'Cài thư viện Python thất bại.' 'Xem mục "Cài thư viện thất bại" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'
+            Write-SetupResult $false $installed $warnings @()
+            return 1
+        }
+        $installed += 'packages'
+    }
+
+    $envFile = Join-Path $RepoRoot '.env'
+    if (-not (Test-Path $envFile)) {
+        Copy-Item (Join-Path $RepoRoot '.env.example') $envFile
+        $installed += 'env'
+    }
+
+    Write-Log 'Kiểm tra lại toàn bộ (có xuất thử một file PPTX)...'
+    $report = Get-DoctorReport @()
+    if (-not $report) {
+        Set-SetupError 'doctor' 'Không đọc được kết quả kiểm tra môi trường.' 'Chạy KIEM-TRA.bat để xem chi tiết.'
+        Write-SetupResult $false $installed $warnings @()
+        return 1
+    }
+    $ready = [bool]$report.ready
+    Write-SetupResult $ready $installed $warnings @($report.checks)
+    if ($ready) { return 0 }
+    return 1
+}
+
+function Find-ToolDir([string]$ToolName) {
+    $exe = $OptionalTools[$ToolName].Exe
+    $cmd = Get-Command $exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($cmd) { return (Split-Path -Path $cmd.Source -Parent) }
+    if (-not $env:LOCALAPPDATA) { return $null }
+    $candidates = @()
+    if ($ToolName -eq 'ffmpeg') {
+        $candidates += Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\ffmpeg.exe'
+        $packages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+        if (Test-Path $packages) {
+            foreach ($folder in @(Get-ChildItem -Path $packages -Directory -Filter 'Gyan.FFmpeg*' -ErrorAction SilentlyContinue)) {
+                $candidates += @(Get-ChildItem -Path $folder.FullName -Filter 'ffmpeg.exe' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+            }
+        }
+    } else {
+        $candidates += Join-Path $env:LOCALAPPDATA 'Pandoc\pandoc.exe'
+    }
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate)) { return (Split-Path -Path $candidate -Parent) }
+    }
+    return $null
+}
+
+function Invoke-Tool {
+    if (-not $Name) {
+        Write-Json ([pscustomobject]@{ tool = $null; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = 'Thiếu tham số -Name.'; fix = 'Chạy lại với -Name ffmpeg hoặc -Name pandoc.' } })
+        return 1
+    }
+    $tool = $OptionalTools[$Name]
+    $dir = Find-ToolDir $Name
+    if ($PlanOnly) {
+        $steps = @()
+        if (-not $dir) {
+            $method = if (Test-Winget) { 'winget' } else { 'manual' }
+            $steps += [pscustomobject]@{ step = $Name; action = 'install'; method = $method }
+        }
+        Write-Json ([pscustomobject]@{ tool = $Name; found = [bool]$dir; dir = $dir; steps = @($steps) })
+        return 0
+    }
+    if ($dir) {
+        Write-Json ([pscustomobject]@{ tool = $Name; found = $true; installed = $false; dir = $dir; error = $null })
+        return 0
+    }
+    if (-not (Test-Winget)) {
+        Write-Json ([pscustomobject]@{ tool = $Name; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = "Máy không có winget nên không tự cài được $Name."; fix = "Tải và cài thủ công tại $($tool.Manual)" } })
+        return 1
+    }
+    $id = $tool.Id
+    Write-Log "Cài $Name cho tài khoản này bằng winget..."
+    Invoke-Logged { winget install -e --id $id --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity }
+    $dir = Find-ToolDir $Name
+    if (-not $dir) {
+        Write-Json ([pscustomobject]@{ tool = $Name; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = "winget không cài được $Name."; fix = "Tải và cài thủ công tại $($tool.Manual)" } })
+        return 1
+    }
+    Write-Json ([pscustomobject]@{ tool = $Name; found = $true; installed = $true; dir = $dir; error = $null })
+    return 0
+}
+
 function Invoke-Check {
-    $py = Resolve-Python $false
+    $py = Resolve-RunPython
     if (-not $py) { Write-Host 'Hãy bấm CAI-DAT.bat trước.'; return 1 }
     return (Invoke-Doctor $py @())
 }
@@ -169,7 +453,7 @@ function Invoke-Update {
         Write-Host 'Tải bản mới tại https://github.com/luonghaianh1208/PPTmaster rồi chép thư mục projects\ và file .env của bạn sang.'
         return 1
     }
-    $py = Resolve-Python $false
+    $py = Resolve-RunPython
     if (-not $py) { Write-Host 'Hãy bấm CAI-DAT.bat trước.'; return 1 }
     Write-Step 'Tải bản mới nhất'
     & $py.Path (Join-Path $RepoRoot 'skills\ppt-master\scripts\update_repo.py') | Out-Host
@@ -185,9 +469,10 @@ function Invoke-Update {
 Push-Location $RepoRoot
 try {
     switch ($Action) {
-        'setup' { $code = Invoke-Setup }
+        'setup' { if ($Auto -or $PlanOnly) { $code = Invoke-AutoSetup } else { $code = Invoke-Setup } }
         'check' { $code = Invoke-Check }
         'update' { $code = Invoke-Update }
+        'tool' { $code = Invoke-Tool }
     }
 } finally {
     Pop-Location
