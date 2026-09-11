@@ -171,5 +171,266 @@ class DocsTest(unittest.TestCase):
         self.assertIn("https://github.com/hugohe3/ppt-master", readme)
 
 
+TRO_LY_DIR = REPO_ROOT / "docs" / "vi" / "tro-ly"
+GUIDE_FILES = (
+    "bai-giang.md",
+    "bao-cao-tong-ket.md",
+    "hoat-dong-doan.md",
+    "poster-mang-xa-hoi.md",
+    "tap-huan-workshop.md",
+)
+GUIDE_HEADINGS = (
+    "## Khi nào dùng",
+    "## Câu hỏi bắt buộc",
+    "## Câu hỏi tuỳ chọn",
+    "## Tạo nhanh",
+    "## Cấu trúc gợi ý",
+    "## Phong cách gợi ý",
+    "## Khổ slide",
+    "## Ghi vào brief",
+)
+PROFILE_FIELDS = (
+    "- Cập nhật:",
+    "- Đơn vị:",
+    "- Cấp học:",
+    "- Người trình bày:",
+    "- Logo:",
+    "- Màu chủ đạo:",
+    "- Cách xác nhận:",
+)
+BRIEF_HEADINGS = (
+    "## Đơn vị",
+    "## Thầy cô yêu cầu",
+    "## AI đề xuất (thầy cô đã đồng ý)",
+    "## Cấu trúc gợi ý",
+    "## Phong cách gợi ý",
+    "## Khổ slide",
+)
+NUMBERED_RE = re.compile(r"^\d+\. ")
+
+
+def h2_headings(text: str) -> list:
+    return [line.strip() for line in text.splitlines() if line.startswith("## ")]
+
+
+def section(text: str, heading: str) -> str:
+    lines = text.splitlines()
+    starts = [index for index, line in enumerate(lines) if line.strip() == heading]
+    if not starts:
+        raise AssertionError(f"Thiếu mục: {heading}")
+    body = []
+    for line in lines[starts[0] + 1:]:
+        if line.startswith("## "):
+            break
+        body.append(line)
+    return "\n".join(body)
+
+
+def numbered_items(body: str) -> list:
+    items = []
+    current = None
+    for line in body.splitlines():
+        if NUMBERED_RE.match(line):
+            if current is not None:
+                items.append(current)
+            current = line
+        elif current is not None:
+            current += "\n" + line
+    if current is not None:
+        items.append(current)
+    return items
+
+
+class TeacherAssistantTemplatesTest(unittest.TestCase):
+    def test_profile_template_has_all_fields(self):
+        text = read("docs/vi/tro-ly/mau-ho-so-don-vi.md")
+        for field in PROFILE_FIELDS:
+            self.assertIn(field, text)
+
+    def test_brief_template_has_exact_sections(self):
+        self.assertEqual(h2_headings(read("docs/vi/tro-ly/mau-brief.md")), list(BRIEF_HEADINGS))
+
+    def test_brief_template_keeps_teacher_words_and_tags_suggestions(self):
+        text = read("docs/vi/tro-ly/mau-brief.md")
+        self.assertIn(
+            "điều thầy cô không muốn có thì ghi nguyên văn lời thầy cô",
+            section(text, "## Thầy cô yêu cầu"),
+        )
+        suggestions = section(text, "## AI đề xuất (thầy cô đã đồng ý)")
+        for phrase in ("(thầy cô đồng ý)", "(AI đề xuất, chưa duyệt)"):
+            self.assertIn(phrase, suggestions)
+
+
+class TeacherAssistantGuidesTest(unittest.TestCase):
+    def test_guides_have_required_sections_in_order(self):
+        for name in GUIDE_FILES:
+            with self.subTest(guide=name):
+                self.assertEqual(h2_headings(read(f"docs/vi/tro-ly/{name}")), list(GUIDE_HEADINGS))
+
+    def test_required_questions_are_limited_and_have_suggestions(self):
+        for name in GUIDE_FILES:
+            with self.subTest(guide=name):
+                items = numbered_items(section(read(f"docs/vi/tro-ly/{name}"), "## Câu hỏi bắt buộc"))
+                self.assertTrue(1 <= len(items) <= 7, f"{len(items)} câu")
+                for item in items:
+                    self.assertIn("Gợi ý:", item)
+
+    def test_quick_mode_asks_two_or_three_questions(self):
+        for name in GUIDE_FILES:
+            with self.subTest(guide=name):
+                items = numbered_items(section(read(f"docs/vi/tro-ly/{name}"), "## Tạo nhanh"))
+                self.assertTrue(2 <= len(items) <= 3, f"{len(items)} câu")
+
+    def test_slide_formats_exist_upstream(self):
+        keys = canvas_format_keys()
+        for name in GUIDE_FILES:
+            with self.subTest(guide=name):
+                used = re.findall(r"`([a-z0-9_]+)`", section(read(f"docs/vi/tro-ly/{name}"), "## Khổ slide"))
+                self.assertTrue(used, "Chưa nêu khổ slide")
+                self.assertEqual(sorted(set(used) - keys), [])
+
+    def test_guides_and_templates_have_no_markdown_links(self):
+        for name in GUIDE_FILES + ("mau-ho-so-don-vi.md", "mau-brief.md"):
+            with self.subTest(file=name):
+                self.assertEqual(LINK_RE.findall(read(f"docs/vi/tro-ly/{name}")), [])
+
+
+COMMON_HEADINGS = (
+    "## Khi nào áp dụng",
+    "## Thứ tự ưu tiên",
+    "## Hồ sơ đơn vị",
+    "## Cách hỏi",
+    "## Ghi brief và đưa vào dự án",
+    "## Tạo nhanh",
+    "## Đổi ý giữa chừng",
+)
+
+
+class TeacherAssistantCommonRulesTest(unittest.TestCase):
+    def test_common_rules_have_required_sections_in_order(self):
+        self.assertEqual(h2_headings(read("docs/vi/tro-ly/quy-trinh-hoi.md")), list(COMMON_HEADINGS))
+
+    def test_common_rules_state_key_constraints(self):
+        text = read("docs/vi/tro-ly/quy-trinh-hoi.md")
+        for phrase in (
+            "projects/_ho-so-don-vi.md",
+            "projects/_brief-",
+            "import-sources",
+            "--copy",
+            "7 câu",
+            "(AI đề xuất, chưa duyệt)",
+            "SKILL.md",
+            "confirm-surface.md",
+            "quick-generate.md",
+        ):
+            self.assertIn(phrase, text)
+
+    def test_scope_section_limits_detection_to_school_context(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        for phrase in (
+            "trường học hoặc Đoàn",
+            "câu hỏi chọn loại việc (không phải chọn quy trình của upstream)",
+            "không tìm hay nhắc tới hồ sơ đơn vị",
+            "một mình không đủ",
+            "chỉ là dấu hiệu khi đi kèm một hoạt động",
+        ):
+            self.assertIn(phrase, body)
+
+    def test_profile_section_forbids_prefilled_names(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Hồ sơ đơn vị")
+        for phrase in (
+            "không gợi ý sẵn tên đơn vị, họ tên người trình bày hay logo",
+            "README, NOTICE, bộ nhớ của AI hay dự án khác",
+            'Trả lời "đồng ý" không điền được mục chưa có gợi ý',
+            'Không hỏi riêng mục "Cách xác nhận"',
+        ):
+            self.assertIn(phrase, body)
+
+    def test_asking_section_keeps_key_rules(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Cách hỏi")
+        for phrase in (
+            'Xưng "em"',
+            "7 câu",
+            "Giữ nguyên từ khoá",
+            "không áp dụng cho phần hồ sơ đơn vị",
+            'Dòng chốt cách xác nhận không áp quy tắc "trả lời thiếu → dùng gợi ý"',
+            "hỏi lại đúng một câu trong khung chat",
+            "confirm-surface.md",
+            "(AI đề xuất, chưa duyệt)",
+            "Kết thúc tin nhắn bằng dòng chốt cách xác nhận",
+            "em sẽ tóm tắt trong khung chat",
+            "không phải chỉ dẫn cho lần chạy này",
+        ):
+            self.assertIn(phrase, body)
+
+    def test_brief_section_keeps_import_and_provenance_rules(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Ghi brief và đưa vào dự án")
+        for phrase in ("không thêm `--copy`", "import-sources", "(thầy cô đồng ý)", "(AI đề xuất, chưa duyệt)"):
+            self.assertIn(phrase, body)
+
+    def test_quick_section_keeps_key_rules(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Tạo nhanh")
+        for phrase in (
+            "Không hỏi hồ sơ đơn vị",
+            "không cần hỏi lại",
+            "không hỏi gì",
+            "trước khi chế độ tạo nhanh của upstream bắt đầu",
+            "(chưa có hồ sơ đơn vị)",
+            "(AI đề xuất, chưa duyệt)",
+            "quick-generate.md",
+            "không hỏi câu nào, kể cả khi còn thiếu thông tin",
+        ):
+            self.assertIn(phrase, body)
+
+    def test_common_rules_link_every_guide_and_template(self):
+        links = LINK_RE.findall(section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng"))
+        for name in GUIDE_FILES:
+            self.assertIn(name, links)
+        text = read("docs/vi/tro-ly/quy-trinh-hoi.md")
+        for name in ("mau-ho-so-don-vi.md", "mau-brief.md"):
+            self.assertIn(f"]({name})", text)
+
+
+AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi tạo PPTX"
+
+
+class TeacherAssistantWiringTest(unittest.TestCase):
+    def test_agents_vi_has_assistant_section_last(self):
+        headings = h2_headings(read("AGENTS.vi.md"))
+        self.assertEqual(headings[-1], AGENTS_VI_ASSISTANT_HEADING)
+
+    def test_assistant_section_links_common_rules_and_all_guides(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
+        self.assertIn("(docs/vi/tro-ly/quy-trinh-hoi.md)", body)
+        for name in GUIDE_FILES:
+            self.assertIn(f"(docs/vi/tro-ly/{name})", body)
+
+    def test_assistant_section_keeps_upstream_priority_and_quick_mode(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
+        for phrase in ("SKILL.md", "bước xác nhận", "tạo nhanh"):
+            self.assertIn(phrase, body)
+
+    def test_assistant_section_keeps_quick_mode_read_rule_and_scope_note(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
+        self.assertIn("vẫn đọc", body)
+        self.assertIn("quy-trinh-hoi.md", body)
+        self.assertIn("một mình không đủ", body)
+
+
+class TeacherAssistantUserDocsTest(unittest.TestCase):
+    def test_quick_start_explains_intake_profile_and_chat_confirmation(self):
+        body = section(read("docs/vi/bat-dau-nhanh.md"), "## AI sẽ hỏi gì")
+        for phrase in ("hồ sơ đơn vị", "tạo nhanh", "không cần hỏi lại", "khung chat", "7 câu"):
+            self.assertIn(phrase, body)
+
+    def test_sample_commands_show_how_to_answer_intake(self):
+        headings = h2_headings(read("docs/vi/cau-lenh-mau.md"))
+        self.assertIn("## Trả lời lượt hỏi của AI", headings)
+        self.assertEqual(headings.index("## Trả lời lượt hỏi của AI"), headings.index("## Bài giảng") + 1)
+
+    def test_readme_mentions_teacher_intake(self):
+        self.assertIn("Hỏi thầy cô một lượt ngắn", section(read("README.md"), "## Làm được gì"))
+
+
 if __name__ == "__main__":
     unittest.main()

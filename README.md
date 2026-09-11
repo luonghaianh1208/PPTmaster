@@ -4,7 +4,7 @@
 
 Đây là bản Việt hoá và đóng gói của [PPT Master](https://github.com/hugohe3/ppt-master) (tác giả **Hugo He**, giấy phép MIT), do **Lương Hải Anh — 2Anh AI Education** thực hiện. Bản này thêm bộ cài một lần bấm cho Windows, quy tắc tiếng Việt cho AI và tài liệu tiếng Việt; phần lõi giữ nguyên dự án gốc.
 
-Phiên bản: **6.3.2-vi.1** · [Nhật ký thay đổi](CHANGELOG-VI.md)
+Phiên bản: **6.3.2-vi.2** · [Nhật ký thay đổi](CHANGELOG-VI.md)
 
 ## Bắt đầu trong 3 bước
 
@@ -20,6 +20,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 
 ## Làm được gì
 
+- Hỏi thầy cô một lượt ngắn (môn, lớp, bộ sách, mục tiêu, đơn vị…) trước khi làm bài giảng, báo cáo, hoạt động Đoàn, poster và tập huấn, nên nội dung sát thực tế.
 - Tạo PPTX từ PDF, Word, trang web, Markdown hoặc chỉ từ một chủ đề.
 - Chữ, hình và biểu đồ là đối tượng PowerPoint thật, sửa trực tiếp được.
 - Khổ slide 16:9, 4:3, bài đăng Facebook/TikTok 3:4, ảnh vuông Zalo, story 9:16.

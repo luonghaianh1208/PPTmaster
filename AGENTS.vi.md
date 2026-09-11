@@ -54,3 +54,18 @@ Sau khi xuất, cho người dùng biết đường dẫn file PPTX trong thư m
 ## 9. Khi người dùng gặp lỗi môi trường
 
 Đề nghị chạy `KIEM-TRA.bat` (Windows) hoặc `python tools/vi/doctor.py`, rồi đối chiếu với [docs/vi/xu-ly-loi.md](docs/vi/xu-ly-loi.md).
+
+## 10. Hỗ trợ thầy cô trước khi tạo PPTX
+
+Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 5 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
+
+| Loại việc | File hướng dẫn |
+|---|---|
+| Bài giảng | [docs/vi/tro-ly/bai-giang.md](docs/vi/tro-ly/bai-giang.md) |
+| Báo cáo – tổng kết | [docs/vi/tro-ly/bao-cao-tong-ket.md](docs/vi/tro-ly/bao-cao-tong-ket.md) |
+| Hoạt động Đoàn – sự kiện | [docs/vi/tro-ly/hoat-dong-doan.md](docs/vi/tro-ly/hoat-dong-doan.md) |
+| Poster/ấn phẩm Zalo – Facebook | [docs/vi/tro-ly/poster-mang-xa-hoi.md](docs/vi/tro-ly/poster-mang-xa-hoi.md) |
+| Tập huấn/workshop | [docs/vi/tro-ly/tap-huan-workshop.md](docs/vi/tro-ly/tap-huan-workshop.md) |
+
+- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3). Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- Yêu cầu không thuộc 5 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.

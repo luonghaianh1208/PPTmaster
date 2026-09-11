@@ -8,6 +8,21 @@ Dưới đây là các câu lệnh mẫu, sao chép và sửa lại chi tiết c
 Tạo bài giảng 12 slide môn Vật lí lớp 10, bài "Chuyển động thẳng đều", theo mạch Mở đầu – Hình thành kiến thức – Luyện tập – Vận dụng, có 2 câu hỏi trắc nghiệm.
 ```
 
+## Trả lời lượt hỏi của AI
+
+AI hỏi các câu đánh số, mỗi câu có gợi ý. Thầy cô trả lời theo số thứ tự, câu nào đồng ý thì chỉ cần ghi "đồng ý":
+
+```
+1. Đồng ý
+2. Kết nối tri thức với cuộc sống
+3. 2 tiết
+4. Đồng ý gợi ý
+5. Thêm trò chơi ô chữ khởi động
+6. Đồng ý
+7. Không có
+Xác nhận trong khung chat.
+```
+
 ## Báo cáo tổng kết
 
 ```

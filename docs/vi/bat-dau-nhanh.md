@@ -20,9 +20,13 @@ Nếu có sẵn tài liệu, kéo thả file PDF/Word vào khung chat, hoặc gh
 
 ## AI sẽ hỏi gì
 
-Trước khi làm, AI thường xác nhận lại: đối tượng người xem, số trang, phong cách và mẫu thiết kế. Bạn trả lời từng câu, hoặc nhắn "đồng ý đề xuất" để AI tự quyết định theo gợi ý của nó.
+Với bài giảng, báo cáo – tổng kết, hoạt động Đoàn – sự kiện, poster Zalo – Facebook và tập huấn/workshop, AI hỏi một lượt ngắn trước khi làm: tối đa 7 câu, mỗi câu có sẵn gợi ý. Thầy cô chỉ cần trả lời "đồng ý" hoặc sửa những ý chưa đúng.
 
-Muốn bỏ qua bước hỏi để AI làm luôn, thêm chữ "tạo nhanh" vào câu lệnh.
+- **Lần đầu**, AI hỏi thêm hồ sơ đơn vị: tên trường, cấp học, người trình bày, logo, màu chủ đạo. AI không điền sẵn tên trường hay họ tên, thầy cô tự ghi. Hồ sơ lưu ở `projects\_ho-so-don-vi.md` trên máy của thầy cô, lần sau AI dùng lại.
+- **Sau đó**, AI tóm tắt đề xuất trong khung chat để thầy cô duyệt lần cuối, rồi mới dựng slide.
+- **Việc khác** (ví dụ giới thiệu sản phẩm), AI xác nhận lại đối tượng người xem, số trang, phong cách và mẫu thiết kế như trước.
+
+Với 5 loại việc trên, muốn AI làm luôn, thêm chữ "tạo nhanh" vào câu lệnh: AI chỉ hỏi 2–3 câu thật cần thiết. Không muốn trả lời câu nào, thêm "không cần hỏi lại": AI không hỏi gì, tự đề xuất các phần còn thiếu rồi làm luôn.
 
 ## Lấy file kết quả
 
