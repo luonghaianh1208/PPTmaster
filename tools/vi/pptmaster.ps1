@@ -153,6 +153,11 @@ function Resolve-Python([bool]$OfferInstall) {
 
 function Resolve-RunPython([bool]$OfferInstall = $false) {
     if (Test-Path $VenvPython) {
+        if (-not (Test-VenvPython @('-c', 'import sys'))) {
+            Write-Fail 'Môi trường venv bị hỏng hoặc tạo dở.'
+            Write-Host 'Cách sửa: xoá thư mục venv trong bộ công cụ rồi bấm lại CAI-DAT.bat (hoặc nhờ AI chạy lại lệnh cài).'
+            return $null
+        }
         Write-Ok "Python của venv tại $VenvPython"
         return [pscustomobject]@{ Path = $VenvPython }
     }

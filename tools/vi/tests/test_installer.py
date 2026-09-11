@@ -39,7 +39,7 @@ class InstallerPlanTest(unittest.TestCase):
         target.mkdir(parents=True, exist_ok=True)
         (target / f"{name}.cmd").write_text(f"@echo off\r\n{body}\r\n", encoding="ascii")
 
-    def run_launcher(self, *args, repo=None, extra_path=(), env_overrides=None):
+    def launch(self, *args, repo=None, extra_path=(), env_overrides=None):
         repo = repo or self.repo
         env = {key: value for key, value in os.environ.items() if not key.upper().startswith("ONEDRIVE")}
         env["PATH"] = os.pathsep.join([str(path) for path in extra_path] + [str(self.bin)])
@@ -50,11 +50,22 @@ class InstallerPlanTest(unittest.TestCase):
              str(repo / "tools" / "vi" / "pptmaster.ps1"), *args],
             capture_output=True, env=env, timeout=120,
         )
-        stdout = proc.stdout.decode("utf-8", errors="replace").strip()
-        stderr = proc.stderr.decode("utf-8", errors="replace")
+        return proc.returncode, proc.stdout.decode("utf-8", errors="replace").strip(), proc.stderr.decode("utf-8", errors="replace")
+
+    def run_launcher_text(self, *args, **kwargs):
+        returncode, stdout, _ = self.launch(*args, **kwargs)
+        return returncode, stdout
+
+    def run_launcher(self, *args, **kwargs):
+        returncode, stdout, stderr = self.launch(*args, **kwargs)
         self.assertEqual(len(stdout.splitlines()), 1, f"stdout phải là đúng một dòng JSON:\n{stdout}\nstderr:\n{stderr}")
         self.last_stdout = stdout
-        return proc.returncode, json.loads(stdout)
+        return returncode, json.loads(stdout)
+
+    def make_broken_venv(self):
+        venv_python = self.repo / "venv" / "Scripts" / "python.exe"
+        venv_python.parent.mkdir(parents=True)
+        venv_python.write_bytes(b"")
 
     def run_plan(self, *args, repo=None, extra_path=(), env_overrides=None):
         returncode, plan = self.run_launcher(*args, "-PlanOnly", repo=repo, extra_path=extra_path, env_overrides=env_overrides)
@@ -191,6 +202,18 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertEqual(result["error"]["step"], "venv")
         self.assertIn("venv", result["error"]["fix"])
         self.assertEqual(result["installed"], [])
+
+    def test_interactive_setup_reports_broken_venv(self):
+        self.make_broken_venv()
+        returncode, stdout = self.run_launcher_text("-Action", "setup", "-NonInteractive")
+        self.assertEqual(returncode, 1, stdout)
+        self.assertIn("venv bị hỏng", stdout)
+
+    def test_check_reports_broken_venv(self):
+        self.make_broken_venv()
+        returncode, stdout = self.run_launcher_text("-Action", "check")
+        self.assertEqual(returncode, 1, stdout)
+        self.assertIn("venv bị hỏng", stdout)
 
     def test_auto_setup_second_run_installs_nothing(self):
         report = {"ready": True, "python": "x", "checks": [

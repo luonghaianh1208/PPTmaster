@@ -146,7 +146,7 @@ CHANGELOG-VI.md                   # (sửa khi phát hành)
 - Chưa có và có winget → `winget install -e --id Gyan.FFmpeg` (hoặc `JohnMacFarlane.Pandoc`) `--scope user --silent --accept-package-agreements --accept-source-agreements`, rồi tìm thư mục chứa `ffmpeg.exe` / `pandoc.exe`.
 - Đầu ra JSON: `tool`, `found` (bool), `installed` (bool), `dir` (thư mục hoặc `null`), `error`. Mã thoát 0 khi `found` là `true`.
 
-**`check` và `update`:** có `venv\Scripts\python.exe` thì dùng nó; không có thì giữ cách tìm Python hiện tại. **`setup` không có `-Auto`** (từ `CAI-DAT.bat`) giữ nguyên hành vi M1, trừ một điểm: có `venv\Scripts\python.exe` thì dùng nó ở bước kiểm tra Python (không đề nghị cài Python), để `CAI-DAT.bat` cài thư viện vào đúng Python mà `KIEM-TRA.bat` kiểm tra.
+**`check` và `update`:** có `venv\Scripts\python.exe` thì dùng nó; không có thì giữ cách tìm Python hiện tại. **`setup` không có `-Auto`** (từ `CAI-DAT.bat`) giữ nguyên hành vi M1, trừ một điểm: có `venv\Scripts\python.exe` thì dùng nó ở bước kiểm tra Python (không đề nghị cài Python), để `CAI-DAT.bat` cài thư viện vào đúng Python mà `KIEM-TRA.bat` kiểm tra. Ở cả `setup`, `check` và `update`, Python của `venv` không chạy được (`-c "import sys"`) → báo "Môi trường venv bị hỏng hoặc tạo dở." kèm cách sửa (xoá thư mục `venv` rồi bấm lại `CAI-DAT.bat`, hoặc nhờ AI chạy lại lệnh cài), mã thoát 1.
 
 ### 6.2 `tools/vi/doctor.py`
 
