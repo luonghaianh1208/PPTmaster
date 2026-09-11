@@ -2,6 +2,7 @@
 
 import importlib.metadata
 import io
+import json
 import os
 import re
 import subprocess
@@ -426,6 +427,33 @@ class RenderAndExitCodeTest(unittest.TestCase):
         self.assertIn("còn lỗi bắt buộc", text)
 
 
+class RenderJsonTest(unittest.TestCase):
+    def test_render_json_reports_ready_python_and_all_fields(self):
+        results = [
+            doctor.CheckResult("Python", doctor.REQUIRED, True, "Phiên bản 3.12"),
+            doctor.CheckResult("Pandoc", doctor.OPTIONAL, False, "Chưa cài", "Chỉ cần khi chuyển tài liệu"),
+        ]
+        data = json.loads(doctor.render_json(results, python="C:/py/python.exe"))
+        self.assertTrue(data["ready"])
+        self.assertEqual(data["python"], "C:/py/python.exe")
+        self.assertEqual(data["checks"][1], {
+            "name": "Pandoc", "level": doctor.OPTIONAL, "ok": False,
+            "detail": "Chưa cài", "fix": "Chỉ cần khi chuyển tài liệu",
+        })
+
+    def test_render_json_not_ready_when_required_fails_and_keeps_vietnamese(self):
+        results = [doctor.CheckResult("Thư viện Python", doctor.REQUIRED, False, "Thiếu: flask", "Chạy CAI-DAT.bat")]
+        text = doctor.render_json(results)
+        self.assertIn("Thư viện Python", text)
+        self.assertFalse(json.loads(text)["ready"])
+
+    def test_package_check_name_is_installer_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            requirements = Path(tmp) / "requirements.txt"
+            requirements.write_text("", encoding="utf-8")
+            self.assertEqual(doctor.check_packages(requirements).name, "Thư viện Python")
+
+
 class MainTest(unittest.TestCase):
     def _ok(self, name, level=doctor.REQUIRED):
         return doctor.CheckResult(name, level, True, "ok")
@@ -469,6 +497,24 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 1)
         smoke.assert_not_called()
         self.assertIn("Bỏ qua", output)
+
+    def test_json_flag_prints_only_json_with_smoke(self):
+        code, smoke, output = self._run_main(["--json"])
+        data = json.loads(output)
+        self.assertEqual(code, 0)
+        self.assertTrue(data["ready"])
+        self.assertEqual(data["python"], sys.executable)
+        self.assertIn("Xuất thử PPTX", [check["name"] for check in data["checks"]])
+        self.assertNotIn("Kết quả:", output)
+        smoke.assert_called_once()
+
+    def test_json_flag_with_no_smoke_keeps_exit_code(self):
+        code, smoke, output = self._run_main(["--json", "--no-smoke"], integrity_ok=False)
+        data = json.loads(output)
+        self.assertEqual(code, 1)
+        self.assertFalse(data["ready"])
+        self.assertNotIn("Xuất thử PPTX", [check["name"] for check in data["checks"]])
+        smoke.assert_not_called()
 
     def test_collect_short_circuits_on_failed_python_check(self):
         def fail_if_called(*args, **kwargs):

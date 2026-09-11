@@ -4,6 +4,7 @@
 Cách dùng:
     python tools/vi/doctor.py             # kiểm tra đầy đủ, có xuất thử 1 file PPTX
     python tools/vi/doctor.py --no-smoke  # bỏ bước xuất thử
+    python tools/vi/doctor.py --json      # in kết quả dạng JSON cho AI đọc (dùng được với --no-smoke)
 
 Mã thoát: 0 khi mọi mục bắt buộc đạt, 1 khi còn mục bắt buộc lỗi.
 Chỉ dùng thư viện chuẩn Python.
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import json
 import os
 import re
 import shutil
@@ -20,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping, Optional, Sequence
 
@@ -302,6 +304,15 @@ def render(results: Sequence[CheckResult]) -> str:
     return "\n".join(lines)
 
 
+def render_json(results: Sequence[CheckResult], python: str = sys.executable) -> str:
+    payload = {
+        "ready": exit_code(results) == 0,
+        "python": python,
+        "checks": [asdict(result) for result in results],
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
 def collect(no_smoke: bool) -> list[CheckResult]:
     python_result = check_python()
     results = [python_result]
@@ -338,9 +349,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     _configure_utf8()
     parser = argparse.ArgumentParser(description="Kiểm tra môi trường PPT Master (bản Việt)")
     parser.add_argument("--no-smoke", action="store_true", help="Bỏ bước xuất thử PPTX")
+    parser.add_argument("--json", action="store_true", help="In kết quả dạng JSON cho AI đọc")
     args = parser.parse_args(argv)
     results = collect(args.no_smoke)
-    print(render(results))
+    print(render_json(results) if args.json else render(results))
     return exit_code(results)
 
 
