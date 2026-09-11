@@ -53,6 +53,7 @@ class InstallerPlanTest(unittest.TestCase):
         stdout = proc.stdout.decode("utf-8", errors="replace").strip()
         stderr = proc.stderr.decode("utf-8", errors="replace")
         self.assertEqual(len(stdout.splitlines()), 1, f"stdout phải là đúng một dòng JSON:\n{stdout}\nstderr:\n{stderr}")
+        self.last_stdout = stdout
         return proc.returncode, json.loads(stdout)
 
     def run_plan(self, *args, repo=None, extra_path=(), env_overrides=None):
@@ -178,6 +179,37 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertEqual(result["installed"], [])
         self.assertIsNone(result["python"])
         self.assertIsInstance(result["checks"], list)
+
+    def test_auto_setup_reports_broken_venv_as_venv_error(self):
+        venv_python = self.repo / "venv" / "Scripts" / "python.exe"
+        venv_python.parent.mkdir(parents=True)
+        venv_python.write_bytes(b"")
+        (self.repo / ".env").write_text("", encoding="utf-8")
+        returncode, result = self.run_launcher("-Action", "setup", "-Auto")
+        self.assertEqual(returncode, 1)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["error"]["step"], "venv")
+        self.assertIn("venv", result["error"]["fix"])
+        self.assertEqual(result["installed"], [])
+
+    def test_auto_setup_second_run_installs_nothing(self):
+        report = {"ready": True, "python": "x", "checks": [
+            {"name": "Thư viện Python", "level": "required", "ok": True, "detail": "", "fix": ""},
+        ]}
+        payload = json.dumps(report, ensure_ascii=False)
+        (self.repo / "tools" / "vi" / "doctor.py").write_text(
+            f"import sys\nsys.stdout.reconfigure(encoding='utf-8')\nprint({payload!r})\n", encoding="utf-8",
+        )
+        subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(self.repo / "venv")],
+                       check=True, capture_output=True, timeout=120)
+        (self.repo / ".env").write_text("", encoding="utf-8")
+        returncode, result = self.run_launcher("-Action", "setup", "-Auto")
+        self.assertEqual(returncode, 0, result)
+        self.assertTrue(self.last_stdout.startswith('{"ready"'), self.last_stdout)
+        self.assertTrue(result["ready"])
+        self.assertEqual(result["installed"], [])
+        self.assertIsNone(result["error"])
+        self.assertEqual([check["name"] for check in result["checks"]], ["Thư viện Python"])
 
 
 if __name__ == "__main__":

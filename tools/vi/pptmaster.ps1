@@ -151,12 +151,12 @@ function Resolve-Python([bool]$OfferInstall) {
     return $null
 }
 
-function Resolve-RunPython {
+function Resolve-RunPython([bool]$OfferInstall = $false) {
     if (Test-Path $VenvPython) {
         Write-Ok "Python của venv tại $VenvPython"
         return [pscustomobject]@{ Path = $VenvPython }
     }
-    return (Resolve-Python $false)
+    return (Resolve-Python $OfferInstall)
 }
 
 function Invoke-Doctor($Py, [string[]]$DoctorArgs) {
@@ -166,7 +166,7 @@ function Invoke-Doctor($Py, [string[]]$DoctorArgs) {
 
 function Invoke-Setup {
     Write-Step 'Bước 1/4: Kiểm tra Python'
-    $py = Resolve-Python $true
+    $py = Resolve-RunPython $true
     if (-not $py) { return 1 }
 
     Write-Step 'Bước 2/4: Cài thư viện Python (lần đầu có thể mất vài phút)'
@@ -285,8 +285,9 @@ function Install-UserPython {
     } catch {
         Set-SetupError 'python' "Không chạy được bộ cài Python: $($_.Exception.Message)" 'Máy có thể đang chặn chạy bộ cài; xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md.'
         return $null
+    } finally {
+        Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
     }
-    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
     $found = Find-BasePython
     if (-not $found) {
         Set-SetupError 'python' "Bộ cài Python kết thúc (mã $($proc.ExitCode)) nhưng không tìm thấy Python." 'Cài Python 3.12 thủ công theo docs/vi/cai-dat-windows.md, hoặc nhờ bộ phận IT (xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md).'
@@ -300,6 +301,13 @@ function Get-DoctorReport([string[]]$DoctorArgs) {
     $text = ($raw | Out-String).Trim()
     if (-not $text) { return $null }
     try { return ($text | ConvertFrom-Json) } catch { return $null }
+}
+
+# venv hỏng (python.exe rỗng, Python gốc đã gỡ) có thể ném lỗi thay vì trả mã thoát, nên bọc try/catch.
+function Test-VenvPython([string[]]$Arguments) {
+    $global:LASTEXITCODE = 1
+    try { Invoke-Logged { & $VenvPython @Arguments } } catch { Write-Log "$_"; return $false }
+    return ($LASTEXITCODE -eq 0)
 }
 
 function Test-PackagesOk($Report) {
@@ -350,7 +358,20 @@ function Invoke-AutoSetup {
         $installed += 'venv'
     }
 
+    $brokenVenvMessage = 'Môi trường venv bị hỏng hoặc tạo dở.'
+    $brokenVenvFix = 'Xoá thư mục venv trong bộ công cụ rồi chạy lại lệnh cài.'
+    if (-not (Test-VenvPython @('-c', 'import sys'))) {
+        Set-SetupError 'venv' $brokenVenvMessage $brokenVenvFix
+        Write-SetupResult $false $installed $warnings @()
+        return 1
+    }
+
     if (-not (Test-PackagesOk (Get-DoctorReport @('--no-smoke')))) {
+        if (-not (Test-VenvPython @('-m', 'pip', '--version'))) {
+            Set-SetupError 'venv' $brokenVenvMessage $brokenVenvFix
+            Write-SetupResult $false $installed $warnings @()
+            return 1
+        }
         $pipCode = 1
         for ($attempt = 1; $attempt -le 2 -and $pipCode -ne 0; $attempt++) {
             Write-Log "Cài thư viện Python (lần $attempt, có thể mất vài phút)..."
@@ -359,7 +380,7 @@ function Invoke-AutoSetup {
             $pipCode = $LASTEXITCODE
         }
         if ($pipCode -ne 0) {
-            $packagesFix = 'Xem mục "Cài thư viện thất bại" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'
+            $packagesFix = 'Xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'
             if ($warnings.Count -gt 0) {
                 $packagesFix += ' Nếu thư mục có cảnh báo đường dẫn dài hoặc OneDrive, xem thêm mục "Đường dẫn quá dài" trong docs/vi/xu-ly-loi.md.'
             }
