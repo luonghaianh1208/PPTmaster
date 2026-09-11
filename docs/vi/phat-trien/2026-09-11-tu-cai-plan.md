@@ -1392,12 +1392,14 @@ Expected: test OK; `guard=0`; diff `skills/` rỗng; status rỗng; push thườ
 - [ ] **Step 2: Gửi chủ repo danh sách nghiệm thu và chờ trả lời**
 
 Nhờ chủ repo (sẽ mở Antigravity, trình duyệt tải Antigravity nếu cần, và PowerPoint — báo trước):
-1. Dùng một máy Windows chưa có Python (hoặc một tài khoản Windows mới trên máy chưa cài Python cho mọi người dùng); cài Antigravity.
-2. Mở một thư mục trống ngắn (ví dụ `D:\PPTmaster`), mở khung Agent, dán: `Cài PPT Master từ https://github.com/luonghaianh1208/PPTmaster (nhánh feat/vi-tu-cai) vào thư mục này rồi báo khi sẵn sàng tạo slide`.
-3. Kiểm: AI không hỏi Y/N; chỉ cần bấm cho phép chạy lệnh; AI báo sẵn sàng, mục "Xuất thử PPTX" đạt; không phải mở lại Antigravity.
+1. Dùng một máy Windows chưa có Python (hoặc một tài khoản Windows mới trên máy chưa cài Python cho mọi người dùng); ưu tiên máy **không có Git** để AI đi qua đường tải ZIP. Cài Antigravity.
+2. Mở một thư mục trống ngắn (ví dụ `D:\PPTmaster`), mở khung Agent, dán: `Cài PPT Master từ https://github.com/luonghaianh1208/PPTmaster/tree/feat/vi-tu-cai vào thư mục này rồi báo khi sẵn sàng tạo slide`.
+3. Kiểm: AI không hỏi Y/N; chỉ cần bấm cho phép chạy lệnh; AI báo sẵn sàng, mục "Xuất thử PPTX" đạt; không phải mở lại Antigravity. Ghi lại cách Antigravity xử lý lệnh cài dài 5–10 phút: chờ tới khi xong, chuyển sang chạy nền, hay chạy lệnh cài lần thứ hai khi lệnh đầu chưa xong.
 4. Nhắn tạo một bài giảng thật → nhận PPTX, mở bằng PowerPoint.
 5. Đóng Antigravity, mở lại thư mục, tạo bài thứ hai → AI kiểm tra nhanh, không cài lại.
-6. (Tuỳ chọn) Nhắn thêm thuyết minh cho bài → AI cài FFmpeg cho tài khoản rồi làm tiếp.
+6. Tải ZIP của nhánh (`https://github.com/luonghaianh1208/PPTmaster/archive/refs/heads/feat/vi-tu-cai.zip`), giải nén vào một thư mục khác (ví dụ `D:\PPTmaster-thu`), không cài gì. Mở thư mục chứa `AGENTS.vi.md` trong Antigravity, gửi `Tạo bài giảng Toán 6 bài Phân số` → AI chạy kiểm tra (`doctor.py`) hoặc cài (`-Action setup -Auto`) trước `project_manager.py init`; với lượt hỏi thầy cô, AI kiểm tra trước khi gửi câu hỏi và cài ngay sau khi thầy cô trả lời.
+7. (Tuỳ chọn) Nhắn thêm thuyết minh cho bài → AI cài FFmpeg cho tài khoản rồi làm tiếp.
+8. Sau khi Task 8 phát hành (không tính vào xác nhận "đạt" của task này): mở một thư mục trống khác, dán câu lệnh ở bước 2 nhưng dùng link `https://github.com/luonghaianh1208/PPTmaster` → kiểm nhanh tới lúc AI đọc `docs/vi/cai-dat-bang-ai.md` và chạy `-Action setup -Auto`.
 
 Không sang Task 8 khi chưa có xác nhận "đạt". Nếu không đạt: ghi mô tả lỗi, sửa tối thiểu qua một vòng sửa có review, chạy lại Task 6 và Step 1 của task này, rồi nhờ nghiệm thu lại. Không xoá nhánh `feat/vi-tu-cai` trên `origin` (phải hỏi chủ repo).
 
@@ -1426,12 +1428,16 @@ AI tự cài đặt: thầy cô chỉ cần dán link repo vào Antigravity (ho�
 - `tools/vi/pptmaster.ps1 -Action setup -Auto`: cài Python 3.12 cho riêng tài khoản (không cần quyền quản trị), tạo môi trường Python riêng `venv\`, cài thư viện, tạo `.env`, kiểm tra có xuất thử PPTX, trả kết quả JSON cho AI.
 - `-Action tool -Name ffmpeg|pandoc`: chỉ cài FFmpeg hoặc Pandoc khi cần.
 - `tools/vi/doctor.py --json`.
-- Hướng dẫn cài cho AI `docs/vi/cai-dat-bang-ai.md`; `AGENTS.vi.md` mục 9 cho AI tự kiểm tra môi trường trước lần tạo slide đầu tiên.
+- Hướng dẫn cài cho AI `docs/vi/cai-dat-bang-ai.md`; `AGENTS.vi.md` mục 9 cho AI tự kiểm tra môi trường trước lệnh Python đầu tiên của repo trong mỗi cuộc trò chuyện.
 - Tài liệu: mục "Để AI tự cài" trong Bắt đầu nhanh, mục "Máy trường chặn cài đặt" kèm đoạn gửi bộ phận IT.
 
 ### Không thay đổi
-- `CAI-DAT.bat`, `KIEM-TRA.bat`, `CAP-NHAT.bat` vẫn dùng như cũ (`KIEM-TRA.bat` và `CAP-NHAT.bat` ưu tiên `venv` nếu có).
+- `CAI-DAT.bat`, `KIEM-TRA.bat`, `CAP-NHAT.bat` vẫn dùng như cũ (cả ba ưu tiên `venv` nếu có).
 - Lõi PPT Master v6.3.2 của Hugo He giữ nguyên.
+
+### Rủi ro
+- Thư mục bộ công cụ ở đường dẫn dài (khoảng 150 ký tự) có thể làm cài thư viện lỗi vì giới hạn đường dẫn của Windows. Bộ cài cảnh báo khi đường dẫn dài hơn 80 ký tự; nên đặt bộ công cụ ở `D:\PPTmaster`.
+- Bộ cài dùng Python 3.10 trở lên có sẵn trên máy, kể cả bản mới hơn 3.12 có thể chưa có gói build sẵn cho vài thư viện; khi đó lỗi hiện ở bước cài thư viện. Máy có Python 3.12 cài cho mọi người dùng nhưng không có trong PATH hay `py` có thể không được nhận ra.
 ```
 
 Trong `README.md`, sửa dòng `Phiên bản: **6.3.2-vi.2** · [Nhật ký thay đổi](CHANGELOG-VI.md)` thành `Phiên bản: **6.3.2-vi.3** · [Nhật ký thay đổi](CHANGELOG-VI.md)`.
@@ -1487,4 +1493,4 @@ Test-Path docs/vi/cai-dat-bang-ai.md
 Pop-Location
 git status --porcelain; "(status end)"
 ```
-Expected: `guard=0`; test OK (test ranh giới upstream được bỏ qua trong bản clone nông); `plan exit 0` kèm danh sách bước; `True`; status rỗng. Sau đó xoá `$fresh`, `release-notes-vi3.md`, `tu-cai-auto`, `tu-cai-headless-repo`, `tu-cai-headless` trong thư mục tạm (mỗi đường dẫn một lệnh; bị kiểm tra an toàn chặn thì bỏ qua và ghi vào báo cáo). Không xoá nhánh `feat/vi-tu-cai` (cục bộ hay trên `origin`) — phải hỏi chủ repo.
+Expected: `guard=0`; test OK (test ranh giới upstream được bỏ qua trong bản clone nông); `plan exit 0` kèm danh sách bước; `True`; status rỗng. Sau đó xoá `$fresh`, `release-notes-vi3.md`, `tu-cai-auto`, `tu-cai-headless-repo`, `tu-cai-headless`, `tu-cai-headless-final-repo`, `tu-cai-headless-final` trong thư mục tạm (mỗi đường dẫn một lệnh; bị kiểm tra an toàn chặn thì bỏ qua và ghi vào báo cáo). Không xoá nhánh `feat/vi-tu-cai` (cục bộ hay trên `origin`) — phải hỏi chủ repo.

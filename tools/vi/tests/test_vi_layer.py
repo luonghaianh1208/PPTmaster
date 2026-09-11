@@ -456,19 +456,42 @@ class SelfInstallGuideTest(unittest.TestCase):
         for phrase in ("git clone https://github.com/luonghaianh1208/PPTmaster.git", "archive/refs/heads/", "nhánh", "AGENTS.md", "AGENTS.vi.md"):
             self.assertIn(phrase, body)
 
+    def test_download_section_zip_is_fast_tls12_and_cleans_up(self):
+        body = section(read(SELF_INSTALL_DOC), "## Tải bộ công cụ")
+        for phrase in (
+            "[Net.SecurityProtocolType]::Tls12",
+            "$ProgressPreference = 'SilentlyContinue'",
+            "Remove-Item $zip, $unzip -Recurse -Force -ErrorAction SilentlyContinue",
+            "Get-ChildItem -Force",
+            r"PPTmaster\tools\vi\pptmaster.ps1",
+            "không tải chồng",
+        ):
+            self.assertIn(phrase, body)
+
     def test_setup_section_runs_exact_auto_command_and_reads_stdout_only(self):
         body = section(read(SELF_INSTALL_DOC), "## Cài đặt")
         self.assertIn(AUTO_SETUP_COMMAND, body)
         self.assertIn("2>&1", body)
+        self.assertIn('{"ready"', body)
+
+    def test_setup_section_handles_long_runs_and_existing_installs(self):
+        body = section(read(SELF_INSTALL_DOC), "## Cài đặt")
+        for phrase in ("ít nhất 15 phút", "chạy nền", "chạy lệnh cài thứ hai", "doctor.py --no-smoke --json"):
+            self.assertIn(phrase, body)
 
     def test_result_section_handles_blocked_powershell_with_manual_commands(self):
         body = section(read(SELF_INSTALL_DOC), "## Đọc kết quả")
         for phrase in ("running scripts is disabled", "PowerShell bị chặn trên máy trường hoặc công ty", "tối đa một lần"):
             self.assertIn(phrase, body)
 
+    def test_result_section_keeps_packages_errors_within_forbidden_list(self):
+        body = section(read(SELF_INSTALL_DOC), "## Đọc kết quả")
+        for phrase in ("`error.step` là `packages`", "không chạy các lệnh `pip`", "Cài thư viện thất bại", "Không được làm"):
+            self.assertIn(phrase, body)
+
     def test_report_section_uses_it_message_and_resumes_request(self):
         body = section(read(SELF_INSTALL_DOC), "## Báo thầy cô")
-        for phrase in ("Máy trường chặn cài đặt", "Tạo bài giảng", "làm tiếp"):
+        for phrase in ("Máy trường chặn cài đặt", "Tạo bài giảng", "làm tiếp", "đường dẫn dài hoặc OneDrive"):
             self.assertIn(phrase, body)
 
     def test_optional_tools_section_installs_on_demand_with_path_prefix(self):
@@ -489,9 +512,14 @@ class SelfInstallGuideTest(unittest.TestCase):
         text = read("AGENTS.vi.md")
         self.assertIn(AGENTS_VI_ENV_HEADING, h2_headings(text))
         body = section(text, AGENTS_VI_ENV_HEADING)
-        for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lần tạo slide đầu tiên", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
+        for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
         self.assertEqual(h2_headings(text)[-1], AGENTS_VI_ASSISTANT_HEADING)
+
+    def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
+        for phrase in ("project_manager.py init", "trước khi gửi tin nhắn hỏi", "5–10 phút", "ModuleNotFoundError", "không tự cài"):
+            self.assertIn(phrase, body)
 
     def test_readme_tells_agents_to_follow_guide_before_quick_start(self):
         readme = read("README.md")
@@ -507,7 +535,7 @@ class SelfInstallUserDocsTest(unittest.TestCase):
         text = read("docs/vi/bat-dau-nhanh.md")
         self.assertEqual(h2_headings(text)[0], "## Để AI tự cài")
         body = section(text, "## Để AI tự cài")
-        for phrase in ("https://github.com/luonghaianh1208/PPTmaster", "cho phép chạy lệnh", "5–10 phút", "cài đặt giúp em", "(xu-ly-loi.md#máy-trường-chặn-cài-đặt)"):
+        for phrase in ("https://github.com/luonghaianh1208/PPTmaster", "cho phép chạy lệnh", "5–10 phút", "cài đặt giúp em", "(xu-ly-loi.md#máy-trường-chặn-cài-đặt)", "bấm từ chối", "thư mục AI báo trong tin nhắn sẵn sàng"):
             self.assertIn(phrase, body)
 
     def test_windows_install_doc_offers_ai_setup(self):
@@ -524,12 +552,17 @@ class SelfInstallUserDocsTest(unittest.TestCase):
             headings.index("## PowerShell bị chặn trên máy trường hoặc công ty") + 1,
         )
         body = section(text, "## Máy trường chặn cài đặt")
-        for phrase in ("python.org", "pypi.org", "files.pythonhosted.org", "github.com", "codeload.github.com", "Python 3.12", "-ExecutionPolicy Bypass"):
+        for phrase in ("python.org", "pypi.org", "files.pythonhosted.org", "github.com", "codeload.github.com", "Python 3.12", "-ExecutionPolicy Bypass",
+                       "(khi cần FFmpeg/Pandoc)", "cdn.winget.microsoft.com", "objects.githubusercontent.com"):
             self.assertIn(phrase, body)
+
+    def test_troubleshooting_missing_packages_covers_venv(self):
+        body = section(read("docs/vi/xu-ly-loi.md"), "## KIEM-TRA báo thiếu thư viện")
+        self.assertIn(r"venv\Scripts\python.exe -m pip install -r requirements.txt", body)
 
     def test_maintenance_doc_explains_pinned_python_installer(self):
         body = section(read("docs/vi/phat-trien/bao-tri.md"), "## Bộ cài Python cố định")
-        for phrase in ("3.12.10", "SHA256", "MD5", "$PythonInstallers", "Get-UserPythonPath"):
+        for phrase in ("3.12.10", "SHA256", "MD5", "$PythonInstallers", "Get-UserPythonPath", "`Python312`/`Python312-arm64`"):
             self.assertIn(phrase, body)
 
 

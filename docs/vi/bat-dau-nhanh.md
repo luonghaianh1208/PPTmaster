@@ -11,8 +11,8 @@ Dùng Antigravity và máy chưa cài gì: không cần tải ZIP hay bấm `CAI
    Cài PPT Master từ https://github.com/luonghaianh1208/PPTmaster vào thư mục này rồi báo khi sẵn sàng tạo slide
    ```
 
-3. Chờ khoảng 5–10 phút. Khi Antigravity hỏi cho phép chạy lệnh, bấm đồng ý.
-4. AI báo "sẵn sàng" kèm một câu lệnh mẫu là dùng được. Lần sau chỉ cần mở lại thư mục này.
+3. Chờ khoảng 5–10 phút. Khi Antigravity hỏi cho phép chạy lệnh, bấm đồng ý. Nếu AI xin chạy với quyền quản trị hoặc tắt phần mềm diệt virus, bấm từ chối.
+4. AI báo "sẵn sàng" kèm một câu lệnh mẫu là dùng được. Lần sau mở thư mục AI báo trong tin nhắn sẵn sàng.
 
 Đã tải ZIP và mở thư mục rồi: nhắn "cài đặt giúp em", hoặc gửi luôn yêu cầu tạo slide. AI tự kiểm tra và cài những gì còn thiếu trước khi làm.
 

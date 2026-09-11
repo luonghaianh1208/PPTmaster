@@ -37,7 +37,7 @@ Dấu hiệu: AI báo không tải được bộ công cụ hoặc Python, khôn
 Gửi bộ phận IT đoạn sau:
 
 > Nhờ anh/chị hỗ trợ để tôi dùng bộ công cụ PPT Master trên máy này:
-> 1. Cho tài khoản Windows của tôi truy cập: python.org, pypi.org, files.pythonhosted.org, github.com, codeload.github.com.
+> 1. Cho tài khoản Windows của tôi truy cập: python.org, pypi.org, files.pythonhosted.org, github.com, codeload.github.com; thêm cdn.winget.microsoft.com, objects.githubusercontent.com (khi cần FFmpeg/Pandoc).
 > 2. Cho phép cài Python 3.12 cho riêng tài khoản của tôi (không cần quyền quản trị).
 > 3. Cho phép chạy PowerShell với tuỳ chọn `-ExecutionPolicy Bypass` cho từng lệnh.
 
@@ -60,6 +60,10 @@ Vài nguyên nhân thường gặp:
 
 ## KIEM-TRA báo thiếu thư viện
 
+- Thư mục bộ công cụ có thư mục `venv` (bộ công cụ do AI cài): nhờ AI chạy lại lệnh cài, hoặc chạy lệnh sau trong cửa sổ dòng lệnh mở tại thư mục bộ công cụ:
+  ```
+  venv\Scripts\python.exe -m pip install -r requirements.txt
+  ```
 - Bấm lại `CAI-DAT.bat` để cài lại thư viện.
 - Nếu máy có nhiều bản Python, lệnh `python` trong PATH có thể không phải bản đã cài thư viện. Kiểm tra bằng:
   ```

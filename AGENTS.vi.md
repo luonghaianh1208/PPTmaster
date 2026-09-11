@@ -54,7 +54,9 @@ Sau khi xuất, cho người dùng biết đường dẫn file PPTX trong thư m
 
 ## 9. Môi trường: tự kiểm tra, tự cài và xử lý lỗi
 
-- Mỗi cuộc trò chuyện, trước lần tạo slide đầu tiên: chạy `tools/vi/doctor.py --no-smoke --json` (bằng Python của `venv` nếu có). Kết quả có `"ready": true` thì làm tiếp; chưa sẵn sàng, hoặc không chạy được Python, thì làm theo [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md) rồi mới tạo slide.
+- Mỗi cuộc trò chuyện, trước lệnh Python đầu tiên của repo (ví dụ `project_manager.py init`, `source_to_md.py`): chạy `tools/vi/doctor.py --no-smoke --json` (bằng Python của `venv` nếu có). Kết quả có `"ready": true` thì làm tiếp; chưa sẵn sàng, hoặc không chạy được Python, thì làm theo [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md) rồi mới chạy lệnh đó.
+- Yêu cầu thuộc mục 10: chạy kiểm tra trên (chỉ đọc, vài giây) trước khi gửi tin nhắn hỏi thầy cô. Chưa sẵn sàng thì thêm đúng một dòng ở cuối tin nhắn hỏi (ngay trước dòng chốt cách xác nhận, nếu có): "Máy chưa cài xong bộ công cụ; sau khi thầy cô trả lời, em sẽ cài trước (khoảng 5–10 phút) rồi làm bài." Thầy cô trả lời xong thì cài ngay theo [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md), rồi mới làm tiếp.
+- Lệnh Python nào của repo báo không tìm thấy Python (kể cả sau khi chạy lại với `python` theo mục 4) hoặc báo `ModuleNotFoundError`: dừng, làm theo [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md); không tự cài Python hay thư viện theo cách khác.
 - Người dùng nhờ cài đặt, kiểm tra máy, hoặc dán link repo để cài: làm theo [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md).
 - Cần FFmpeg (thuyết minh, video) hoặc Pandoc (tài liệu định dạng cũ như `.doc`, `.odt`, `.rtf`) mà máy chưa có: làm theo mục "Công cụ tuỳ chọn" của file đó.
 - Người dùng gặp lỗi môi trường: đề nghị chạy `KIEM-TRA.bat` (Windows) hoặc `python tools/vi/doctor.py`, rồi đối chiếu với [docs/vi/xu-ly-loi.md](docs/vi/xu-ly-loi.md).

@@ -52,7 +52,7 @@ Khi đổi phiên bản:
 
 1. Tải hai file cài từ `https://www.python.org/ftp/python/<phiên bản>/` và tính mã bằng `Get-FileHash -Algorithm SHA256`.
 2. Tính thêm `Get-FileHash -Algorithm MD5` và đối chiếu với trang phát hành trên python.org trước khi ghi SHA256 vào script.
-3. Cập nhật `$PythonVersion`, `$PythonInstallers`, mã gói winget `Python.Python.3.12` và thư mục `Python312` trong `Get-UserPythonPath` nếu đổi nhánh phiên bản (ví dụ lên 3.13).
+3. Cập nhật `$PythonVersion`, `$PythonInstallers`, mã gói winget `Python.Python.3.12` và thư mục `Python312`/`Python312-arm64` trong `Get-UserPythonPath` nếu đổi nhánh phiên bản (ví dụ lên 3.13).
 4. Chạy lại test, rồi thử `-Action setup -Auto` trên một máy chưa có Python.
 
 ## Đánh số phiên bản
