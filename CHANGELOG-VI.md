@@ -1,6 +1,6 @@
 # Nhật ký thay đổi — Bản Việt
 
-## 6.3.2-vi.1 — 2026-09-10
+## 6.3.2-vi.1 — 2026-09-11
 
 Chuyển sang nền PPT Master **v6.3.2** của Hugo He và đóng gói lại cho người dùng Việt Nam.
 
