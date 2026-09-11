@@ -30,6 +30,19 @@ Bấm `CAI-DAT.bat` hoặc `KIEM-TRA.bat` mà thấy thông báo tiếng Anh có
   ```
   Nếu chưa có file `.env`, tạo bằng lệnh `copy .env.example .env`.
 
+## Máy trường chặn cài đặt
+
+Dấu hiệu: AI báo không tải được bộ công cụ hoặc Python, không chạy được bộ cài Python, không cài được thư viện vì mạng, hoặc PowerShell bị chặn chạy script. Máy do nhà trường quản lý có thể chặn các việc này; AI không tìm cách vượt qua.
+
+Gửi bộ phận IT đoạn sau:
+
+> Nhờ anh/chị hỗ trợ để tôi dùng bộ công cụ PPT Master trên máy này:
+> 1. Cho tài khoản Windows của tôi truy cập: python.org, pypi.org, files.pythonhosted.org, github.com, codeload.github.com.
+> 2. Cho phép cài Python 3.12 cho riêng tài khoản của tôi (không cần quyền quản trị).
+> 3. Cho phép chạy PowerShell với tuỳ chọn `-ExecutionPolicy Bypass` cho từng lệnh.
+
+Nếu chỉ bị chặn chạy script PowerShell mà máy đã có Python, xem mục **PowerShell bị chặn trên máy trường hoặc công ty** ở trên.
+
 ## Cài thư viện thất bại
 
 Vài nguyên nhân thường gặp:

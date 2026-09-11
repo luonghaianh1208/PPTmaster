@@ -1,5 +1,7 @@
 # Cài đặt trên Windows
 
+> **Cách nhanh: nhờ AI cài.** Dùng Antigravity thì chỉ cần mở một thư mục trống và dán câu lệnh mẫu trong [Bắt đầu nhanh](bat-dau-nhanh.md#để-ai-tự-cài); AI tự tải bộ công cụ, tự cài Python và thư viện. Các bước bấm đúp dưới đây dành cho ai muốn tự cài.
+
 ## Cần chuẩn bị
 
 - Windows 10 hoặc Windows 11.

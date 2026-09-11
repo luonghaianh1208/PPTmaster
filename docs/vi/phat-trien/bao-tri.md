@@ -44,6 +44,17 @@ python skills/ppt-master/scripts/attribution_guard.py
 python tools/vi/doctor.py
 ```
 
+## Bộ cài Python cố định
+
+Chế độ `-Auto` của `tools/vi/pptmaster.ps1` cài Python bằng winget; khi máy không có winget hoặc winget lỗi, script dùng bộ cài python.org với phiên bản `3.12.10` (bản 3.12 cuối cùng có bộ cài cho Windows), đường dẫn và mã SHA256 ghi cứng trong biến `$PythonVersion` và `$PythonInstallers` cho `amd64` và `arm64`.
+
+Khi đổi phiên bản:
+
+1. Tải hai file cài từ `https://www.python.org/ftp/python/<phiên bản>/` và tính mã bằng `Get-FileHash -Algorithm SHA256`.
+2. Tính thêm `Get-FileHash -Algorithm MD5` và đối chiếu với trang phát hành trên python.org trước khi ghi SHA256 vào script.
+3. Cập nhật `$PythonVersion`, `$PythonInstallers`, mã gói winget `Python.Python.3.12` và thư mục `Python312` trong `Get-UserPythonPath` nếu đổi nhánh phiên bản (ví dụ lên 3.13).
+4. Chạy lại test, rồi thử `-Action setup -Auto` trên một máy chưa có Python.
+
 ## Đánh số phiên bản
 
 Số phiên bản có dạng `<tag upstream>-vi.<n>`, ví dụ `6.3.2-vi.1`.

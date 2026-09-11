@@ -502,5 +502,36 @@ class SelfInstallGuideTest(unittest.TestCase):
         self.assertIn("bat-dau-nhanh.md#để-ai-tự-cài", section(readme, "## Bắt đầu trong 3 bước"))
 
 
+class SelfInstallUserDocsTest(unittest.TestCase):
+    def test_quick_start_explains_ai_setup_first(self):
+        text = read("docs/vi/bat-dau-nhanh.md")
+        self.assertEqual(h2_headings(text)[0], "## Để AI tự cài")
+        body = section(text, "## Để AI tự cài")
+        for phrase in ("https://github.com/luonghaianh1208/PPTmaster", "cho phép chạy lệnh", "5–10 phút", "cài đặt giúp em", "(xu-ly-loi.md#máy-trường-chặn-cài-đặt)"):
+            self.assertIn(phrase, body)
+
+    def test_windows_install_doc_offers_ai_setup(self):
+        text = read("docs/vi/cai-dat-windows.md")
+        self.assertIn("**Cách nhanh: nhờ AI cài.**", text)
+        self.assertIn("(bat-dau-nhanh.md#để-ai-tự-cài)", text)
+        self.assertLess(text.index("**Cách nhanh: nhờ AI cài.**"), text.index("## Cần chuẩn bị"))
+
+    def test_troubleshooting_has_it_message_for_blocked_school_machines(self):
+        text = read("docs/vi/xu-ly-loi.md")
+        headings = h2_headings(text)
+        self.assertEqual(
+            headings.index("## Máy trường chặn cài đặt"),
+            headings.index("## PowerShell bị chặn trên máy trường hoặc công ty") + 1,
+        )
+        body = section(text, "## Máy trường chặn cài đặt")
+        for phrase in ("python.org", "pypi.org", "files.pythonhosted.org", "github.com", "codeload.github.com", "Python 3.12", "-ExecutionPolicy Bypass"):
+            self.assertIn(phrase, body)
+
+    def test_maintenance_doc_explains_pinned_python_installer(self):
+        body = section(read("docs/vi/phat-trien/bao-tri.md"), "## Bộ cài Python cố định")
+        for phrase in ("3.12.10", "SHA256", "MD5", "$PythonInstallers", "Get-UserPythonPath"):
+            self.assertIn(phrase, body)
+
+
 if __name__ == "__main__":
     unittest.main()

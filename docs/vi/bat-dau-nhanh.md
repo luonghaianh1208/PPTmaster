@@ -1,5 +1,23 @@
 # Bắt đầu nhanh
 
+## Để AI tự cài
+
+Dùng Antigravity và máy chưa cài gì: không cần tải ZIP hay bấm `CAI-DAT.bat`.
+
+1. Mở Antigravity → **Open Folder** → chọn một thư mục trống, ví dụ `D:\PPTmaster` (tránh thư mục đang đồng bộ OneDrive).
+2. Mở khung **Agent**, dán câu lệnh:
+
+   ```
+   Cài PPT Master từ https://github.com/luonghaianh1208/PPTmaster vào thư mục này rồi báo khi sẵn sàng tạo slide
+   ```
+
+3. Chờ khoảng 5–10 phút. Khi Antigravity hỏi cho phép chạy lệnh, bấm đồng ý.
+4. AI báo "sẵn sàng" kèm một câu lệnh mẫu là dùng được. Lần sau chỉ cần mở lại thư mục này.
+
+Đã tải ZIP và mở thư mục rồi: nhắn "cài đặt giúp em", hoặc gửi luôn yêu cầu tạo slide. AI tự kiểm tra và cài những gì còn thiếu trước khi làm.
+
+Máy trường chặn cài đặt: AI sẽ báo lý do và đưa một đoạn để gửi bộ phận IT (xem [Xử lý lỗi](xu-ly-loi.md#máy-trường-chặn-cài-đặt)).
+
 ## Mở thư mục trong AI editor
 
 - **Claude Code:** nếu dùng extension trong VS Code, chọn **File → Open Folder** rồi mở khung Claude. Nếu dùng bản dòng lệnh, mở terminal tại thư mục này và gõ `claude`.
