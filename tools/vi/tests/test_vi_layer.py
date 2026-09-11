@@ -518,7 +518,7 @@ class SelfInstallGuideTest(unittest.TestCase):
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
-        for phrase in ("project_manager.py init", "trước khi gửi tin nhắn hỏi", "5–10 phút", "ModuleNotFoundError", "không tự cài"):
+        for phrase in ("project_manager.py init", "trước khi gửi tin nhắn hỏi", "5–10 phút", "Em chưa kiểm tra được máy", "ModuleNotFoundError", "không tự cài"):
             self.assertIn(phrase, body)
 
     def test_readme_tells_agents_to_follow_guide_before_quick_start(self):

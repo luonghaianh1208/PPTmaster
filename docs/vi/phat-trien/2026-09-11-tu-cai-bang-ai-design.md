@@ -91,7 +91,7 @@ CHANGELOG-VI.md                   # (sửa khi phát hành)
 ### 5.2 Thư mục có sẵn
 
 1. Thầy cô mở thư mục repo và gửi yêu cầu tạo slide (hoặc "cài đặt giúp em").
-2. Theo `AGENTS.vi.md` mục 9, trước lệnh Python đầu tiên của repo trong cuộc trò chuyện (ví dụ `project_manager.py init`, `source_to_md.py`), AI chạy `doctor.py --no-smoke --json` bằng Python của `venv` (không có `venv` thì bằng `python`). Với yêu cầu thuộc mục 10 (lượt hỏi thầy cô), AI chạy kiểm tra này trước khi gửi tin nhắn hỏi; chưa sẵn sàng thì thêm một dòng cuối tin nhắn báo sẽ cài (khoảng 5–10 phút) ngay sau khi thầy cô trả lời.
+2. Theo `AGENTS.vi.md` mục 9, trước lệnh Python đầu tiên của repo trong cuộc trò chuyện (ví dụ `project_manager.py init`, `source_to_md.py`), AI chạy `doctor.py --no-smoke --json` bằng Python của `venv` (không có `venv` thì bằng `python`). Với yêu cầu thuộc mục 10 (lượt hỏi thầy cô), AI chạy kiểm tra này trước khi gửi tin nhắn hỏi; chưa sẵn sàng thì thêm một dòng cuối tin nhắn báo sẽ cài (khoảng 5–10 phút) ngay sau khi thầy cô trả lời; không chạy được lệnh kiểm tra thì không kết luận máy chưa cài, mà báo sẽ chạy kiểm tra `tools/vi/doctor.py` và cài nếu cần sau khi thầy cô trả lời.
 3. `ready` là `true` → làm tiếp yêu cầu. Ngược lại hoặc không chạy được Python → làm theo `docs/vi/cai-dat-bang-ai.md` từ bước cài, rồi làm tiếp yêu cầu ban đầu. Với "cài đặt giúp em" trên máy đã cài sẵn, hướng dẫn cũng chạy `doctor.py --no-smoke --json` trước và không cài lại khi `ready` là `true`.
 4. Lưới an toàn: lệnh Python nào của repo báo không tìm thấy Python hoặc `ModuleNotFoundError` → AI dừng, làm theo `docs/vi/cai-dat-bang-ai.md`, không tự cài.
 
@@ -176,7 +176,7 @@ File tiếng Việt dành cho AI, gồm các mục:
 - **Mục 4 — thêm:** có `venv\Scripts\python.exe` ở gốc repo thì dùng nó cho mọi lệnh `python3 …` hoặc `python …` của repo.
 - **Mục 9 — đổi tiêu đề** thành `## 9. Môi trường: tự kiểm tra, tự cài và xử lý lỗi`, nội dung:
   - mỗi cuộc trò chuyện, trước lệnh Python đầu tiên của repo (ví dụ `project_manager.py init`, `source_to_md.py`): chạy `doctor.py --no-smoke --json`; chưa sẵn sàng thì làm theo `docs/vi/cai-dat-bang-ai.md` rồi mới chạy lệnh đó;
-  - yêu cầu thuộc mục 10: chạy kiểm tra trên (chỉ đọc) trước khi gửi tin nhắn hỏi; chưa sẵn sàng thì thêm một dòng cuối tin nhắn (ngay trước dòng chốt cách xác nhận, nếu có) báo sẽ cài (khoảng 5–10 phút) sau khi thầy cô trả lời, rồi cài ngay khi thầy cô trả lời;
+  - yêu cầu thuộc mục 10: chạy kiểm tra trên (chỉ đọc) trước khi gửi tin nhắn hỏi; chưa sẵn sàng thì thêm một dòng cuối tin nhắn (ngay trước dòng chốt cách xác nhận, nếu có) báo sẽ cài (khoảng 5–10 phút) sau khi thầy cô trả lời, rồi cài ngay khi thầy cô trả lời; không chạy được lệnh kiểm tra (công cụ chạy lệnh bị tắt hoặc bị từ chối) thì dùng dòng "Em chưa kiểm tra được máy…", báo sẽ chạy kiểm tra `tools/vi/doctor.py` và cài nếu cần;
   - lưới an toàn: lệnh Python nào của repo báo không tìm thấy Python hoặc `ModuleNotFoundError` → dừng, làm theo `docs/vi/cai-dat-bang-ai.md`, không tự cài;
   - người dùng nhờ "cài đặt", "kiểm tra máy" → làm theo `docs/vi/cai-dat-bang-ai.md`;
   - cần FFmpeg hoặc Pandoc mà thiếu → như §5.3;
