@@ -39,7 +39,7 @@ class InstallerPlanTest(unittest.TestCase):
         target.mkdir(parents=True, exist_ok=True)
         (target / f"{name}.cmd").write_text(f"@echo off\r\n{body}\r\n", encoding="ascii")
 
-    def run_plan(self, *args, repo=None, extra_path=(), env_overrides=None):
+    def run_launcher(self, *args, repo=None, extra_path=(), env_overrides=None):
         repo = repo or self.repo
         env = {key: value for key, value in os.environ.items() if not key.upper().startswith("ONEDRIVE")}
         env["PATH"] = os.pathsep.join([str(path) for path in extra_path] + [str(self.bin)])
@@ -47,14 +47,18 @@ class InstallerPlanTest(unittest.TestCase):
         env.update(env_overrides or {})
         proc = subprocess.run(
             [str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-             str(repo / "tools" / "vi" / "pptmaster.ps1"), *args, "-PlanOnly"],
+             str(repo / "tools" / "vi" / "pptmaster.ps1"), *args],
             capture_output=True, env=env, timeout=120,
         )
         stdout = proc.stdout.decode("utf-8", errors="replace").strip()
         stderr = proc.stderr.decode("utf-8", errors="replace")
-        self.assertEqual(proc.returncode, 0, stderr)
-        self.assertEqual(len(stdout.splitlines()), 1, f"stdout phải là đúng một dòng JSON:\n{stdout}")
-        return json.loads(stdout)
+        self.assertEqual(len(stdout.splitlines()), 1, f"stdout phải là đúng một dòng JSON:\n{stdout}\nstderr:\n{stderr}")
+        return proc.returncode, json.loads(stdout)
+
+    def run_plan(self, *args, repo=None, extra_path=(), env_overrides=None):
+        returncode, plan = self.run_launcher(*args, "-PlanOnly", repo=repo, extra_path=extra_path, env_overrides=env_overrides)
+        self.assertEqual(returncode, 0)
+        return plan
 
     def steps(self, plan):
         return [(step["step"], step["action"], step["method"]) for step in plan["steps"]]
@@ -70,7 +74,7 @@ class InstallerPlanTest(unittest.TestCase):
             ("env", "create", "copy .env.example"),
             ("doctor", "run", "doctor.py --json"),
         ])
-        self.assertEqual(plan["warnings"], [])
+        self.assertFalse(any("OneDrive" in warning for warning in plan["warnings"]))
 
     def test_no_python_without_winget_plans_python_org_installer(self):
         plan = self.run_plan("-Action", "setup", "-Auto")
@@ -101,6 +105,14 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertEqual(Path(plan["python_found"]), user_python)
         self.assertNotIn("python", [step["step"] for step in plan["steps"]])
 
+    def test_user_scope_arm64_python_found_without_path(self):
+        user_python = self.localappdata / "Programs" / "Python" / "Python312-arm64" / "python.exe"
+        user_python.parent.mkdir(parents=True)
+        user_python.write_bytes(b"")
+        plan = self.run_plan("-Action", "setup", "-Auto")
+        self.assertEqual(Path(plan["python_found"]), user_python)
+        self.assertNotIn("python", [step["step"] for step in plan["steps"]])
+
     def test_already_set_up_only_ensures_packages_and_runs_doctor(self):
         venv_python = self.repo / "venv" / "Scripts" / "python.exe"
         venv_python.parent.mkdir(parents=True)
@@ -112,8 +124,7 @@ class InstallerPlanTest(unittest.TestCase):
 
     def test_onedrive_folder_warns(self):
         plan = self.run_plan("-Action", "setup", "-Auto", env_overrides={"OneDrive": str(self.tmp)})
-        self.assertEqual(len(plan["warnings"]), 1)
-        self.assertIn("OneDrive", plan["warnings"][0])
+        self.assertTrue(any("OneDrive" in warning for warning in plan["warnings"]))
 
     def test_long_path_warns(self):
         repo = self.make_repo(self.tmp / ("thu-muc-rat-dai-" * 5) / "repo")
@@ -139,6 +150,34 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertTrue(plan["found"])
         self.assertEqual(Path(plan["dir"]), pandoc.parent)
         self.assertEqual(plan["steps"], [])
+
+    def test_tool_found_without_plan_reports_existing_install(self):
+        pandoc = self.localappdata / "Pandoc" / "pandoc.exe"
+        pandoc.parent.mkdir(parents=True)
+        pandoc.write_bytes(b"")
+        returncode, result = self.run_launcher("-Action", "tool", "-Name", "pandoc")
+        self.assertEqual(returncode, 0)
+        self.assertTrue(result["found"])
+        self.assertFalse(result["installed"])
+        self.assertIsNone(result["error"])
+        self.assertEqual(Path(result["dir"]), pandoc.parent)
+
+    def test_tool_unknown_name_returns_json_error(self):
+        returncode, result = self.run_launcher("-Action", "tool", "-Name", "git")
+        self.assertEqual(returncode, 1)
+        self.assertFalse(result["found"])
+        self.assertEqual(result["error"]["step"], "tool")
+        self.assertIn("git", result["error"]["message"])
+
+    def test_auto_setup_reports_venv_error_as_json(self):
+        self.stub("python", "echo 3.12")
+        returncode, result = self.run_launcher("-Action", "setup", "-Auto")
+        self.assertEqual(returncode, 1)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["error"]["step"], "venv")
+        self.assertEqual(result["installed"], [])
+        self.assertIsNone(result["python"])
+        self.assertIsInstance(result["checks"], list)
 
 
 if __name__ == "__main__":

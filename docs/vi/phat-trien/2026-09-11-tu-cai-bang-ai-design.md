@@ -121,7 +121,7 @@ CHANGELOG-VI.md                   # (sửa khi phát hành)
    1. `venv\Scripts\python.exe`;
    2. `python` trong PATH, bỏ qua lối tắt Microsoft Store;
    3. `py -3`;
-   4. `%LOCALAPPDATA%\Programs\Python\Python312\python.exe`.
+   4. `%LOCALAPPDATA%\Programs\Python\Python312\python.exe` (hoặc `Python312-arm64` trên máy ARM64).
 3. **Cài Python 3.12** nếu bước 2 không thấy:
    1. có winget → `winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements`, rồi tìm lại theo bước 2.4;
    2. vẫn chưa có → tải bộ cài python.org (phiên bản, đường dẫn và SHA256 là hằng số trong script; chọn bản `amd64` hoặc `arm64` theo `$env:PROCESSOR_ARCHITECTURE`) vào `$env:TEMP`, so `Get-FileHash`; khớp mới chạy `/quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 InstallLauncherAllUsers=0 Include_test=0`, rồi tìm lại;

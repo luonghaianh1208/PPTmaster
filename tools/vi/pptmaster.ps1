@@ -11,7 +11,7 @@
 .PARAMETER PlanOnly
   Dùng với setup -Auto hoặc tool: chỉ in kế hoạch dạng JSON; không tải, không cài, không tạo file.
 .PARAMETER Name
-  Dùng với tool: ffmpeg hoặc pandoc.
+  Dùng với tool: ffmpeg hoặc pandoc. Tên khác in lỗi JSON và thoát mã 1.
 .PARAMETER NonInteractive
   Không hỏi Y/N và không tự cài phần mềm (dùng khi kiểm thử).
 #>
@@ -21,7 +21,6 @@ param(
     [string]$Action,
     [switch]$Auto,
     [switch]$PlanOnly,
-    [ValidateSet('ffmpeg', 'pandoc')]
     [string]$Name,
     [switch]$NonInteractive
 )
@@ -102,8 +101,10 @@ function Get-LauncherPython {
 
 function Get-UserPythonPath {
     if (-not $env:LOCALAPPDATA) { return $null }
-    $candidate = Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'
-    if (Test-Path $candidate) { return $candidate }
+    foreach ($folder in 'Python312', 'Python312-arm64') {
+        $candidate = Join-Path $env:LOCALAPPDATA "Programs\Python\$folder\python.exe"
+        if (Test-Path $candidate) { return $candidate }
+    }
     return $null
 }
 
@@ -265,6 +266,7 @@ function Install-UserPython {
     $file = Join-Path $env:TEMP "python-$PythonVersion-$arch.exe"
     Write-Log "Tải bộ cài Python $PythonVersion ($arch) từ python.org..."
     try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $installer.Url -OutFile $file -UseBasicParsing
     } catch {
@@ -284,6 +286,7 @@ function Install-UserPython {
         Set-SetupError 'python' "Không chạy được bộ cài Python: $($_.Exception.Message)" 'Máy có thể đang chặn chạy bộ cài; xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md.'
         return $null
     }
+    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
     $found = Find-BasePython
     if (-not $found) {
         Set-SetupError 'python' "Bộ cài Python kết thúc (mã $($proc.ExitCode)) nhưng không tìm thấy Python." 'Cài Python 3.12 thủ công theo docs/vi/cai-dat-windows.md, hoặc nhờ bộ phận IT (xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md).'
@@ -356,7 +359,11 @@ function Invoke-AutoSetup {
             $pipCode = $LASTEXITCODE
         }
         if ($pipCode -ne 0) {
-            Set-SetupError 'packages' 'Cài thư viện Python thất bại.' 'Xem mục "Cài thư viện thất bại" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'
+            $packagesFix = 'Xem mục "Cài thư viện thất bại" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'
+            if ($warnings.Count -gt 0) {
+                $packagesFix += ' Nếu thư mục có cảnh báo đường dẫn dài hoặc OneDrive, xem thêm mục "Đường dẫn quá dài" trong docs/vi/xu-ly-loi.md.'
+            }
+            Set-SetupError 'packages' 'Cài thư viện Python thất bại.' $packagesFix
             Write-SetupResult $false $installed $warnings @()
             return 1
         }
@@ -406,8 +413,10 @@ function Find-ToolDir([string]$ToolName) {
 }
 
 function Invoke-Tool {
-    if (-not $Name) {
-        Write-Json ([pscustomobject]@{ tool = $null; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = 'Thiếu tham số -Name.'; fix = 'Chạy lại với -Name ffmpeg hoặc -Name pandoc.' } })
+    if (-not $Name -or -not $OptionalTools.ContainsKey($Name)) {
+        $message = if ($Name) { "Tên công cụ không hợp lệ: $Name." } else { 'Thiếu tham số -Name.' }
+        $toolValue = if ($Name) { $Name } else { $null }
+        Write-Json ([pscustomobject]@{ tool = $toolValue; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = $message; fix = 'Chạy lại với -Name ffmpeg hoặc -Name pandoc.' } })
         return 1
     }
     $tool = $OptionalTools[$Name]
