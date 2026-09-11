@@ -135,6 +135,7 @@ LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 REQUIRED_DOCS = (
     "bat-dau-nhanh.md",
     "cai-dat-windows.md",
+    "cai-dat-bang-ai.md",
     "cau-lenh-mau.md",
     "xu-ly-loi.md",
     "lay-api-key.md",
@@ -430,6 +431,75 @@ class TeacherAssistantUserDocsTest(unittest.TestCase):
 
     def test_readme_mentions_teacher_intake(self):
         self.assertIn("Hỏi thầy cô một lượt ngắn", section(read("README.md"), "## Làm được gì"))
+
+
+SELF_INSTALL_DOC = "docs/vi/cai-dat-bang-ai.md"
+SELF_INSTALL_HEADINGS = (
+    "## Khi nào dùng",
+    "## Tải bộ công cụ",
+    "## Cài đặt",
+    "## Đọc kết quả",
+    "## Báo thầy cô",
+    "## Công cụ tuỳ chọn",
+    "## Không được làm",
+)
+AGENTS_VI_ENV_HEADING = "## 9. Môi trường: tự kiểm tra, tự cài và xử lý lỗi"
+AUTO_SETUP_COMMAND = r"powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action setup -Auto"
+
+
+class SelfInstallGuideTest(unittest.TestCase):
+    def test_guide_has_sections_in_order(self):
+        self.assertEqual(h2_headings(read(SELF_INSTALL_DOC)), list(SELF_INSTALL_HEADINGS))
+
+    def test_download_section_covers_git_zip_branch_and_agent_rules(self):
+        body = section(read(SELF_INSTALL_DOC), "## Tải bộ công cụ")
+        for phrase in ("git clone https://github.com/luonghaianh1208/PPTmaster.git", "archive/refs/heads/", "nhánh", "AGENTS.md", "AGENTS.vi.md"):
+            self.assertIn(phrase, body)
+
+    def test_setup_section_runs_exact_auto_command_and_reads_stdout_only(self):
+        body = section(read(SELF_INSTALL_DOC), "## Cài đặt")
+        self.assertIn(AUTO_SETUP_COMMAND, body)
+        self.assertIn("2>&1", body)
+
+    def test_result_section_handles_blocked_powershell_with_manual_commands(self):
+        body = section(read(SELF_INSTALL_DOC), "## Đọc kết quả")
+        for phrase in ("running scripts is disabled", "PowerShell bị chặn trên máy trường hoặc công ty", "tối đa một lần"):
+            self.assertIn(phrase, body)
+
+    def test_report_section_uses_it_message_and_resumes_request(self):
+        body = section(read(SELF_INSTALL_DOC), "## Báo thầy cô")
+        for phrase in ("Máy trường chặn cài đặt", "Tạo bài giảng", "làm tiếp"):
+            self.assertIn(phrase, body)
+
+    def test_optional_tools_section_installs_on_demand_with_path_prefix(self):
+        body = section(read(SELF_INSTALL_DOC), "## Công cụ tuỳ chọn")
+        self.assertIn(r"-Action tool -Name ffmpeg", body)
+        self.assertIn('$env:Path = "<dir>;$env:Path"', body)
+
+    def test_forbidden_section_blocks_risky_actions(self):
+        body = section(read(SELF_INSTALL_DOC), "## Không được làm")
+        for phrase in ("iex", "Invoke-Expression", "quyền quản trị", "diệt virus", "Set-ExecutionPolicy", "tự nghĩ cách cài khác"):
+            self.assertIn(phrase, body)
+
+    def test_agents_vi_prefers_venv_python(self):
+        body = section(read("AGENTS.vi.md"), "## 4. Chạy lệnh trên Windows")
+        self.assertIn(r"venv\Scripts\python.exe", body)
+
+    def test_agents_vi_environment_section_points_to_guide(self):
+        text = read("AGENTS.vi.md")
+        self.assertIn(AGENTS_VI_ENV_HEADING, h2_headings(text))
+        body = section(text, AGENTS_VI_ENV_HEADING)
+        for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lần tạo slide đầu tiên", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
+            self.assertIn(phrase, body)
+        self.assertEqual(h2_headings(text)[-1], AGENTS_VI_ASSISTANT_HEADING)
+
+    def test_readme_tells_agents_to_follow_guide_before_quick_start(self):
+        readme = read("README.md")
+        marker = "**Dành cho AI agent:**"
+        self.assertIn(marker, readme)
+        self.assertIn("(docs/vi/cai-dat-bang-ai.md)", readme)
+        self.assertLess(readme.index(marker), readme.index("## Bắt đầu trong 3 bước"))
+        self.assertIn("bat-dau-nhanh.md#để-ai-tự-cài", section(readme, "## Bắt đầu trong 3 bước"))
 
 
 if __name__ == "__main__":

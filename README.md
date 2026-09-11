@@ -4,6 +4,8 @@
 
 Đây là bản Việt hoá và đóng gói của [PPT Master](https://github.com/hugohe3/ppt-master) (tác giả **Hugo He**, giấy phép MIT), do **Lương Hải Anh — 2Anh AI Education** thực hiện. Bản này thêm bộ cài một lần bấm cho Windows, quy tắc tiếng Việt cho AI và tài liệu tiếng Việt; phần lõi giữ nguyên dự án gốc.
 
+> **Dành cho AI agent:** người dùng nhờ cài bộ công cụ này (hoặc chỉ dán link repo) thì làm theo [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md), không tự nghĩ cách cài khác.
+
 Phiên bản: **6.3.2-vi.2** · [Nhật ký thay đổi](CHANGELOG-VI.md)
 
 ## Bắt đầu trong 3 bước
@@ -15,6 +17,8 @@ Phiên bản: **6.3.2-vi.2** · [Nhật ký thay đổi](CHANGELOG-VI.md)
    Tải bằng Git thì sau này cập nhật chỉ bằng một cú bấm.
 2. **Cài đặt.** Bấm đúp **`CAI-DAT.bat`**. Bộ cài kiểm tra Python, cài thư viện, tạo file cấu hình và xuất thử một file PPTX. Chi tiết: [Cài đặt trên Windows](docs/vi/cai-dat-windows.md).
 3. **Tạo slide.** Mở thư mục này trong Claude Code, Cursor hoặc Antigravity rồi nhắn cho AI, ví dụ `Tạo bài thuyết trình 10 slide giới thiệu trường THPT`. Xem [Bắt đầu nhanh](docs/vi/bat-dau-nhanh.md).
+
+Dùng Antigravity và muốn AI làm hết: mở một thư mục trống rồi dán câu lệnh mẫu trong [Bắt đầu nhanh](docs/vi/bat-dau-nhanh.md#để-ai-tự-cài), AI tự tải, tự cài và báo khi sẵn sàng.
 
 macOS/Linux: chạy `sh tools/vi/setup.sh`.
 
