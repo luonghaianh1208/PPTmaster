@@ -161,6 +161,7 @@ File tiếng Việt dành cho AI, gồm các mục:
    - thư mục đang mở trống → tải vào đó; có file khác → tải vào thư mục con `PPTmaster`;
    - có Git → `git clone https://github.com/luonghaianh1208/PPTmaster.git <thư_mục>`;
    - không có Git → tải `https://github.com/luonghaianh1208/PPTmaster/archive/refs/heads/main.zip` bằng `Invoke-WebRequest` vào `$env:TEMP`, giải nén bằng `Expand-Archive`, chuyển nội dung của `PPTmaster-main` vào thư mục đích;
+   - người dùng nêu rõ một nhánh (ví dụ khi chủ repo nghiệm thu trước khi phát hành) → dùng nhánh đó: `git clone -b <nhánh>`, hoặc ZIP `archive/refs/heads/<nhánh>.zip`;
    - tải xong: đọc `AGENTS.md` và `AGENTS.vi.md` của repo vừa tải.
 3. **Cài đặt:** gửi tin nhắn "trước khi cài" (§5.4), rồi chạy từ thư mục repo: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action setup -Auto`. Đọc JSON ở stdout; không gộp stderr vào.
 4. **Đọc kết quả:** `ready` → báo sẵn sàng (§5.4); `error` hoặc mục bắt buộc chưa đạt → dùng `fix`, chạy lại đúng lệnh cài tối đa một lần; vẫn lỗi → báo bị chặn (§6.7). Lệnh cài không chạy được vì PowerShell bị chặn chạy script → xử lý theo dòng tương ứng ở §7.
@@ -241,7 +242,7 @@ Chạy trên bản sao repo trong thư mục tạm, không có `venv`: `claude -
 ### 8.3 Nghiệm thu máy thật (chủ repo)
 
 1. Máy Windows chưa có Python (hoặc tài khoản Windows mới trên máy chưa cài Python cho mọi người dùng); cài Antigravity.
-2. Mở thư mục trống, dán câu lệnh mẫu §5.1 → AI báo sẵn sàng, "Xuất thử PPTX" đạt.
+2. Mở thư mục trống, dán câu lệnh mẫu §5.1 → AI báo sẵn sàng, "Xuất thử PPTX" đạt. Nghiệm thu diễn ra trước khi phát hành, nên nhánh `feat/vi-tu-cai` được push lên `origin` (không force) và câu lệnh mẫu thêm "nhánh feat/vi-tu-cai".
 3. Nhắn tạo một bài giảng → nhận PPTX, mở bằng PowerPoint.
 4. Đóng Antigravity, mở lại thư mục, tạo bài thứ hai → AI không cài lại.
 
@@ -266,7 +267,7 @@ Chạy trên bản sao repo trong thư mục tạm, không có `venv`: `claude -
 |---|---|
 | Antigravity hỏi cho phép chạy lệnh nhiều lần, thầy cô bối rối | Tin nhắn "trước khi cài" dặn trước; tài liệu nhắc |
 | Bộ cài python.org 3.12 cho Windows ngừng cập nhật, hằng số phiên bản/SHA256 cũ | Ghi rõ hằng số trong script và `docs/vi/phat-trien/bao-tri.md`; winget là cách chính |
-| Gói winget của Pandoc/FFmpeg không hỗ trợ `--scope user` | Kiểm khi lên plan; không được thì `-Action tool` báo lỗi kèm đường dẫn tải thủ công |
+| Gói winget của Pandoc/FFmpeg không hỗ trợ `--scope user` | Đã kiểm khi lên plan (2026-09-11): `winget show --scope user` có bộ cài cho `Python.Python.3.12` (3.12.10), `Gyan.FFmpeg` (portable zip), `JohnMacFarlane.Pandoc` (MSI). Nếu sau này gói đổi, `-Action tool` báo lỗi kèm đường dẫn tải thủ công |
 | Quy tắc Antigravity không tự nạp sau khi tải vào thư mục đang mở | Hướng dẫn cài bắt AI đọc `AGENTS.md`, `AGENTS.vi.md` ngay |
 | AI vẫn tự nghĩ cách cài khác | Câu "không tự nghĩ cách cài khác" ở README và hướng dẫn; ca headless 1 |
 | AI quên tiền tố PATH khi dùng FFmpeg/Pandoc vừa cài | Lỗi của upstream nêu rõ "on PATH"; quy tắc mục 9 chỉ cách chạy lại |
