@@ -85,6 +85,18 @@ Bộ công cụ bị sửa đổi hoặc thiếu file bản quyền (`LICENSE`, 
 - Nếu thông báo có `FileNotFoundError` kèm một đường dẫn rất dài, xem mục **Đường dẫn quá dài** ngay bên dưới.
 - Nếu vẫn lỗi, khi hỏi hỗ trợ hãy chụp toàn bộ màn hình kết quả `KIEM-TRA.bat` để gửi kèm.
 
+## Dựng video thất bại
+
+Xem dòng kết quả AI đọc được, phần `error`:
+
+- `chromium`: máy chưa có Chromium để chụp ảnh slide. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB).
+- `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
+- `audio`: bài giảng chưa có tiếng đọc. Nhờ AI tạo lời giảng và tiếng đọc trước.
+- `powerpoint`: PowerPoint không xuất được video. Thử lại bằng cách ghép ảnh: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án> --cach ffmpeg`.
+- `render`: thường do hết dung lượng ổ đĩa hoặc đường dẫn quá dài. Dọn ổ đĩa, hoặc chuyển bộ công cụ sang `D:\PPTmaster` rồi làm lại.
+- `project`: đường dẫn dự án không đúng hoặc thư mục không phải dự án PPT Master — kiểm lại tên dự án trong `projects\`.
+- `narrated_pptx`: chưa có bản PPTX đã gắn tiếng, nên đường PowerPoint không chạy được — nhờ AI xuất lại bản PPTX có thuyết minh, hoặc dựng bằng cách ghép ảnh với `--cach ffmpeg`.
+
 ## Đường dẫn quá dài
 
 Dấu hiệu: `KIEM-TRA.bat` hoặc lúc xuất bài báo lỗi có chữ `FileNotFoundError`, kèm một đường dẫn rất dài (thường chứa `.pptx-build-`). Windows mặc định chỉ cho phép đường dẫn dài khoảng 260 ký tự, trong khi quá trình xuất PPTX tạo thêm nhiều thư mục con bên trong thư mục dự án.
@@ -102,16 +114,6 @@ Dấu hiệu: `KIEM-TRA.bat` hoặc lúc xuất bài báo lỗi có chữ `FileN
   ```
   **Cảnh báo:** lệnh này sẽ xoá mọi thay đổi bạn đã làm trong file đó.
 - Thiếu Git: cài Git (bấm `CAI-DAT.bat`, bộ cài sẽ đề nghị cài Git).
-
-## Dựng video thất bại
-
-Xem dòng kết quả AI đọc được, phần `error`:
-
-- `chromium`: máy chưa có Chromium để chụp ảnh slide. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB).
-- `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
-- `audio`: bài giảng chưa có tiếng đọc. Nhờ AI tạo lời giảng và tiếng đọc trước.
-- `powerpoint`: PowerPoint không xuất được video. Thử lại bằng cách ghép ảnh: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án> --cach ffmpeg`.
-- `render`: thường do hết dung lượng ổ đĩa hoặc đường dẫn quá dài. Dọn ổ đĩa, hoặc chuyển bộ công cụ sang `D:\PPTmaster` rồi làm lại.
 
 ## Chữ tiếng Việt lỗi dấu trong PowerPoint
 

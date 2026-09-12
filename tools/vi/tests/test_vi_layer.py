@@ -453,8 +453,9 @@ class VideoUserDocsTest(unittest.TestCase):
         text = read("docs/vi/xu-ly-loi.md")
         headings = h2_headings(text)
         self.assertIn("## Dựng video thất bại", headings)
+        self.assertEqual(headings.index("## Dựng video thất bại"), headings.index("## Đường dẫn quá dài") - 1)
         body = section(text, "## Dựng video thất bại")
-        for phrase in ("Chromium", "FFmpeg", "PowerPoint", "venv\\Scripts\\python.exe tools\\vi\\video.py"):
+        for phrase in ("Chromium", "FFmpeg", "PowerPoint", "venv\\Scripts\\python.exe tools\\vi\\video.py", "project", "narrated_pptx"):
             self.assertIn(phrase, body)
 
     def test_ruling_r7_updates_task_type_counts(self):
