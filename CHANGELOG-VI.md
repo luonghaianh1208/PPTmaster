@@ -1,5 +1,25 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.4 — 2026-09-12
+
+Làm video bài giảng: bài giảng đã có thành video MP4 có lời giảng tiếng Việt và phụ đề, chạy được cả khi máy không có PowerPoint.
+
+### Thêm
+- `tools/vi/video.py`: một lệnh để dựng video, tự chọn đường PowerPoint (giữ hiệu ứng chuyển cảnh) hoặc đường FFmpeg ghép ảnh slide (không cần PowerPoint). Kết quả trả về dạng JSON cho AI đọc.
+- Phụ đề `.srt` dựng từ phụ đề từng slide: đường FFmpeg cộng dồn thời lượng tiếng, đường PowerPoint đọc mốc thời gian trong bản PPTX đã gắn tiếng. Thầy cô chọn để file rời hoặc in lên hình.
+- `-Action tool -Name chromium` cài Chromium khi cần chụp ảnh slide, và chỉ khi thật sự cần chụp.
+- Loại việc thứ 6 cho AI: `docs/vi/tro-ly/video-bai-giang.md` (4 câu hỏi: giọng đọc, tốc độ, phụ đề, độ phân giải); `AGENTS.vi.md` mục 11 nêu thứ tự làm và cách chuyển câu trả lời thành tham số.
+- Tài liệu `docs/vi/lam-video.md` và mục "Dựng video thất bại" trong Xử lý lỗi, viết theo từng mã lỗi.
+
+### Không thay đổi
+- Lõi PPT Master v6.3.2 của Hugo He giữ nguyên. Tiếng đọc vẫn do `edge-tts` của dự án gốc tạo, giọng `vi-VN-HoaiMyNeural` và `vi-VN-NamMinhNeural`.
+
+### Rủi ro
+- Đường FFmpeg xuất video đúng bằng kích thước ảnh slide (1280×720 với khổ 16:9), không kéo giãn lên 1080. Cần 1080 thật thì chờ bản sau.
+- Đường PowerPoint mở cửa sổ PowerPoint và chiếm máy vài phút. Bài dài khoảng 15 slide trở lên sẽ hiện cảnh báo phụ đề lệch chừng 1 giây, do PowerPoint tự thêm khoảng đệm mỗi slide; cần phụ đề chính xác thì dùng đường FFmpeg.
+- Chủ repo chưa nghiệm thu trên một bài giảng thật của mình. Bằng chứng hiện có là một lần dựng thật trên dự án mẫu 3 slide, cả hai đường đều ra video xem được.
+- Video 10 phút nặng khoảng 100–300 MB; ổ đĩa nên còn trống ít nhất 2 GB. Tiếng máy đọc có thể sai tên riêng nước ngoài và công thức, nên nghe lại trước khi giao cho học sinh.
+
 ## 6.3.2-vi.3 — 2026-09-12
 
 AI tự cài đặt: thầy cô chỉ cần dán link repo vào Antigravity (hoặc mở thư mục đã tải), AI tự kiểm tra máy, cài những gì còn thiếu rồi báo khi sẵn sàng tạo slide.
