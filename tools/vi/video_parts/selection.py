@@ -65,12 +65,16 @@ def select_backend(state: ProjectState, requested: str) -> tuple[str, list[str]]
     return "ffmpeg", warnings
 
 
+def previews_fresh(state: ProjectState) -> bool:
+    return sorted(state.previews) == sorted(state.slides)
+
+
 def plan_steps(state: ProjectState, backend: str, subtitle_mode: str) -> list[dict]:
     steps: list[dict] = []
     if backend == "ffmpeg":
         if not state.has_chromium:
-            steps.append({"step": "chromium", "action": "install", "method": "pip+playwright"})
-        if sorted(state.previews) != sorted(state.slides):
+            steps.append({"step": "chromium", "action": "require", "method": "pip+playwright"})
+        if not previews_fresh(state):
             steps.append({"step": "preview", "action": "capture", "method": "visual_review.py"})
         if subtitle_mode != "khong":
             steps.append({"step": "subtitle", "action": "merge", "method": "srt"})

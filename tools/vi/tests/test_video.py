@@ -1,5 +1,7 @@
 """Test cho lớp làm video của bản Việt (không chạy FFmpeg, không cần mạng)."""
 
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -7,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
@@ -154,6 +157,7 @@ class RenderCommandTest(unittest.TestCase):
 
 
 from video_parts import selection  # noqa: E402
+import video  # noqa: E402
 
 VIDEO_CLI = REPO_ROOT / "tools" / "vi" / "video.py"
 
@@ -278,6 +282,64 @@ class VideoCliPlanTest(unittest.TestCase):
             code, data = self.run_cli(str(Path(tmp) / "khong_co"), "--plan-only")
             self.assertEqual(code, 1)
             self.assertEqual(data["error"]["step"], "project")
+
+
+class PreviewServerRunningTest(unittest.TestCase):
+    def test_no_lock_reports_not_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(video.preview_server_running(Path(tmp)))
+
+    def test_live_preview_lock_json_reports_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "live_preview").mkdir()
+            (root / "live_preview" / "lock.json").write_text("{}", encoding="utf-8")
+            self.assertTrue(video.preview_server_running(root))
+
+    def test_legacy_dot_lock_reports_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".live_preview.lock").write_text("", encoding="utf-8")
+            self.assertTrue(video.preview_server_running(root))
+
+
+class MainUnexpectedErrorTest(unittest.TestCase):
+    """video.main() must still emit exactly one JSON line and exit 1 when an
+    unguarded exception happens (here: a .srt that is not valid UTF-8).
+
+    This calls video.main() in-process instead of spawning tools/vi/video.py
+    as a subprocess, and patches has_chromium/shutil.which/probe_duration so
+    the test never depends on (or is skipped by) whether FFmpeg or Playwright
+    Chromium happen to be installed on the machine running the suite, and
+    never spawns a real ffprobe/ffmpeg process.
+    """
+
+    def build_project(self, root):
+        (root / "svg_output").mkdir(parents=True)
+        (root / "audio").mkdir(parents=True)
+        (root / "exports").mkdir(parents=True)
+        for stem in ("01_mo_dau", "02_noi_dung"):
+            (root / "svg_output" / f"{stem}.svg").write_text("<svg/>", encoding="utf-8")
+            (root / "audio" / f"{stem}.mp3").write_bytes(b"")
+        (root / "audio" / "01_mo_dau.srt").write_bytes(b"\xff\xfe khong phai utf-8")
+        (root / "audio" / "02_noi_dung.srt").write_text(SAMPLE_SRT, encoding="utf-8")
+        return root
+
+    def test_invalid_utf8_srt_is_reported_as_json_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            with mock.patch.object(video, "has_chromium", return_value=True), \
+                    mock.patch.object(video.shutil, "which", return_value="ffmpeg"), \
+                    mock.patch.object(video.media, "probe_duration", return_value=2.0):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = video.main([str(project), "--cach", "ffmpeg"])
+            stdout = buf.getvalue().strip()
+            self.assertEqual(len(stdout.splitlines()), 1, f"stdout phải là một dòng JSON:\n{stdout}")
+            data = json.loads(stdout)
+            self.assertEqual(code, 1)
+            self.assertIsNotNone(data["error"])
+            self.assertEqual(data["error"]["step"], "render")
 
 
 if __name__ == "__main__":

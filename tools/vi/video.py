@@ -48,10 +48,13 @@ def python_exe() -> str:
 
 
 def has_powerpoint() -> bool:
-    proc = subprocess.run(
-        [python_exe(), str(SCRIPTS / "powerpoint_video.py"), "--check"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
-    )
+    try:
+        proc = subprocess.run(
+            [python_exe(), str(SCRIPTS / "powerpoint_video.py"), "--check"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
     return proc.returncode == 0
 
 
@@ -78,9 +81,13 @@ def read_state(project: Path) -> selection.ProjectState:
     )
 
 
+def preview_server_running(project: Path) -> bool:
+    return (project / "live_preview" / "lock.json").is_file() or (project / ".live_preview.lock").is_file()
+
+
 def capture_previews(project: Path) -> None:
     server = str(SCRIPTS / "svg_editor" / "server.py")
-    already_running = any((project / "live_preview").glob("*.lock"))
+    already_running = preview_server_running(project)
     if already_running:
         log("Máy chủ xem trước đang chạy sẵn, dùng lại.")
     else:
@@ -221,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
         durations = [media.probe_duration(project / "audio" / f"{stem}.mp3") for stem in stems]
         exports = project / "exports"
         exports.mkdir(parents=True, exist_ok=True)
-        stamp = __import__("time").strftime("%Y%m%d_%H%M%S")
+        stamp = time.strftime("%Y%m%d_%H%M%S")
         video_path = exports / f"{project.name}_video_{stamp}.mp4"
 
         subtitle_path = None
@@ -229,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             subtitle_path = build_subtitle(project, stems, durations, video_path.with_suffix(".srt"))
 
         if backend == "ffmpeg":
-            if sorted(state.previews) != sorted(stems):
+            if not selection.previews_fresh(state):
                 capture_previews(project)
             burn = subtitle_path if args.phu_de == "hinh" else None
             render_ffmpeg(project, stems, durations, video_path, args.height, burn)
@@ -253,6 +260,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (selection.SelectionError, media.MediaError) as exc:
         payload["error"] = {"step": exc.step, "message": exc.message, "fix": exc.fix}
+        emit(payload)
+        return 1
+    except Exception as exc:
+        payload["error"] = {
+            "step": "render",
+            "message": f"Lỗi không lường trước: {exc}",
+            "fix": "Xem docs/vi/xu-ly-loi.md, mục Dựng video thất bại.",
+        }
         emit(payload)
         return 1
 
