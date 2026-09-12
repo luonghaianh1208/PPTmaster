@@ -8,7 +8,7 @@ Ngày 2026-09-12. Gói này thêm một họ đầu ra mới cho lớp Việt: �
 2. Thầy cô không có sẵn gì; sau lượt hỏi, AI soạn đề mới hoàn toàn bằng tiếng Anh kèm ma trận đặc tả.
 3. Tiếng Anh đúng thuật ngữ của môn, đúng động từ lệnh hỏi, đúng đơn vị và ký hiệu; không dịch từng chữ.
 4. Khi chuyển từ đề tiếng Việt, số liệu, đáp án đúng và thứ tự câu không đổi.
-5. Mọi chỗ AI chưa chắc chắn đều hiện ra trong mục "Cần thầy cô soát" ở cuối file đáp án, không im lặng bỏ qua.
+5. Mọi chỗ AI chưa chắc chắn đều hiện ra trong mục "Cần thầy cô soát" ở cuối file đáp án (AI ghi vào mục `## CAN SOAT` của `de.md`), không im lặng bỏ qua.
 6. Thầy cô không phải cài Pandoc. Bộ cài chỉ thêm đúng một thư viện Python.
 7. Không sửa bất cứ gì trong `skills/`, `LICENSE`, `SPONSORS*.md`. Đề của thầy cô không bao giờ lên GitHub.
 8. Toàn bộ test của lớp Việt vẫn xanh sau khi thêm gói này.
@@ -70,10 +70,11 @@ Ngày 2026-09-12. Gói này thêm một họ đầu ra mới cho lớp Việt: �
 
 Phải sửa đúng những chỗ này, không nới lỏng phép kiểm:
 
-1. Danh sách file hướng dẫn: thêm `de-khtn-tieng-anh.md` và `tieng-anh-khoa-hoc.md`.
+1. `de-khtn-tieng-anh.md` **không** vào danh sách sáu file hướng dẫn hiện có: các file đó bị khoá phải có đúng tám mục, trong đó có `## Khổ slide` và `## Phong cách gợi ý`, mà đề thi không có khổ slide. Thêm một danh sách riêng cho loại việc ra văn bản, với bộ mục riêng: `## Khi nào dùng`, `## Câu hỏi bắt buộc`, `## Câu hỏi tuỳ chọn`, `## Tạo nhanh`, `## Cấu trúc đề`, `## Đầu ra`, `## Ghi vào brief`. Quy tắc "không dùng liên kết Markdown trong `docs/vi/tro-ly/`" vẫn áp cho cả hai file mới.
 2. Mọi chỗ đếm "6 loại việc" trong `AGENTS.vi.md`, `quy-trinh-hoi.md`, `mau-brief.md`, `bat-dau-nhanh.md` thành 7.
-3. Phép kiểm "mục 11 là mục cuối của `AGENTS.vi.md`" đổi thành mục 12; mục 11 vẫn phải nằm ngay trước mục 12.
+3. Phép kiểm "mục 11 là mục cuối của `AGENTS.vi.md`" đổi thành mục 12; mục 10 → 11 → 12 là ba mục cuối, theo đúng thứ tự đó.
 4. Bảng nhận diện trong `quy-trinh-hoi.md` có đúng 7 dòng.
+5. Tiêu đề mục 10 của `AGENTS.vi.md` đổi từ "Hỗ trợ thầy cô trước khi tạo PPTX" thành "Hỗ trợ thầy cô trước khi làm bài", và tiêu đề `quy-trinh-hoi.md` đổi tương ứng: bảng nay có một loại việc không ra PPTX. Hằng số trong test và mọi chỗ dùng chuỗi này phải đổi theo.
 
 ## 5. Luồng
 
@@ -139,6 +140,8 @@ Trong `en:` và `vi:` chỉ dùng ba dấu đánh dấu sau, ngoài ra không d�
 - `m/s^2^` → chỉ số trên
 - `**not**` → in đậm
 
+Sau phần cuối, file có thể có một mục `## CAN SOAT`; mỗi dòng bắt đầu bằng `- ` là một việc AI muốn thầy cô soát lại (thuật ngữ chưa chắc, câu gốc mơ hồ, ngữ cảnh đã thêm giải thích). Mục này in ở cuối `dap-an.docx`, kèm theo các cảnh báo do công cụ tự phát hiện, để thầy cô thấy trên giấy chứ không chỉ trong khung chat. Không có mục này thì file đáp án ghi "Không có mục nào cần soát"; đó là trạng thái hợp lệ, không phải cảnh báo.
+
 ### 6.2 Thang điểm
 
 In trong file đáp án, theo thang đang dùng cho đề trắc nghiệm hiện hành:
@@ -178,6 +181,7 @@ Khi lỗi, `ready` là `false` và `error` là `{"step": ..., "message": ..., "f
 | `parse` | `de.md` sai cú pháp; `message` nêu số dòng |
 | `docx` | Thiếu `python-docx`; `fix` là lệnh cài |
 | `write` | Không ghi được file (đang mở trong Word, hết đĩa, đường dẫn quá dài) |
+| `internal` | Lỗi ngoài dự kiến. Có bậc này để stdout không bao giờ trống — bài học từ gói video |
 
 ### 6.4 Câu hỏi cho thầy cô
 
@@ -220,6 +224,7 @@ Mục "Tạo nhanh": câu 1 và câu 4.
 
 - `parse.py`: đề hợp lệ ba phần; từng ca biên sai cú pháp ở bảng trên, mỗi ca assert đúng số dòng trong `message`; đánh dấu `~ ~` và `^ ^` lồng trong một dòng; `topic` thiếu thì ma trận gom vào một dòng "Không ghi chủ đề".
 - Thang điểm: tính đúng 4,5 + 4,0 + 1,5 = 10 với đề 18–4–6; cảnh báo khi lệch.
+- Mục `## CAN SOAT`: có mục thì các dòng `- ` vào đúng cuối file đáp án cùng với cảnh báo của công cụ; không có mục thì in "Không có mục nào cần soát" và **không** sinh cảnh báo.
 - `docx_build.py`: mở lại file đã xuất bằng `zipfile` và soi XML — khổ A4 và bốn lề đúng, font Times New Roman trong `styles.xml`, có trường `PAGE` ở chân trang, đáp án ngắn xếp 4 cột và đáp án dài xếp 1 cột, chỉ số dưới có `vertAlign="subscript"`, file đề **không** chứa chuỗi của `key:` hay `why:`.
 - `de_thi.py`: thiếu `de.md` → `input`; `python-docx` không import được → `docx`; `--plan-only` không tạo file; stdout đúng một dòng JSON; đường dẫn có dấu tiếng Việt chạy được.
 
