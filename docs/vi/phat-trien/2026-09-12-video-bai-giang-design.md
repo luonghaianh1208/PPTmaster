@@ -65,10 +65,11 @@ Thầy cô đã có bài giảng trong PPT Master thì nhắn một câu là ra 
 
 ```text
 tools/vi/video.py                 # (mới) cổng vào duy nhất: chọn cách dựng, ghép video, in JSON
-tools/vi/video_backends/          # (mới) mỗi cách dựng một file
+tools/vi/video_parts/             # (mới) phần tính toán thuần, test được mà không cần FFmpeg
 ├── __init__.py
-├── powerpoint.py                 # gọi scripts/powerpoint_video.py
-└── ffmpeg_slides.py              # ảnh slide + tiếng + FFmpeg
+├── srt.py                        # đọc, dịch mốc thời gian và ghép phụ đề
+├── media.py                      # đo thời lượng, dựng file concat và câu lệnh FFmpeg
+└── selection.py                  # chọn cách dựng và liệt kê các bước
 tools/vi/pptmaster.ps1            # (sửa) -Action tool -Name chromium
 docs/vi/lam-video.md              # (mới) hướng dẫn cho thầy cô
 docs/vi/tro-ly/video-bai-giang.md # (mới) bộ câu hỏi trước khi dựng, theo khuôn 5 loại việc
@@ -126,7 +127,7 @@ Tiến trình ra stderr; stdout đúng một dòng JSON, như bộ cài.
 3. Chụp ảnh: `visual_review.py <dự án>` → `.preview/<tên>.png`.
 4. Tắt máy chủ: `server.py <dự án> --shutdown`, kể cả khi bước 3 lỗi.
 5. Đọc thời lượng từng file tiếng bằng `ffprobe`.
-6. Ghép bằng một lệnh FFmpeg: mỗi ảnh giữ đúng thời lượng tiếng của slide đó, chuyển cảnh mờ dần 0,4 giây, nối tiếng theo thứ tự, xuất H.264 + AAC.
+6. Ghép bằng một lệnh FFmpeg: mỗi ảnh giữ đúng thời lượng tiếng của slide đó, cắt thẳng giữa các slide, nối tiếng theo thứ tự, xuất H.264 + AAC. Cắt thẳng dùng bộ ghép `concat` nên câu lệnh cố định và ít lỗi; hiệu ứng mờ dần cần dựng chuỗi lọc riêng cho từng cặp slide nên để dành cho gói sau. Thầy cô muốn có hiệu ứng chuyển cảnh thì dùng đường PowerPoint.
 7. Phụ đề theo §5.5.
 
 ### 5.4 Đường PowerPoint
