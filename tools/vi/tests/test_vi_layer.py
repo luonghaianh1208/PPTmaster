@@ -140,6 +140,7 @@ REQUIRED_DOCS = (
     "xu-ly-loi.md",
     "lay-api-key.md",
     "phat-trien/bao-tri.md",
+    "lam-video.md",
 )
 
 
@@ -433,6 +434,35 @@ class TeacherAssistantUserDocsTest(unittest.TestCase):
 
     def test_readme_mentions_teacher_intake(self):
         self.assertIn("Hỏi thầy cô một lượt ngắn", section(read("README.md"), "## Làm được gì"))
+
+
+class VideoUserDocsTest(unittest.TestCase):
+    def test_video_doc_explains_time_size_and_subtitles(self):
+        text = read("docs/vi/lam-video.md")
+        for phrase in ("phụ đề", "YouTube", "PowerPoint", "FFmpeg", "MB"):
+            self.assertIn(phrase, text)
+
+    def test_quick_start_mentions_video(self):
+        text = read("docs/vi/bat-dau-nhanh.md")
+        headings = h2_headings(text)
+        self.assertIn("## Làm video bài giảng", headings)
+        self.assertLess(headings.index("## Làm video bài giảng"), headings.index("## Lấy file kết quả"))
+        self.assertIn("(lam-video.md)", section(text, "## Làm video bài giảng"))
+
+    def test_troubleshooting_has_video_section(self):
+        text = read("docs/vi/xu-ly-loi.md")
+        headings = h2_headings(text)
+        self.assertIn("## Dựng video thất bại", headings)
+        body = section(text, "## Dựng video thất bại")
+        for phrase in ("Chromium", "FFmpeg", "PowerPoint", "venv\\Scripts\\python.exe tools\\vi\\video.py"):
+            self.assertIn(phrase, body)
+
+    def test_ruling_r7_updates_task_type_counts(self):
+        bat_dau_nhanh = read("docs/vi/bat-dau-nhanh.md")
+        self.assertNotIn("5 loại", bat_dau_nhanh)
+
+        mau_brief = read("docs/vi/tro-ly/mau-brief.md")
+        self.assertIn("Video bài giảng", mau_brief)
 
 
 SELF_INSTALL_DOC = "docs/vi/cai-dat-bang-ai.md"

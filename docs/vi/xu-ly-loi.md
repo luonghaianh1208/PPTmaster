@@ -103,6 +103,16 @@ Dấu hiệu: `KIEM-TRA.bat` hoặc lúc xuất bài báo lỗi có chữ `FileN
   **Cảnh báo:** lệnh này sẽ xoá mọi thay đổi bạn đã làm trong file đó.
 - Thiếu Git: cài Git (bấm `CAI-DAT.bat`, bộ cài sẽ đề nghị cài Git).
 
+## Dựng video thất bại
+
+Xem dòng kết quả AI đọc được, phần `error`:
+
+- `chromium`: máy chưa có Chromium để chụp ảnh slide. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB).
+- `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
+- `audio`: bài giảng chưa có tiếng đọc. Nhờ AI tạo lời giảng và tiếng đọc trước.
+- `powerpoint`: PowerPoint không xuất được video. Thử lại bằng cách ghép ảnh: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án> --cach ffmpeg`.
+- `render`: thường do hết dung lượng ổ đĩa hoặc đường dẫn quá dài. Dọn ổ đĩa, hoặc chuyển bộ công cụ sang `D:\PPTmaster` rồi làm lại.
+
 ## Chữ tiếng Việt lỗi dấu trong PowerPoint
 
 Thường do máy không có sẵn font đang dùng. Nhắn cho AI, ví dụ "đổi toàn bộ font sang Segoe UI" (hoặc Arial, Times New Roman), rồi xuất lại file.
