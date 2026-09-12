@@ -72,15 +72,15 @@ def build_render_command(
     height: int,
     burn_srt: Optional[Path] = None,
 ) -> list[str]:
-    video_filter = f"scale=-2:{height},format=yuv420p"
+    video_filter = f"fps={fps}"
     if burn_srt is not None:
-        video_filter = f"subtitles='{escape_subtitles_filter(burn_srt)}',{video_filter}"
+        video_filter += f",subtitles='{escape_subtitles_filter(burn_srt)}'"
+    video_filter += f",scale=-2:{height},format=yuv420p"
     return [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", str(images_concat),
         "-f", "concat", "-safe", "0", "-i", str(audio_concat),
         "-vf", video_filter,
-        "-r", str(fps),
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
         "-c:a", "aac", "-b:a", "160k",
         "-movflags", "+faststart",
