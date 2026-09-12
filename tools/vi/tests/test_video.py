@@ -221,9 +221,23 @@ def state(**kwargs):
         has_powerpoint=True,
         has_chromium=True,
         previews=[],
+        notes=["01_mo_dau", "02_noi_dung"],
     )
     base.update(kwargs)
     return selection.ProjectState(**base)
+
+
+def fresh_state(**kwargs):
+    """Trạng thái có ảnh xem trước mới hơn file SVG."""
+    slides = kwargs.pop("slides", ["01_mo_dau", "02_noi_dung"])
+    base = dict(
+        slides=slides,
+        previews=list(slides),
+        slide_mtimes={stem: 100.0 for stem in slides},
+        preview_mtimes={stem: 200.0 for stem in slides},
+    )
+    base.update(kwargs)
+    return state(**base)
 
 
 class SelectBackendTest(unittest.TestCase):
@@ -258,6 +272,37 @@ class SelectBackendTest(unittest.TestCase):
             selection.select_backend(state(audio=["01_mo_dau"]), "ffmpeg")
         self.assertEqual(ctx.exception.step, "audio")
         self.assertIn("02_noi_dung", ctx.exception.message)
+        self.assertIn("notes_to_audio.py", ctx.exception.fix)
+
+    def test_missing_notes_keeps_the_audio_step_but_names_the_notes_step(self):
+        with self.assertRaises(selection.SelectionError) as ctx:
+            selection.select_backend(state(audio=[], notes=[]), "ffmpeg")
+        self.assertEqual(ctx.exception.step, "audio")
+        self.assertIn("notes/", ctx.exception.message)
+        self.assertIn("bước ghi chú", ctx.exception.fix)
+        self.assertLess(ctx.exception.fix.index("ghi chú"), ctx.exception.fix.index("thuyết minh"))
+
+    def test_one_slide_without_notes_points_at_the_notes_step(self):
+        with self.assertRaises(selection.SelectionError) as ctx:
+            selection.select_backend(state(audio=["01_mo_dau"], notes=["01_mo_dau"]), "ffmpeg")
+        self.assertEqual(ctx.exception.step, "audio")
+        self.assertIn("ghi chú", ctx.exception.message)
+        self.assertIn("02_noi_dung", ctx.exception.message)
+
+
+class PreviewsFreshTest(unittest.TestCase):
+    def test_previews_newer_than_the_slides_are_fresh(self):
+        self.assertTrue(selection.previews_fresh(fresh_state()))
+
+    def test_an_edited_slide_makes_its_preview_stale(self):
+        stale = fresh_state(slide_mtimes={"01_mo_dau": 100.0, "02_noi_dung": 300.0})
+        self.assertFalse(selection.previews_fresh(stale))
+
+    def test_missing_preview_names_are_stale(self):
+        self.assertFalse(selection.previews_fresh(fresh_state(previews=["01_mo_dau"])))
+
+    def test_previews_without_mtimes_are_treated_as_stale(self):
+        self.assertFalse(selection.previews_fresh(state(previews=["01_mo_dau", "02_noi_dung"])))
 
 
 class PlanStepsTest(unittest.TestCase):
@@ -269,14 +314,20 @@ class PlanStepsTest(unittest.TestCase):
             ("render", "run", "ffmpeg"),
         ])
 
-    def test_ffmpeg_plan_adds_chromium_install_when_missing(self):
+    def test_ffmpeg_plan_requires_chromium_when_missing(self):
         steps = selection.plan_steps(state(has_chromium=False), "ffmpeg", "file")
         self.assertEqual(steps[0]["step"], "chromium")
+        self.assertEqual(steps[0]["action"], "require")
         self.assertEqual(steps[0]["method"], "pip+playwright")
 
-    def test_ffmpeg_plan_skips_capture_when_previews_exist(self):
-        steps = [s["step"] for s in selection.plan_steps(state(previews=["01_mo_dau", "02_noi_dung"]), "ffmpeg", "file")]
+    def test_ffmpeg_plan_skips_capture_when_previews_are_fresh(self):
+        steps = [s["step"] for s in selection.plan_steps(fresh_state(), "ffmpeg", "file")]
         self.assertNotIn("preview", steps)
+
+    def test_ffmpeg_plan_recaptures_when_a_slide_is_newer_than_its_preview(self):
+        stale = fresh_state(slide_mtimes={"01_mo_dau": 100.0, "02_noi_dung": 300.0})
+        steps = [s["step"] for s in selection.plan_steps(stale, "ffmpeg", "file")]
+        self.assertIn("preview", steps)
 
     def test_powerpoint_plan_uses_upstream_exporter(self):
         steps = [(s["step"], s["method"]) for s in selection.plan_steps(state(), "powerpoint", "hinh")]
@@ -333,6 +384,100 @@ class VideoCliPlanTest(unittest.TestCase):
             code, data = self.run_cli(str(Path(tmp) / "khong_co"), "--plan-only")
             self.assertEqual(code, 1)
             self.assertEqual(data["error"]["step"], "project")
+            self.assertNotIn("ký tự", data["error"]["message"])
+
+    def test_error_payload_reports_the_slide_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an", with_audio=False)
+            _, data = self.run_cli(str(project), "--plan-only")
+            self.assertEqual(data["slides"], 2)
+
+    def test_a_very_long_project_path_names_the_length_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            deep = Path(tmp) / ("d" * 120) / ("e" * 120) / "du_an"
+            code, data = self.run_cli(str(deep), "--plan-only")
+            self.assertEqual(code, 1)
+            self.assertEqual(data["error"]["step"], "project")
+            self.assertIn("260 ký tự", data["error"]["message"])
+            self.assertIn("D:\\PPTmaster", data["error"]["fix"])
+
+    def test_plan_only_never_instantiates_powerpoint(self):
+        """Ruling R1/R17: không đường `--plan-only` nào được gọi COM."""
+        def explode():
+            raise AssertionError("--plan-only đã gọi has_powerpoint()")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            (project / "exports" / "bai_narrated.pptx").write_bytes(b"")
+            with mock.patch.object(video, "has_powerpoint", side_effect=explode), \
+                    mock.patch.object(video, "has_powerpoint_installed", return_value=True), \
+                    mock.patch.object(video, "has_chromium", return_value=True):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "auto", "--plan-only"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0)
+            self.assertEqual(data["backend"], "powerpoint")
+
+    def test_existing_video_names_keep_their_own_timestamp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            older = project / "exports" / f"{project.name}_video_20260101_000000.mp4"
+            older.write_bytes(b"cu")
+
+            def render(_project, _stems, _durations, out_path, _height, _burn):
+                out_path.write_bytes(b"moi")
+
+            with mock.patch.object(video, "has_chromium", return_value=True), \
+                    mock.patch.object(video.shutil, "which", return_value="ffmpeg"), \
+                    mock.patch.object(video.media, "probe_duration", return_value=2.0), \
+                    mock.patch.object(video, "capture_previews"), \
+                    mock.patch.object(video, "render_ffmpeg", side_effect=render):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "ffmpeg"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0)
+            self.assertTrue(older.is_file(), "video cũ bị ghi đè")
+            self.assertNotEqual(Path(data["video"]).name, older.name)
+            self.assertRegex(Path(data["video"]).name, r"_video_\d{8}_\d{6}\.mp4$")
+
+
+class HasChromiumTest(unittest.TestCase):
+    def test_browser_folder_plus_importable_playwright_is_found(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "ms-playwright" / "chromium-1234").mkdir(parents=True)
+            with mock.patch.dict(os.environ, {"LOCALAPPDATA": tmp}), \
+                    mock.patch.object(video.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)):
+                self.assertTrue(video.has_chromium())
+
+    def test_browser_folder_without_playwright_package_is_not_found(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "ms-playwright" / "chromium-1234").mkdir(parents=True)
+            with mock.patch.dict(os.environ, {"LOCALAPPDATA": tmp}), \
+                    mock.patch.object(video.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
+                self.assertFalse(video.has_chromium())
+
+    def test_the_check_asks_the_interpreter_that_will_capture_the_slides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "ms-playwright" / "chromium-1234").mkdir(parents=True)
+            with mock.patch.dict(os.environ, {"LOCALAPPDATA": tmp}), \
+                    mock.patch.object(video.subprocess, "run",
+                                      return_value=subprocess.CompletedProcess([], 0)) as run:
+                video.has_chromium()
+            self.assertEqual(run.call_args.args[0], [video.python_exe(), "-c", "import playwright"])
+
+    def test_a_broken_interpreter_is_not_found_instead_of_raising(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "ms-playwright" / "chromium-1234").mkdir(parents=True)
+            with mock.patch.dict(os.environ, {"LOCALAPPDATA": tmp}), \
+                    mock.patch.object(video.subprocess, "run", side_effect=OSError("khong chay duoc")):
+                self.assertFalse(video.has_chromium())
+
+    def test_no_browser_folder_is_not_found(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"LOCALAPPDATA": tmp}):
+                self.assertFalse(video.has_chromium())
 
 
 class PreviewServerRunningTest(unittest.TestCase):

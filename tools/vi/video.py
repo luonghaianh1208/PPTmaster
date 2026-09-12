@@ -12,7 +12,6 @@ Mã thoát: 0 khi dựng xong, 1 khi lỗi.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 import shutil
@@ -64,6 +63,33 @@ def has_powerpoint() -> bool:
     return proc.returncode == 0
 
 
+def has_powerpoint_installed() -> bool:
+    """Dò PowerPoint mà không gọi COM, để `--plan-only` không mở cửa sổ nào."""
+    try:
+        import winreg
+    except ImportError:
+        winreg = None
+    if winreg is not None:
+        for root, key in (
+            (winreg.HKEY_CLASSES_ROOT, r"PowerPoint.Application\CLSID"),
+            (winreg.HKEY_CLASSES_ROOT, r"PowerPoint.Application\CurVer"),
+        ):
+            try:
+                with winreg.OpenKey(root, key):
+                    return True
+            except OSError:
+                continue
+    for variable in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"):
+        base = os.environ.get(variable)
+        if not base:
+            continue
+        office = Path(base) / "Microsoft Office"
+        for pattern in ("root/Office*/POWERPNT.EXE", "Office*/POWERPNT.EXE"):
+            if any(office.glob(pattern)):
+                return True
+    return False
+
+
 def has_chromium() -> bool:
     root = os.environ.get("LOCALAPPDATA")
     if not root:
@@ -71,22 +97,45 @@ def has_chromium() -> bool:
     browsers = Path(root) / "ms-playwright"
     if not (browsers.is_dir() and any(browsers.glob("chromium-*"))):
         return False
-    return importlib.util.find_spec("playwright") is not None
+    # Phải hỏi đúng trình thông dịch sẽ chạy visual_review.py, không phải
+    # trình thông dịch đang chạy file này — hai cái có thể khác nhau.
+    try:
+        proc = subprocess.run(
+            [python_exe(), "-c", "import playwright"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0
 
 
 def read_state(project: Path) -> selection.ProjectState:
-    slides = sorted(path.stem for path in (project / "svg_output").glob("*.svg"))
+    slide_paths = sorted((project / "svg_output").glob("*.svg"))
+    preview_paths = sorted((project / ".preview").glob("*.png"))
     audio = sorted(path.stem for path in (project / "audio").glob("*.mp3"))
-    previews = sorted(path.stem for path in (project / ".preview").glob("*.png"))
+    notes = sorted(path.stem for path in (project / "notes").glob("*.md"))
     narrated = sorted((project / "exports").glob("*_narrated.pptx"), key=lambda p: p.stat().st_mtime)
     return selection.ProjectState(
-        slides=slides,
+        slides=[path.stem for path in slide_paths],
         audio=audio,
         narrated_pptx=str(narrated[-1]) if narrated else None,
         has_powerpoint=False,
         has_chromium=has_chromium(),
-        previews=previews,
+        previews=[path.stem for path in preview_paths],
+        notes=notes,
+        slide_mtimes=_mtimes(slide_paths),
+        preview_mtimes=_mtimes(preview_paths),
     )
+
+
+def _mtimes(paths: list[Path]) -> dict[str, float]:
+    mtimes = {}
+    for path in paths:
+        try:
+            mtimes[path.stem] = path.stat().st_mtime
+        except OSError:
+            continue
+    return mtimes
 
 
 def preview_server_running(project: Path) -> bool:
@@ -224,27 +273,39 @@ def main(argv: list[str] | None = None) -> int:
         "installed": [], "warnings": [], "error": None,
     }
     if not (project / "svg_output").is_dir():
-        payload["error"] = {
-            "step": "project",
-            "message": f"Không thấy thư mục dự án hợp lệ: {project}",
-            "fix": "Kiểm tra lại đường dẫn dự án trong projects/.",
-        }
+        message = f"Không thấy thư mục dự án hợp lệ: {project}"
+        fix = "Kiểm tra lại đường dẫn dự án trong projects/."
+        if len(str(project)) > 200:
+            message += (
+                f" Đường dẫn dài {len(str(project))} ký tự, trong khi Windows chỉ cho "
+                "khoảng 260 ký tự."
+            )
+            fix = (
+                "Chuyển bộ công cụ sang đường dẫn ngắn như D:\\PPTmaster rồi làm lại; "
+                "nếu không phải do đường dẫn dài thì kiểm tra lại tên dự án trong projects/."
+            )
+        payload["error"] = {"step": "project", "message": message, "fix": fix}
         emit(payload)
         return 1
 
     try:
         state = read_state(project)
+        payload["slides"] = len(state.slides)
         selection.check_audio(state)
         if args.cach in ("auto", "powerpoint"):
-            state.has_powerpoint = has_powerpoint()
+            # `--plan-only` không được gọi COM: dò PowerPoint bằng registry và
+            # đường dẫn cài đặt, không mở tiến trình PowerPoint nào.
+            state.has_powerpoint = has_powerpoint_installed() if args.plan_only else has_powerpoint()
         backend, warnings = selection.select_backend(state, args.cach)
         payload["backend"] = backend
         payload["warnings"] = warnings
-        payload["slides"] = len(state.slides)
-        free_gb = shutil.disk_usage(project.resolve().anchor).free / (1024 ** 3)
-        if free_gb < 2:
+        try:
+            free_gb = shutil.disk_usage(project.anchor).free / (1024 ** 3)
+        except OSError:
+            free_gb = None
+        if free_gb is not None and free_gb < 2:
             payload["warnings"].append(f"Ổ đĩa chỉ còn {free_gb:.1f} GB; video có thể nặng 100-300 MB.")
-        if len(str(project.resolve())) > 120:
+        if len(str(project)) > 120:
             payload["warnings"].append("Đường dẫn dự án dài; nên chuyển bộ công cụ sang D:\\PPTmaster nếu dựng video lỗi.")
         steps = selection.plan_steps(state, backend, args.phu_de)
         if args.plan_only:
@@ -277,7 +338,15 @@ def main(argv: list[str] | None = None) -> int:
         else:
             render_powerpoint(Path(state.narrated_pptx), video_path, args.height)
             if args.phu_de == "hinh" and subtitle_path is not None:
-                video_path = burn_subtitles(video_path, subtitle_path, args.height)
+                raw_path = video_path
+                video_path = burn_subtitles(raw_path, subtitle_path, args.height)
+                # Thầy cô đã chọn in phụ đề lên hình, nên bản chưa in chỉ là
+                # file trung gian (khoảng 17 MB cho 90 giây); xoá để thư mục
+                # exports không có hai video gần giống nhau.
+                try:
+                    raw_path.unlink()
+                except OSError as exc:
+                    log(f"Không xoá được video trung gian {raw_path.name}: {exc}")
 
         actual = media.probe_duration(video_path)
         if args.phu_de != "khong":
