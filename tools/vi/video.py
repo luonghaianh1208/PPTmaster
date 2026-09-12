@@ -12,6 +12,7 @@ Mã thoát: 0 khi dựng xong, 1 khi lỗi.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -63,7 +64,9 @@ def has_chromium() -> bool:
     if not root:
         return False
     browsers = Path(root) / "ms-playwright"
-    return browsers.is_dir() and any(browsers.glob("chromium-*"))
+    if not (browsers.is_dir() and any(browsers.glob("chromium-*"))):
+        return False
+    return importlib.util.find_spec("playwright") is not None
 
 
 def read_state(project: Path) -> selection.ProjectState:

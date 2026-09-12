@@ -423,6 +423,11 @@ function Find-ToolDir([string]$ToolName) {
         if (-not (Test-Path $browsers)) { return $null }
         $folder = @(Get-ChildItem -Path $browsers -Directory -Filter 'chromium-*' -ErrorAction SilentlyContinue | Sort-Object Name)
         if ($folder.Count -eq 0) { return $null }
+        # R9: the browser folder alone is not enough — tools/vi/video.py runs
+        # under $VenvPython and needs the playwright pip package importable
+        # there too, or slide capture fails even though this returns a path.
+        if (-not (Test-Path $VenvPython)) { return $null }
+        if (-not (Test-VenvPython @('-c', 'import playwright'))) { return $null }
         return $folder[-1].FullName
     }
     $exe = $OptionalTools[$ToolName].Exe

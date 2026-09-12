@@ -169,14 +169,30 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertFalse(plan["found"])
         self.assertEqual(self.steps(plan), [("chromium", "install", "pip+playwright")])
 
-    def test_tool_chromium_found_when_browser_folder_exists(self):
+    def test_tool_chromium_browser_folder_alone_is_not_found(self):
+        # R9: the browser folder existing is necessary but not sufficient —
+        # tools/vi/video.py runs under $VenvPython and needs the playwright
+        # pip package importable there too. This fixture has no venv, so a
+        # browser-only install must still report "not found" and re-plan.
         browser = self.localappdata / "ms-playwright" / "chromium-1234" / "chrome-win"
         browser.mkdir(parents=True)
         (browser / "headless_shell.exe").write_bytes(b"")
         plan = self.run_plan("-Action", "tool", "-Name", "chromium")
-        self.assertTrue(plan["found"])
-        self.assertIn("chromium-1234", plan["dir"])
-        self.assertEqual(plan["steps"], [])
+        self.assertFalse(plan["found"])
+        self.assertEqual(self.steps(plan), [("chromium", "install", "pip+playwright")])
+
+    def test_tool_chromium_broken_venv_with_browser_folder_is_not_found(self):
+        # Same as above, but with a venv present that cannot run at all
+        # (e.g. corrupted) — Test-VenvPython's guard must still say "no",
+        # not raise, matching how it already behaves for the python/venv
+        # checks elsewhere in this file.
+        browser = self.localappdata / "ms-playwright" / "chromium-1234" / "chrome-win"
+        browser.mkdir(parents=True)
+        (browser / "headless_shell.exe").write_bytes(b"")
+        self.make_broken_venv()
+        plan = self.run_plan("-Action", "tool", "-Name", "chromium")
+        self.assertFalse(plan["found"])
+        self.assertEqual(self.steps(plan), [("chromium", "install", "pip+playwright")])
 
     def test_tool_found_without_plan_reports_existing_install(self):
         pandoc = self.localappdata / "Pandoc" / "pandoc.exe"
