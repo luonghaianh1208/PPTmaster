@@ -163,6 +163,21 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertEqual(Path(plan["dir"]), pandoc.parent)
         self.assertEqual(plan["steps"], [])
 
+    def test_tool_chromium_missing_plans_pip_playwright(self):
+        plan = self.run_plan("-Action", "tool", "-Name", "chromium")
+        self.assertEqual(plan["tool"], "chromium")
+        self.assertFalse(plan["found"])
+        self.assertEqual(self.steps(plan), [("chromium", "install", "pip+playwright")])
+
+    def test_tool_chromium_found_when_browser_folder_exists(self):
+        browser = self.localappdata / "ms-playwright" / "chromium-1234" / "chrome-win"
+        browser.mkdir(parents=True)
+        (browser / "headless_shell.exe").write_bytes(b"")
+        plan = self.run_plan("-Action", "tool", "-Name", "chromium")
+        self.assertTrue(plan["found"])
+        self.assertIn("chromium-1234", plan["dir"])
+        self.assertEqual(plan["steps"], [])
+
     def test_tool_found_without_plan_reports_existing_install(self):
         pandoc = self.localappdata / "Pandoc" / "pandoc.exe"
         pandoc.parent.mkdir(parents=True)

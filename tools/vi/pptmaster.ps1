@@ -46,6 +46,7 @@ $PythonInstallers = @{
 $OptionalTools = @{
     ffmpeg = @{ Id = 'Gyan.FFmpeg'; Exe = 'ffmpeg.exe'; Manual = 'https://ffmpeg.org/download.html' }
     pandoc = @{ Id = 'JohnMacFarlane.Pandoc'; Exe = 'pandoc.exe'; Manual = 'https://pandoc.org/installing.html' }
+    chromium = @{ Id = $null; Exe = $null; Manual = 'https://playwright.dev/python/docs/browsers' }
 }
 $script:SetupError = $null
 
@@ -416,6 +417,14 @@ function Invoke-AutoSetup {
 }
 
 function Find-ToolDir([string]$ToolName) {
+    if ($ToolName -eq 'chromium') {
+        if (-not $env:LOCALAPPDATA) { return $null }
+        $browsers = Join-Path $env:LOCALAPPDATA 'ms-playwright'
+        if (-not (Test-Path $browsers)) { return $null }
+        $folder = @(Get-ChildItem -Path $browsers -Directory -Filter 'chromium-*' -ErrorAction SilentlyContinue | Sort-Object Name)
+        if ($folder.Count -eq 0) { return $null }
+        return $folder[-1].FullName
+    }
     $exe = $OptionalTools[$ToolName].Exe
     $cmd = Get-Command $exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($cmd) { return (Split-Path -Path $cmd.Source -Parent) }
@@ -442,7 +451,7 @@ function Invoke-Tool {
     if (-not $Name -or -not $OptionalTools.ContainsKey($Name)) {
         $message = if ($Name) { "Tên công cụ không hợp lệ: $Name." } else { 'Thiếu tham số -Name.' }
         $toolValue = if ($Name) { $Name } else { $null }
-        Write-Json ([pscustomobject]@{ tool = $toolValue; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = $message; fix = 'Chạy lại với -Name ffmpeg hoặc -Name pandoc.' } })
+        Write-Json ([pscustomobject]@{ tool = $toolValue; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = $message; fix = 'Chạy lại với -Name ffmpeg, -Name pandoc hoặc -Name chromium.' } })
         return 1
     }
     $tool = $OptionalTools[$Name]
@@ -450,7 +459,7 @@ function Invoke-Tool {
     if ($PlanOnly) {
         $steps = @()
         if (-not $dir) {
-            $method = if (Test-Winget) { 'winget' } else { 'manual' }
+            $method = if ($Name -eq 'chromium') { 'pip+playwright' } elseif (Test-Winget) { 'winget' } else { 'manual' }
             $steps += [pscustomobject]@{ step = $Name; action = 'install'; method = $method }
         }
         Write-Json ([pscustomobject]@{ tool = $Name; found = [bool]$dir; dir = $dir; steps = @($steps) })
@@ -458,6 +467,22 @@ function Invoke-Tool {
     }
     if ($dir) {
         Write-Json ([pscustomobject]@{ tool = $Name; found = $true; installed = $false; dir = $dir; error = $null })
+        return 0
+    }
+    if ($Name -eq 'chromium') {
+        if (-not (Test-Path $VenvPython)) {
+            Write-Json ([pscustomobject]@{ tool = $Name; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = 'Chưa có môi trường Python riêng (venv) để cài Chromium.'; fix = 'Chạy lệnh cài đặt trước: -Action setup -Auto' } })
+            return 1
+        }
+        Write-Log 'Cài Playwright và tải Chromium (khoảng 150-300 MB, có thể mất vài phút)...'
+        Invoke-Logged { & $VenvPython -m pip install playwright }
+        Invoke-Logged { & $VenvPython -m playwright install chromium }
+        $dir = Find-ToolDir $Name
+        if (-not $dir) {
+            Write-Json ([pscustomobject]@{ tool = $Name; found = $false; installed = $false; dir = $null; error = [pscustomobject]@{ step = 'tool'; message = 'Không tải được Chromium.'; fix = "Kiểm tra mạng rồi chạy lại; hướng dẫn thủ công: $($tool.Manual)" } })
+            return 1
+        }
+        Write-Json ([pscustomobject]@{ tool = $Name; found = $true; installed = $true; dir = $dir; error = $null })
         return 0
     }
     if (-not (Test-Winget)) {
