@@ -44,6 +44,8 @@ Ngày 2026-09-12. Gói này thêm một họ đầu ra mới cho lớp Việt: �
 | `docs/vi/tro-ly/de-khtn-tieng-anh.md` | Loại việc thứ 7: khi nào dùng, câu hỏi cho thầy cô, hai luồng A/B, ghi brief |
 | `docs/vi/tro-ly/tieng-anh-khoa-hoc.md` | Chín nguyên tắc viết tiếng Anh khoa học, ví dụ mẫu theo môn |
 | `tools/vi/de_thi.py` | Điểm vào duy nhất; in đúng một dòng JSON |
+| `tools/vi/word_parts/inline.py` | Tách `~chỉ số dưới~`, `^chỉ số trên^`, `**in đậm**` — tầng dùng chung |
+| `tools/vi/word_parts/base.py` | Khổ giấy, lề, font, bảng, chân trang — tầng dùng chung; gói giáo án `v6.3.2-vi.6` dùng lại y nguyên |
 | `tools/vi/de_thi_parts/__init__.py` | Gói con |
 | `tools/vi/de_thi_parts/parse.py` | Đọc `de.md` thành cấu trúc; lỗi kèm số dòng |
 | `tools/vi/de_thi_parts/docx_build.py` | Dựng ba file Word bằng `python-docx` |

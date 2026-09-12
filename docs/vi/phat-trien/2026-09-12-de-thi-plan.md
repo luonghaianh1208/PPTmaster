@@ -31,9 +31,12 @@
 
 ### Task 1: Tách dấu đánh dấu trong câu (`inline.py`)
 
+> **Lưu ý về vị trí file:** `inline.py` nằm ở `tools/vi/word_parts/`, **không** nằm trong `de_thi_parts/`. Gói giáo án (`docs/vi/phat-trien/2026-09-13-giao-an-nls-ai-design.md`) dùng lại đúng module này, nên nó thuộc tầng dựng Word dùng chung.
+
 **Files:**
+- Create: `tools/vi/word_parts/__init__.py`
+- Create: `tools/vi/word_parts/inline.py`
 - Create: `tools/vi/de_thi_parts/__init__.py`
-- Create: `tools/vi/de_thi_parts/inline.py`
 - Create: `tools/vi/tests/test_de_thi.py`
 
 **Interfaces:**
@@ -57,7 +60,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
 
-from de_thi_parts import inline  # noqa: E402
+from word_parts import inline  # noqa: E402
 
 
 class InlineTest(unittest.TestCase):
@@ -99,9 +102,15 @@ if __name__ == "__main__":
 - [ ] **Step 2: Chạy test để thấy nó fail**
 
 Chạy: `python -m unittest discover -s tools/vi/tests -t tools/vi/tests -k InlineTest`
-Kỳ vọng: FAIL với `ModuleNotFoundError: No module named 'de_thi_parts'`
+Kỳ vọng: FAIL với `ModuleNotFoundError: No module named 'word_parts'`
 
-- [ ] **Step 3: Tạo gói con**
+- [ ] **Step 3: Tạo hai gói con**
+
+Tạo `tools/vi/word_parts/__init__.py` với đúng nội dung một dòng sau:
+
+```python
+"""Tầng dựng file Word dùng chung cho các gói của lớp Việt."""
+```
 
 Tạo `tools/vi/de_thi_parts/__init__.py` với đúng nội dung một dòng sau:
 
@@ -111,7 +120,7 @@ Tạo `tools/vi/de_thi_parts/__init__.py` với đúng nội dung một dòng sa
 
 - [ ] **Step 4: Viết `inline.py`**
 
-Tạo `tools/vi/de_thi_parts/inline.py`:
+Tạo `tools/vi/word_parts/inline.py`:
 
 ```python
 """Tách chuỗi có ~chỉ số dưới~, ^chỉ số trên^ và **in đậm** thành các đoạn để dựng Word."""
@@ -166,7 +175,7 @@ Kỳ vọng: OK.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add tools/vi/de_thi_parts/__init__.py tools/vi/de_thi_parts/inline.py tools/vi/tests/test_de_thi.py
+git add tools/vi/word_parts/__init__.py tools/vi/word_parts/inline.py tools/vi/de_thi_parts/__init__.py tools/vi/tests/test_de_thi.py
 git commit -m "feat(vi): parse inline subscript, superscript and bold marks"
 ```
 
@@ -434,10 +443,11 @@ class ExamMathTest(unittest.TestCase):
         self.assertEqual(exam.matrix(), [(parse.NO_TOPIC, 0, 0, 2, 2)])
 ```
 
-Thêm `parse` vào dòng import ở đầu file:
+Thêm `parse` vào phần import ở đầu file:
 
 ```python
-from de_thi_parts import inline, parse  # noqa: E402
+from de_thi_parts import parse  # noqa: E402
+from word_parts import inline  # noqa: E402
 ```
 
 - [ ] **Step 2: Chạy test để thấy nó fail**
@@ -790,12 +800,20 @@ git commit -m "feat(vi): read the exam source file into questions and a matrix"
 ### Task 3: Dựng ba file Word (`docx_build.py`)
 
 **Files:**
+- Create: `tools/vi/word_parts/base.py`
 - Create: `tools/vi/de_thi_parts/docx_build.py`
 - Modify: `tools/vi/tests/test_de_thi.py` (thêm `OptionLayoutTest`, `DocxBuildTest`)
 
 **Interfaces:**
-- Consumes: `inline.split_runs`, `inline.plain_text`, `parse.Exam`, `parse.Question`, `parse.LEVELS`, `parse.LEVEL_LABELS`, `parse.part_label`.
-- Produces:
+- Consumes: `word_parts.inline.split_runs`, `word_parts.inline.plain_text`, `parse.Exam`, `parse.Question`, `parse.LEVELS`, `parse.LEVEL_LABELS`, `parse.part_label`.
+- Produces (tầng dùng chung, gói giáo án vi.6 sẽ dùng lại y nguyên):
+  - `base.new_document(*, width_cm=21.0, height_cm=29.7, margins_cm=(1.8, 1.8, 2.5, 1.5), font="Times New Roman", size_pt=12, line_spacing=1.15, space_after_pt=2, page_numbers=True) -> Document` — `margins_cm` theo thứ tự trên, dưới, trái, phải
+  - `base.write(paragraph, text, *, italic=False, bold=False, color=None) -> None`
+  - `base.clear_borders(table) -> None`, `base.grid_borders(table) -> None`
+  - `base.set_widths(table, widths) -> None`
+  - `base.cell_text(cell, text, *, bold=False) -> None`
+  - `base.fill_cell(cell, lines, *, bold_first=True) -> None`
+- Produces (riêng gói đề thi):
   - `docx_build.FILENAMES = {"de": "de-en.docx", "song-ngu": "de-song-ngu.docx", "dap-an": "dap-an.docx"}`
   - `docx_build.option_columns(options: dict[str, str]) -> int`
   - `docx_build.build_de(exam, path: Path, *, bilingual: bool = False) -> Path`
@@ -945,10 +963,11 @@ class DocxBuildTest(unittest.TestCase):
         self.assertFalse((self.folder / "de-song-ngu.docx").exists())
 ```
 
-Đổi dòng import ở đầu file thành:
+Đổi phần import ở đầu file thành:
 
 ```python
-from de_thi_parts import docx_build, inline, parse  # noqa: E402
+from de_thi_parts import docx_build, parse  # noqa: E402
+from word_parts import inline  # noqa: E402
 ```
 
 - [ ] **Step 2: Chạy test để thấy nó fail**
@@ -956,7 +975,140 @@ from de_thi_parts import docx_build, inline, parse  # noqa: E402
 Chạy: `python -m unittest discover -s tools/vi/tests -t tools/vi/tests -k DocxBuildTest`
 Kỳ vọng: FAIL với `ImportError: cannot import name 'docx_build'`
 
-- [ ] **Step 3: Viết `docx_build.py`**
+- [ ] **Step 3a: Viết tầng dùng chung `word_parts/base.py`**
+
+Tạo `tools/vi/word_parts/base.py`:
+
+```python
+"""Tầng dựng file Word dùng chung: khổ giấy, font, bảng, chân trang.
+
+Gói nào của lớp Việt cũng dùng module này; phần bố cục riêng thì để ở gói đó.
+"""
+
+from __future__ import annotations
+
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Pt
+
+from . import inline
+
+
+def field(paragraph, instruction: str) -> None:
+    """Chèn một trường Word (PAGE, NUMPAGES) vào đoạn."""
+    run = paragraph.add_run()
+    begin = OxmlElement("w:fldChar")
+    begin.set(qn("w:fldCharType"), "begin")
+    instruction_element = OxmlElement("w:instrText")
+    instruction_element.set(qn("xml:space"), "preserve")
+    instruction_element.text = f" {instruction} "
+    end = OxmlElement("w:fldChar")
+    end.set(qn("w:fldCharType"), "end")
+    run._r.append(begin)
+    run._r.append(instruction_element)
+    run._r.append(end)
+
+
+def add_page_numbers(section) -> None:
+    paragraph = section.footer.paragraphs[0]
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.add_run("Trang ")
+    field(paragraph, "PAGE")
+    paragraph.add_run(" / ")
+    field(paragraph, "NUMPAGES")
+
+
+def new_document(
+    *,
+    width_cm: float = 21.0,
+    height_cm: float = 29.7,
+    margins_cm: tuple[float, float, float, float] = (1.8, 1.8, 2.5, 1.5),
+    font: str = "Times New Roman",
+    size_pt: int = 12,
+    line_spacing: float = 1.15,
+    space_after_pt: int = 2,
+    page_numbers: bool = True,
+) -> Document:
+    """margins_cm theo thứ tự trên, dưới, trái, phải."""
+    document = Document()
+    section = document.sections[0]
+    section.page_width = Cm(width_cm)
+    section.page_height = Cm(height_cm)
+    top, bottom, left, right = margins_cm
+    section.top_margin = Cm(top)
+    section.bottom_margin = Cm(bottom)
+    section.left_margin = Cm(left)
+    section.right_margin = Cm(right)
+    normal = document.styles["Normal"]
+    normal.font.name = font
+    normal.font.size = Pt(size_pt)
+    fonts = normal.element.get_or_add_rPr().get_or_add_rFonts()
+    for attribute in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+        fonts.set(qn(attribute), font)
+    normal.paragraph_format.line_spacing = line_spacing
+    normal.paragraph_format.space_after = Pt(space_after_pt)
+    if page_numbers:
+        add_page_numbers(section)
+    return document
+
+
+def write(paragraph, text: str, *, italic: bool = False, bold: bool = False, color=None) -> None:
+    """Ghi text vào đoạn, dịch ~chỉ số dưới~, ^chỉ số trên^ và **in đậm** thành run thật."""
+    for chunk, kind in inline.split_runs(text):
+        run = paragraph.add_run(chunk)
+        run.italic = italic
+        run.bold = bold or kind == inline.BOLD
+        if kind == inline.SUB:
+            run.font.subscript = True
+        elif kind == inline.SUP:
+            run.font.superscript = True
+        if color is not None:
+            run.font.color.rgb = color
+
+
+def _borders(table, value: str, size: str) -> None:
+    element = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        edge_element = OxmlElement(f"w:{edge}")
+        edge_element.set(qn("w:val"), value)
+        edge_element.set(qn("w:sz"), size)
+        element.append(edge_element)
+    table._tbl.tblPr.append(element)
+
+
+def clear_borders(table) -> None:
+    _borders(table, "none", "0")
+
+
+def grid_borders(table) -> None:
+    _borders(table, "single", "6")
+
+
+def set_widths(table, widths) -> None:
+    table.autofit = False
+    for index, width in enumerate(widths):
+        table.columns[index].width = width
+        for cell in table.columns[index].cells:
+            cell.width = width
+
+
+def cell_text(cell, text: str, *, bold: bool = False) -> None:
+    cell.paragraphs[0].text = ""
+    write(cell.paragraphs[0], text, bold=bold)
+
+
+def fill_cell(cell, lines, *, bold_first: bool = True) -> None:
+    """Mỗi dòng thành một đoạn căn giữa trong ô; dòng đầu có thể in đậm."""
+    cell.paragraphs[0].text = ""
+    for index, line in enumerate(lines):
+        paragraph = cell.paragraphs[0] if index == 0 else cell.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        write(paragraph, line, bold=bold_first and index == 0)
+```
+
+- [ ] **Step 3b: Viết `docx_build.py`**
 
 Tạo `tools/vi/de_thi_parts/docx_build.py`:
 
@@ -969,15 +1121,18 @@ from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
-from . import inline
+from word_parts import base, inline
+from word_parts.base import cell_text as _cell_text
+from word_parts.base import clear_borders as _clear_borders
+from word_parts.base import fill_cell as _fill_cell
+from word_parts.base import grid_borders as _grid_borders
+from word_parts.base import set_widths as _set_widths
+from word_parts.base import write as _write
+
 from .parse import LEVEL_LABELS, LEVELS, Exam, Question, part_label
 
-FONT = "Times New Roman"
-BODY_SIZE = Pt(12)
 GREY = RGBColor(0x59, 0x59, 0x59)
 FILENAMES = {"de": "de-en.docx", "song-ngu": "de-song-ngu.docx", "dap-an": "dap-an.docx"}
 PART_TITLES = {
@@ -1012,102 +1167,9 @@ def option_columns(options: dict[str, str]) -> int:
     return 1
 
 
-def _field(paragraph, instruction: str) -> None:
-    run = paragraph.add_run()
-    begin = OxmlElement("w:fldChar")
-    begin.set(qn("w:fldCharType"), "begin")
-    instruction_element = OxmlElement("w:instrText")
-    instruction_element.set(qn("xml:space"), "preserve")
-    instruction_element.text = f" {instruction} "
-    end = OxmlElement("w:fldChar")
-    end.set(qn("w:fldCharType"), "end")
-    run._r.append(begin)
-    run._r.append(instruction_element)
-    run._r.append(end)
-
-
-def _add_page_numbers(section) -> None:
-    paragraph = section.footer.paragraphs[0]
-    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph.add_run("Trang ")
-    _field(paragraph, "PAGE")
-    paragraph.add_run(" / ")
-    _field(paragraph, "NUMPAGES")
-
-
 def _base_document() -> Document:
-    document = Document()
-    section = document.sections[0]
-    section.page_width = Cm(21)
-    section.page_height = Cm(29.7)
-    section.top_margin = Cm(1.8)
-    section.bottom_margin = Cm(1.8)
-    section.left_margin = Cm(2.5)
-    section.right_margin = Cm(1.5)
-    normal = document.styles["Normal"]
-    normal.font.name = FONT
-    normal.font.size = BODY_SIZE
-    fonts = normal.element.get_or_add_rPr().get_or_add_rFonts()
-    fonts.set(qn("w:ascii"), FONT)
-    fonts.set(qn("w:hAnsi"), FONT)
-    fonts.set(qn("w:eastAsia"), FONT)
-    fonts.set(qn("w:cs"), FONT)
-    normal.paragraph_format.line_spacing = 1.15
-    normal.paragraph_format.space_after = Pt(2)
-    _add_page_numbers(section)
-    return document
-
-
-def _write(paragraph, text: str, *, italic: bool = False, bold: bool = False, color=None) -> None:
-    for chunk, kind in inline.split_runs(text):
-        run = paragraph.add_run(chunk)
-        run.italic = italic
-        run.bold = bold or kind == inline.BOLD
-        if kind == inline.SUB:
-            run.font.subscript = True
-        elif kind == inline.SUP:
-            run.font.superscript = True
-        if color is not None:
-            run.font.color.rgb = color
-
-
-def _borders(table, value: str, size: str) -> None:
-    element = OxmlElement("w:tblBorders")
-    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
-        edge_element = OxmlElement(f"w:{edge}")
-        edge_element.set(qn("w:val"), value)
-        edge_element.set(qn("w:sz"), size)
-        element.append(edge_element)
-    table._tbl.tblPr.append(element)
-
-
-def _clear_borders(table) -> None:
-    _borders(table, "none", "0")
-
-
-def _grid_borders(table) -> None:
-    _borders(table, "single", "6")
-
-
-def _set_widths(table, widths: list[Cm]) -> None:
-    table.autofit = False
-    for index, width in enumerate(widths):
-        table.columns[index].width = width
-        for cell in table.columns[index].cells:
-            cell.width = width
-
-
-def _cell_text(cell, text: str, *, bold: bool = False) -> None:
-    cell.paragraphs[0].text = ""
-    _write(cell.paragraphs[0], text, bold=bold)
-
-
-def _fill_cell(cell, lines: list[str]) -> None:
-    cell.paragraphs[0].text = ""
-    for index, line in enumerate(lines):
-        paragraph = cell.paragraphs[0] if index == 0 else cell.add_paragraph()
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _write(paragraph, line, bold=index == 0)
+    """Thể thức đề thi: A4 dọc, lề 1,8/1,8/2,5/1,5 cm, Times New Roman 12, giãn dòng 1,15."""
+    return base.new_document()
 
 
 def _add_header(document: Document, exam: Exam, subtitle: str = "") -> None:
@@ -1352,7 +1414,7 @@ Kỳ vọng: OK.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add tools/vi/de_thi_parts/docx_build.py tools/vi/tests/test_de_thi.py
+git add tools/vi/word_parts/base.py tools/vi/de_thi_parts/docx_build.py tools/vi/tests/test_de_thi.py
 git commit -m "feat(vi): build the exam, bilingual and answer-key Word files"
 ```
 
