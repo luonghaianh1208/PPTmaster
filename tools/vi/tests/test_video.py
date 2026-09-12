@@ -859,5 +859,27 @@ class NarratedPptxWarningCliTest(unittest.TestCase):
             self.assertFalse(any("narrated" in warning for warning in data["warnings"]))
 
 
+class EmitEncodingTest(unittest.TestCase):
+    """Console Windows dùng bảng mã cũ (cp1252) không ghi được chữ tiếng Việt."""
+
+    def test_emit_falls_back_to_utf8_buffer(self):
+        class LegacyStdout:
+            def __init__(self):
+                self.buffer = io.BytesIO()
+
+            def write(self, text):
+                text.encode("cp1252")
+                return len(text)
+
+            def flush(self):
+                pass
+
+        stream = LegacyStdout()
+        with mock.patch.object(video.sys, "stdout", stream):
+            video.emit({"ready": False, "warnings": ["Thiếu tiếng đọc"]})
+        data = json.loads(stream.buffer.getvalue().decode("utf-8").strip())
+        self.assertEqual(data["warnings"], ["Thiếu tiếng đọc"])
+
+
 if __name__ == "__main__":
     unittest.main()

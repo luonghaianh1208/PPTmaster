@@ -47,7 +47,11 @@ def log(text: str) -> None:
 
 
 def emit(payload: dict) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    text = json.dumps(payload, ensure_ascii=False) + "\n"
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        sys.stdout.buffer.write(text.encode("utf-8", errors="replace"))
     sys.stdout.flush()
 
 
@@ -271,6 +275,16 @@ def burn_subtitles(video: Path, subtitle: Path, height: int) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     parser = argparse.ArgumentParser(description="Làm video bài giảng có lời giảng")
     parser.add_argument("project_path", type=Path)
     parser.add_argument("--cach", choices=["auto", "powerpoint", "ffmpeg"], default="auto")
