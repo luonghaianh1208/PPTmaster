@@ -161,16 +161,22 @@ class ConcatTest(unittest.TestCase):
 class RenderCommandTest(unittest.TestCase):
     def test_command_uses_concat_inputs_and_h264(self):
         cmd = media.build_render_command(
-            Path("C:/p/images.txt"), Path("C:/p/audio.txt"), Path("C:/p/out.mp4"), fps=30, height=1080,
+            Path("C:/p/images.txt"), Path("C:/p/audio.txt"), Path("C:/p/out.mp4"),
+            fps=30, height=1080, total_seconds=90.38400001,
         )
         self.assertEqual(cmd[0], "ffmpeg")
         self.assertIn("-c:v", cmd)
         self.assertIn("libx264", cmd)
         self.assertIn("-c:a", cmd)
         self.assertIn("aac", cmd)
-        self.assertIn("-shortest", cmd)
         self.assertEqual(cmd[-1], str(Path("C:/p/out.mp4")))
-        self.assertIn("scale=-2:1080", " ".join(cmd))
+        # Cắt đúng tổng thời lượng tiếng: ảnh cuối bị lặp trong file concat nên
+        # không cắt thì video dài hơn tiếng. `-shortest` không làm được việc này.
+        self.assertEqual(cmd[cmd.index("-t") + 1], "90.384")
+        self.assertNotIn("-shortest", cmd)
+        # Không phóng to: ảnh slide chỉ 1280x720 nên 1080 phải là trần, không phải đích.
+        self.assertIn("scale=-2:'min(ih,1080)'", " ".join(cmd))
+        self.assertNotIn("scale=-2:1080", " ".join(cmd))
         self.assertNotIn("-r", cmd, "forcing -r after an image concat duplicates frames on some ffmpeg builds; use the fps= filter instead")
         video_filter = cmd[cmd.index("-vf") + 1]
         self.assertTrue(video_filter.startswith("fps=30,"), video_filter)
@@ -178,11 +184,11 @@ class RenderCommandTest(unittest.TestCase):
     def test_burned_subtitles_add_filter(self):
         cmd = media.build_render_command(
             Path("C:/p/images.txt"), Path("C:/p/audio.txt"), Path("C:/p/out.mp4"),
-            fps=30, height=720, burn_srt=Path("C:/p/phu de.srt"),
+            fps=30, height=720, total_seconds=12.0, burn_srt=Path("C:/p/phu de.srt"),
         )
         joined = " ".join(cmd)
         self.assertIn("subtitles=", joined)
-        self.assertIn("scale=-2:720", joined)
+        self.assertIn("scale=-2:'min(ih,720)'", joined)
         self.assertNotIn("-r", cmd)
         video_filter = cmd[cmd.index("-vf") + 1]
         self.assertTrue(video_filter.startswith("fps=30,"), video_filter)
@@ -190,6 +196,10 @@ class RenderCommandTest(unittest.TestCase):
         # slideshow into real CFR frames before burn-in and scaling touch them.
         self.assertLess(video_filter.index("fps=30,"), video_filter.index("subtitles="))
         self.assertLess(video_filter.index("subtitles="), video_filter.index("scale="))
+
+    def test_scale_filter_clamps_instead_of_upscaling(self):
+        self.assertEqual(media.scale_filter(720), "scale=-2:'min(ih,720)'")
+        self.assertEqual(media.scale_filter(1080), "scale=-2:'min(ih,1080)'")
 
     def test_escape_subtitles_filter_escapes_drive_and_backslash(self):
         escaped = media.escape_subtitles_filter(Path(r"C:\du an\phu de.srt"))

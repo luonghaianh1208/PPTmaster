@@ -64,18 +64,28 @@ def escape_subtitles_filter(path: Path) -> str:
     return text
 
 
+def scale_filter(height: int) -> str:
+    """Hạ độ phân giải xuống `height`, không bao giờ phóng to.
+
+    Ảnh slide chụp đúng khổ canvas (1280x720 với `ppt169`), nên phóng lên
+    1080 dòng chỉ làm chữ nhoè và file nặng thêm.
+    """
+    return f"scale=-2:'min(ih,{height})'"
+
+
 def build_render_command(
     images_concat: Path,
     audio_concat: Path,
     out_path: Path,
     fps: int,
     height: int,
+    total_seconds: float,
     burn_srt: Optional[Path] = None,
 ) -> list[str]:
     video_filter = f"fps={fps}"
     if burn_srt is not None:
         video_filter += f",subtitles='{escape_subtitles_filter(burn_srt)}'"
-    video_filter += f",scale=-2:{height},format=yuv420p"
+    video_filter += f",{scale_filter(height)},format=yuv420p"
     return [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", str(images_concat),
@@ -84,6 +94,9 @@ def build_render_command(
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
         "-c:a", "aac", "-b:a", "160k",
         "-movflags", "+faststart",
-        "-shortest",
+        # Bộ ghép concat phải lặp lại ảnh cuối để ảnh đó có thời lượng, nên
+        # không cắt thì video dài hơn tiếng đúng một nhịp ảnh cuối. `-shortest`
+        # không cắt được phần đó; `-t` theo tổng thời lượng tiếng thì cắt đúng.
+        "-t", f"{total_seconds:.3f}",
         str(out_path),
     ]

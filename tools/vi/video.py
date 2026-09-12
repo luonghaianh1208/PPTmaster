@@ -170,7 +170,10 @@ def render_ffmpeg(project: Path, stems: list[str], durations: list[float], out_p
         audio_concat = Path(tmp) / "audio.txt"
         images_concat.write_text(media.build_concat_text(entries), encoding="utf-8")
         audio_concat.write_text(media.build_audio_concat_text(audio_files), encoding="utf-8")
-        cmd = media.build_render_command(images_concat, audio_concat, out_path, fps=30, height=height, burn_srt=burn_srt)
+        cmd = media.build_render_command(
+            images_concat, audio_concat, out_path,
+            fps=30, height=height, total_seconds=sum(durations), burn_srt=burn_srt,
+        )
         log("Dựng video bằng FFmpeg (có thể mất vài phút)...")
         proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=7200)
         for line in (proc.stderr or "").splitlines():
@@ -193,7 +196,7 @@ def burn_subtitles(video: Path, subtitle: Path, height: int) -> Path:
     burned = video.with_name(video.stem + "_phude.mp4")
     cmd = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(video),
-        "-vf", f"subtitles='{media.escape_subtitles_filter(subtitle)}',scale=-2:{height},format=yuv420p",
+        "-vf", f"subtitles='{media.escape_subtitles_filter(subtitle)}',{media.scale_filter(height)},format=yuv420p",
         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "copy", str(burned),
     ]
     log("In phụ đề lên video...")
