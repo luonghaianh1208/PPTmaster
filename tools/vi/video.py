@@ -325,9 +325,11 @@ def main(argv: list[str] | None = None) -> int:
         stamp = time.strftime("%Y%m%d_%H%M%S")
         video_path = exports / f"{project.name}_video_{stamp}.mp4"
 
-        offsets, pptx_timeline_seconds = subtitle_offsets(state, backend, durations, payload["warnings"])
+        offsets: list[float] = []
+        pptx_timeline_seconds = None
         subtitle_path = None
         if args.phu_de != "khong":
+            offsets, pptx_timeline_seconds = subtitle_offsets(state, backend, durations, payload["warnings"])
             subtitle_path = build_subtitle(project, stems, offsets, video_path.with_suffix(".srt"))
 
         if backend == "ffmpeg":

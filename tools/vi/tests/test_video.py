@@ -443,6 +443,30 @@ class VideoCliPlanTest(unittest.TestCase):
             self.assertRegex(Path(data["video"]).name, r"_video_\d{8}_\d{6}\.mp4$")
 
 
+    def test_no_subtitles_means_no_pptx_timeline_warning(self):
+        """`--phu-de khong` không được cảnh báo về phụ đề nó không tạo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            (project / "exports" / "bai_narrated.pptx").write_bytes(b"khong phai zip")
+
+            def render(_pptx, out_path, _height):
+                out_path.write_bytes(b"video")
+
+            with mock.patch.object(video, "has_powerpoint", return_value=True), \
+                    mock.patch.object(video, "has_chromium", return_value=True), \
+                    mock.patch.object(video.shutil, "which", return_value="ffmpeg"), \
+                    mock.patch.object(video.media, "probe_duration", return_value=2.0), \
+                    mock.patch.object(video, "render_powerpoint", side_effect=render):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "powerpoint", "--phu-de", "khong"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0)
+            self.assertEqual(data["backend"], "powerpoint")
+            self.assertIsNone(data["subtitle"])
+            self.assertEqual(data["warnings"], [])
+
+
 class HasChromiumTest(unittest.TestCase):
     def test_browser_folder_plus_importable_playwright_is_found(self):
         with tempfile.TemporaryDirectory() as tmp:
