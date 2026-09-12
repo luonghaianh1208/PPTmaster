@@ -85,3 +85,36 @@ def merge_srt(sources: Sequence[tuple[str, float]]) -> str:
         for cue in parse_srt(text):
             merged.append(Cue(index=0, start=cue.start + offset, end=cue.end + offset, text=cue.text))
     return render_srt(merged)
+
+
+def cumulative_offsets(durations: Sequence[float]) -> list[float]:
+    """Mốc bắt đầu của từng slide khi tiếng phát liên tục (đường FFmpeg)."""
+    offsets: list[float] = []
+    running = 0.0
+    for duration in durations:
+        offsets.append(running)
+        running += duration
+    return offsets
+
+
+def drift_warning(offsets: Sequence[float], real_starts: Sequence[float],
+                  tolerance: float = 0.5) -> str | None:
+    """So từng mốc phụ đề với mốc thật của slide trong video đã dựng.
+
+    So từng slide chứ không so tổng thời lượng: sai số của đường PowerPoint
+    tăng dần theo số slide, nên tổng thời lượng gần nhau vẫn có thể lệch
+    nhiều ở slide cuối, và ngược lại.
+    """
+    worst_slide = 0
+    worst_drift = 0.0
+    for index, (offset, real) in enumerate(zip(offsets, real_starts), start=1):
+        drift = abs(offset - real)
+        if drift > worst_drift:
+            worst_slide, worst_drift = index, drift
+    if worst_drift <= tolerance:
+        return None
+    return (
+        f"Phụ đề lệch dần so với video: slide {worst_slide} lệch khoảng "
+        f"{worst_drift:.1f} giây. Dùng --cach ffmpeg nếu cần phụ đề chính xác."
+    )
+

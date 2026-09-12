@@ -24,13 +24,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from video_parts import media, selection, srt  # noqa: E402
+from video_parts import media, pptx_timeline, selection, srt  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO_ROOT / "skills" / "ppt-master" / "scripts"
 FIX_CHROMIUM = (
     "Cài Chromium bằng: powershell -NoProfile -ExecutionPolicy Bypass -File tools\\vi\\pptmaster.ps1 "
     "-Action tool -Name chromium"
+)
+WARN_PPTX_TIMELINE = (
+    "Không đọc được mốc thời gian trong bản PPTX gắn tiếng nên phụ đề phải dựng theo tổng "
+    "thời lượng tiếng; phụ đề sẽ lệch dần khoảng 1 giây mỗi slide. Dùng --cach ffmpeg nếu "
+    "cần phụ đề chính xác."
 )
 
 
@@ -122,16 +127,38 @@ def capture_previews(project: Path) -> None:
             log("Đã tắt máy chủ xem trước.")
 
 
-def build_subtitle(project: Path, stems: list[str], durations: list[float], out_path: Path) -> Path:
+def build_subtitle(project: Path, stems: list[str], offsets: list[float], out_path: Path) -> Path:
+    """Ghép phụ đề từng slide vào một file, mỗi slide dịch theo mốc của nó.
+
+    `offsets` phải là mốc bắt đầu thật của từng slide trên đường đang dùng:
+    cộng dồn thời lượng tiếng với đường FFmpeg, mốc đọc từ bản PPTX gắn tiếng
+    với đường PowerPoint.
+    """
     sources = []
-    offset = 0.0
-    for stem, duration in zip(stems, durations):
+    for stem, offset in zip(stems, offsets):
         srt_path = project / "audio" / f"{stem}.srt"
         text = srt_path.read_text(encoding="utf-8") if srt_path.is_file() else ""
         sources.append((text, offset))
-        offset += duration
     out_path.write_text(srt.merge_srt(sources), encoding="utf-8")
     return out_path
+
+
+def subtitle_offsets(state: selection.ProjectState, backend: str, durations: list[float],
+                     warnings: list[str]) -> tuple[list[float], float | None]:
+    """Mốc bắt đầu của từng slide cho phụ đề, theo đúng đường dựng đang dùng.
+
+    Trả về (mốc từng slide, tổng thời lượng theo bản PPTX hoặc None).
+    """
+    sums = srt.cumulative_offsets(durations)
+    if backend != "powerpoint" or not state.narrated_pptx:
+        return sums, None
+    try:
+        starts, timeline = pptx_timeline.narration_starts(Path(state.narrated_pptx), len(durations))
+    except pptx_timeline.TimelineError as exc:
+        log(f"Không đọc được mốc thời gian của bản PPTX gắn tiếng: {exc}")
+        warnings.append(WARN_PPTX_TIMELINE)
+        return sums, None
+    return starts, timeline
 
 
 def render_ffmpeg(project: Path, stems: list[str], durations: list[float], out_path: Path,
@@ -234,9 +261,10 @@ def main(argv: list[str] | None = None) -> int:
         stamp = time.strftime("%Y%m%d_%H%M%S")
         video_path = exports / f"{project.name}_video_{stamp}.mp4"
 
+        offsets, pptx_timeline_seconds = subtitle_offsets(state, backend, durations, payload["warnings"])
         subtitle_path = None
         if args.phu_de != "khong":
-            subtitle_path = build_subtitle(project, stems, durations, video_path.with_suffix(".srt"))
+            subtitle_path = build_subtitle(project, stems, offsets, video_path.with_suffix(".srt"))
 
         if backend == "ffmpeg":
             if not selection.previews_fresh(state):
@@ -248,12 +276,15 @@ def main(argv: list[str] | None = None) -> int:
             if args.phu_de == "hinh" and subtitle_path is not None:
                 video_path = burn_subtitles(video_path, subtitle_path, args.height)
 
-        total_audio = sum(durations)
         actual = media.probe_duration(video_path)
-        if args.phu_de != "khong" and total_audio > 0 and abs(actual - total_audio) / total_audio > 0.02:
-            payload["warnings"].append(
-                "Thời lượng video lệch hơn 2% so với tổng thời lượng tiếng, phụ đề có thể lệch ở cuối bài."
-            )
+        if args.phu_de != "khong":
+            # Mốc thật của từng slide trong video đã dựng: mốc dự kiến của
+            # đường đang dùng, co giãn theo thời lượng video thực tế.
+            planned_total = pptx_timeline_seconds if pptx_timeline_seconds else sum(durations)
+            scale = actual / planned_total if planned_total > 0 else 1.0
+            drift = srt.drift_warning(offsets, [offset * scale for offset in offsets])
+            if drift:
+                payload["warnings"].append(drift)
         payload["video"] = str(video_path)
         payload["subtitle"] = str(subtitle_path) if subtitle_path else None
         payload["duration_seconds"] = round(actual, 1)

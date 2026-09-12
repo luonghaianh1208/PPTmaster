@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -74,6 +75,36 @@ class MergeTest(unittest.TestCase):
         cues = srt.parse_srt(merged)
         self.assertEqual(len(cues), 2)
         self.assertAlmostEqual(cues[0].start, 3.0, places=3)
+
+
+class CumulativeOffsetsTest(unittest.TestCase):
+    def test_offsets_start_at_zero_and_sum_previous_durations(self):
+        self.assertEqual(srt.cumulative_offsets([2.0, 3.5, 1.0]), [0.0, 2.0, 5.5])
+
+    def test_empty_durations_give_no_offsets(self):
+        self.assertEqual(srt.cumulative_offsets([]), [])
+
+
+class DriftWarningTest(unittest.TestCase):
+    """Số học của cảnh báo lệch phụ đề (trước đây không có test nào)."""
+
+    def test_no_warning_when_every_slide_is_inside_the_tolerance(self):
+        self.assertIsNone(srt.drift_warning([0.0, 30.0, 61.0], [0.0, 30.2, 61.4]))
+
+    def test_warning_names_the_worst_slide_and_the_ffmpeg_remedy(self):
+        message = srt.drift_warning([0.0, 28.4, 58.6], [0.0, 30.5, 62.0])
+        self.assertIsNotNone(message)
+        self.assertIn("slide 3", message)
+        self.assertIn("3.4 giây", message)
+        self.assertIn("--cach ffmpeg", message)
+
+    def test_a_progressive_drift_is_caught_even_when_totals_match(self):
+        # Tổng bằng nhau (90 s) nhưng slide giữa lệch 5 s: phép so tổng thời
+        # lượng cũ bỏ qua đúng trường hợp này.
+        self.assertIsNotNone(srt.drift_warning([0.0, 30.0, 60.0], [0.0, 35.0, 60.0]))
+
+    def test_tolerance_is_configurable(self):
+        self.assertIsNone(srt.drift_warning([0.0, 30.0], [0.0, 31.0], tolerance=1.5))
 
 
 from video_parts import media  # noqa: E402
@@ -350,6 +381,139 @@ class MainUnexpectedErrorTest(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIsNotNone(data["error"])
             self.assertEqual(data["error"]["step"], "render")
+
+
+from video_parts import pptx_timeline  # noqa: E402
+
+SLIDE_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?>'
+    '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'
+    ' xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">'
+    '<p:transition p14:dur="{transition}" advClick="0" advTm="{advance}"/>'
+    "<p:timing><p:tnLst><p:par><p:cTn><p:childTnLst><p:audio><p:cMediaNode><p:cTn>"
+    '<p:stCondLst><p:cond delay="{delay}"/></p:stCondLst>'
+    "</p:cTn></p:cMediaNode></p:audio></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>"
+    "</p:sld>"
+)
+
+
+def write_narrated_pptx(path: Path, slides, with_order=True):
+    """Một zip hình dáng PPTX với các mốc advTm/dur/delay đã biết trước."""
+    with zipfile.ZipFile(path, "w") as package:
+        for index, (transition, delay, advance) in enumerate(slides, start=1):
+            package.writestr(
+                f"ppt/slides/slide{index}.xml",
+                SLIDE_XML.format(transition=transition, delay=delay, advance=advance),
+            )
+        if not with_order:
+            return
+        slide_ids = "".join(
+            f'<p:sldId id="{255 + index}" r:id="rId{index}"/>'
+            for index in range(1, len(slides) + 1)
+        )
+        package.writestr(
+            "ppt/presentation.xml",
+            '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'
+            ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            f"<p:sldIdLst>{slide_ids}</p:sldIdLst></p:presentation>",
+        )
+        relationships = "".join(
+            f'<Relationship Id="rId{index}" Target="slides/slide{index}.xml"/>'
+            for index in range(1, len(slides) + 1)
+        )
+        package.writestr(
+            "ppt/_rels/presentation.xml.rels",
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f"{relationships}</Relationships>",
+        )
+
+
+class PptxTimelineTest(unittest.TestCase):
+    """Mốc phụ đề của đường PowerPoint phải đọc từ advTm, không cộng dồn tiếng."""
+
+    REAL_SLIDES = [(400, 400, 29267), (400, 400, 31163), (400, 400, 32652)]
+
+    def test_starts_follow_the_pptx_clock_not_the_audio_sums(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "bai_narrated.pptx"
+            write_narrated_pptx(pptx, self.REAL_SLIDES)
+            starts, timeline = pptx_timeline.narration_starts(pptx, 3)
+        # slide n bắt đầu sau tổng (dur + advTm) của các slide trước; tiếng
+        # bắt đầu muộn thêm dur + delay của chính slide đó.
+        self.assertEqual([round(value, 3) for value in starts], [0.8, 30.467, 62.03])
+        self.assertAlmostEqual(timeline, 94.282, places=3)
+
+    def test_zero_transition_and_missing_audio_delay_still_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "bai_narrated.pptx"
+            write_narrated_pptx(pptx, [(0, 0, 10000), (0, 0, 5000)])
+            starts, timeline = pptx_timeline.narration_starts(pptx, 2)
+        self.assertEqual(starts, [0.0, 10.0])
+        self.assertAlmostEqual(timeline, 15.0, places=3)
+
+    def test_slide_count_mismatch_is_a_timeline_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "bai_narrated.pptx"
+            write_narrated_pptx(pptx, self.REAL_SLIDES)
+            with self.assertRaises(pptx_timeline.TimelineError):
+                pptx_timeline.narration_starts(pptx, 2)
+
+    def test_missing_slide_order_is_a_timeline_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "bai_narrated.pptx"
+            write_narrated_pptx(pptx, self.REAL_SLIDES, with_order=False)
+            with self.assertRaises(pptx_timeline.TimelineError):
+                pptx_timeline.narration_starts(pptx, 3)
+
+    def test_slide_without_advtm_is_a_timeline_error(self):
+        xml = (
+            '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
+            '<p:transition advClick="0"/></p:sld>'
+        )
+        with self.assertRaises(pptx_timeline.TimelineError):
+            pptx_timeline.slide_timing(xml.encode("utf-8"))
+
+    def test_unreadable_package_is_a_timeline_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "khong_phai_zip.pptx"
+            pptx.write_bytes(b"khong phai zip")
+            with self.assertRaises(pptx_timeline.TimelineError):
+                pptx_timeline.narration_starts(pptx, 1)
+
+
+class SubtitleOffsetsTest(unittest.TestCase):
+    def test_ffmpeg_route_uses_cumulative_audio_durations(self):
+        warnings = []
+        offsets, timeline = video.subtitle_offsets(state(), "ffmpeg", [28.368, 30.264], warnings)
+        self.assertEqual(offsets, [0.0, 28.368])
+        self.assertIsNone(timeline)
+        self.assertEqual(warnings, [])
+
+    def test_powerpoint_route_uses_the_pptx_timeline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "bai_narrated.pptx"
+            write_narrated_pptx(pptx, PptxTimelineTest.REAL_SLIDES)
+            warnings = []
+            offsets, timeline = video.subtitle_offsets(
+                state(narrated_pptx=str(pptx)), "powerpoint", [28.368, 30.264, 31.752], warnings,
+            )
+        self.assertEqual([round(value, 3) for value in offsets], [0.8, 30.467, 62.03])
+        self.assertAlmostEqual(timeline, 94.282, places=3)
+        self.assertEqual(warnings, [])
+
+    def test_unreadable_pptx_falls_back_to_sums_with_an_actionable_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pptx = Path(tmp) / "bai_narrated.pptx"
+            pptx.write_bytes(b"khong phai zip")
+            warnings = []
+            with contextlib.redirect_stderr(io.StringIO()):
+                offsets, timeline = video.subtitle_offsets(
+                    state(narrated_pptx=str(pptx)), "powerpoint", [28.368, 30.264], warnings,
+                )
+        self.assertEqual(offsets, [0.0, 28.368])
+        self.assertIsNone(timeline)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("--cach ffmpeg", warnings[0])
 
 
 if __name__ == "__main__":
