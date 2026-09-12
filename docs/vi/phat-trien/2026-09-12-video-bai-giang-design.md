@@ -147,7 +147,7 @@ Tiến trình ra stderr; stdout đúng một dòng JSON, như bộ cài.
 - `--phu-de file` (mặc định): chỉ ghi file `.srt`.
 - `--phu-de hinh`: in phụ đề lên video bằng FFmpeg, giữ nguyên file `.srt` bên cạnh. Ở đường PowerPoint, bản video chưa in phụ đề bị xoá sau khi in xong.
 - `--phu-de khong`: không tạo phụ đề.
-- Cảnh báo lệch so **từng slide**, không so tổng: mốc phụ đề của mỗi slide so với mốc thật của slide đó trong video đã dựng (mốc dự kiến của đường đang dùng, co giãn theo thời lượng video thực tế). Lệch quá 0,5 s ở slide nào thì ghi cảnh báo nêu số slide, độ lệch và `--cach ffmpeg`; vẫn xuất file `.srt` rời. So tổng thời lượng bỏ sót đúng loại sai số của đường PowerPoint, vì sai số đó tăng dần theo số slide.
+- Cảnh báo lệch so **từng slide**, không so tổng — nhưng phép so không đo mốc thật của slide đó trong video đã dựng: mốc dự kiến của từng slide (mốc cộng dồn ở đường FFmpeg, mốc đọc từ PPTX ở đường PowerPoint) được nhân với tỉ lệ giữa thời lượng video thực tế và tổng thời lượng dự kiến, rồi so với chính mốc dự kiến đó. Đây là phép co giãn đều theo tổng thời lượng, không phải đo lại từng mốc trong video đã dựng, nên không bắt được sai lệch nào giữ nguyên tổng. Lệch quá 0,5 s ở slide nào thì ghi cảnh báo nêu số slide, độ lệch và `--cach ffmpeg`; vẫn xuất file `.srt` rời. Vì phép so dàn đều theo tổng, phần đệm cuối mỗi slide của PowerPoint (`narration_padding`) cộng dồn theo số slide nên một bài giảng PowerPoint nhiều slide sẽ tự nhiên vượt ngưỡng 0,5 s và bị cảnh báo, dù đó chỉ là dư lượng đệm bình thường chứ không phải lỗi.
 
 ### 5.6 Báo thầy cô
 
@@ -178,7 +178,7 @@ AI nêu: đường dẫn video, thời lượng, dung lượng, cách dựng đ�
 }
 ```
 
-- `error` là `null` hoặc `{ "step", "message", "fix" }`; `step` thuộc `audio`, `narrated_pptx`, `chromium`, `ffmpeg`, `render`, `powerpoint`.
+- `error` là `null` hoặc `{ "step", "message", "fix" }`; `step` thuộc `project`, `audio`, `narrated_pptx`, `chromium`, `ffmpeg`, `render`, `powerpoint`.
 - `--plan-only` in `{ "backend", "steps": [...], "warnings": [...] }` mà không dựng gì, để test. Chế độ này **không được gọi COM**: dò PowerPoint bằng registry (`HKEY_CLASSES_ROOT\PowerPoint.Application`) và các đường dẫn `POWERPNT.EXE` đã biết, không chạy `powerpoint_video.py --check`, nên không có cửa sổ hay tiến trình PowerPoint nào. Chỉ lúc dựng thật mới dùng `--check`.
 - Kiểm `playwright` bằng `subprocess.run([python_exe(), "-c", "import playwright"])` — phải hỏi đúng trình thông dịch sẽ chạy `visual_review.py`, không phải trình thông dịch đang chạy `video.py`.
 - Mã thoát 0 khi `ready`, ngược lại 1.
@@ -235,7 +235,7 @@ Chạy nền, không mở cửa sổ, không cần mạng, không dựng video t
 - Chọn cách dựng: có PowerPoint, không có PowerPoint, thầy cô chỉ định, thiếu `_narrated.pptx`.
 - Phụ đề: cộng dồn mốc thời gian từ nhiều file SRT giả, kiểm từng mốc và định dạng `HH:MM:SS,mmm`.
 - `--plan-only`: các bước và cảnh báo đúng cho từng tình huống (thiếu tiếng, thiếu Chromium, ổ đĩa đầy giả lập).
-- Lệnh FFmpeg sinh ra: đúng số ảnh, đúng thời lượng từng ảnh, có `xfade`, có `-c:v libx264`.
+- Lệnh FFmpeg sinh ra: đúng số ảnh, đúng thời lượng từng ảnh, cắt thẳng giữa các slide (không `xfade`, theo §5.3), có `-c:v libx264`.
 - Nội dung tài liệu và quy tắc: `test_vi_layer.py` như các gói trước.
 
 ### 8.2 Chạy thật trên máy này (chủ repo đã đồng ý)
