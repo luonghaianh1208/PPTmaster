@@ -19,7 +19,7 @@ Ví dụ câu lệnh:
 3. Phụ đề để thành file riêng hay in thẳng lên hình?
    Gợi ý: file riêng, vì YouTube nhận file phụ đề và học sinh bật tắt được.
 4. Độ phân giải video: 1080 cho máy chiếu và YouTube, hay 720 cho file nhẹ?
-   Gợi ý: 1080.
+   Gợi ý: 1080; cách ghép ảnh slide chỉ cho tối đa 1280×720 nên lúc đó video giữ 720 dòng.
 
 ## Câu hỏi tuỳ chọn
 
@@ -42,7 +42,7 @@ Ví dụ câu lệnh:
 
 ## Khổ slide
 
-- Mặc định `ppt169`. Video xuất ra 1080 hoặc 720 dòng, 30 hình mỗi giây.
+- Mặc định `ppt169`. Video xuất ra 1080 hoặc 720 dòng, 30 hình mỗi giây. Cách ghép ảnh slide cao nhất chỉ 1280×720 vì ảnh chụp đúng khổ slide.
 
 ## Ghi vào brief
 

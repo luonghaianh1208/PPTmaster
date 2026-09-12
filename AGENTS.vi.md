@@ -79,14 +79,28 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 6 lo
 
 ## 11. Làm video bài giảng
 
-Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọc [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự sau:
+Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọc [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự sau. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây, không có thì dùng `python`.
 
 1. Chưa có `notes/*.md`: viết ghi chú lời giảng cho từng slide theo quy trình của upstream.
 2. Chưa có `audio/*.mp3`: chạy `skills/ppt-master/scripts/notes_to_audio.py <đường_dẫn_dự_án> --voice vi-VN-HoaiMyNeural` (hoặc `vi-VN-NamMinhNeural`). Tốc độ đọc: chậm → thêm `--rate -10%`; vừa → không thêm cờ nào; nhanh → thêm `--rate +15%`.
-3. Dựng video: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án> --cach auto --phu-de file --do-phan-giai 1080`.
-4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn video, thời lượng, dung lượng và nơi để phụ đề; `error` khác `null` thì làm theo `error.fix`, tối đa một lần, rồi báo thầy cô.
+3. Chưa có `exports/*_narrated.pptx`: xuất bản PPTX đã gắn tiếng bằng `skills/ppt-master/scripts/svg_to_pptx.py <đường_dẫn_dự_án> --recorded-narration audio`; dự án tạo nhanh (không có `spec_lock.md`) thì thêm `--quick-generate --with-notes`. Bỏ bước này thì đường PowerPoint không chạy được, AI buộc phải ghép bằng FFmpeg và phải tải Chromium. Chi tiết ở [docs/audio-narration.md](docs/audio-narration.md).
+4. Dựng video: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án>` kèm các cờ chọn theo đúng câu trả lời của thầy cô.
+
+| Thầy cô trả lời | Cờ thêm vào |
+|---|---|
+| Phụ đề để thành file riêng | `--phu-de file` |
+| Phụ đề in lên hình | `--phu-de hinh` |
+| Không cần phụ đề | `--phu-de khong` |
+| Độ phân giải 1080 | `--do-phan-giai 1080` |
+| Độ phân giải 720 | `--do-phan-giai 720` |
+| Muốn giữ hiệu ứng chuyển cảnh | `--cach powerpoint` |
+| Không muốn mở PowerPoint | `--cach ffmpeg` |
+| Không nêu cách dựng | `--cach auto` |
+
+5. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn video, thời lượng, dung lượng và nơi để phụ đề; `error` khác `null` thì làm theo `error.fix`, tối đa một lần, rồi báo thầy cô.
 
 - `error.step` là `chromium`: hỏi thầy cô trước rồi chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium`, vì bước này tải khoảng 150–300 MB.
-- `error.step` là `audio`: quay lại bước 2.
+- `error.step` là `audio`: quay lại bước 1 nếu dự án chưa có `notes/*.md`, quay lại bước 2 nếu đã có ghi chú.
 - Cách dựng `powerpoint` sẽ mở **cửa sổ PowerPoint** và chiếm máy vài phút; báo trước cho thầy cô một dòng.
+- Đường FFmpeg ghép từ ảnh chụp slide nên độ phân giải cao nhất bằng khổ slide, tức 1280×720 với `ppt169`; chọn 1080 ở đường này cũng không nét hơn.
 - Không tự cài phần mềm nào khác, không tự chạy FFmpeg theo cách riêng.

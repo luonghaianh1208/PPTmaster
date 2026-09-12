@@ -618,6 +618,44 @@ class VideoGuideTest(unittest.TestCase):
         for phrase in ("notes_to_audio.py", "chromium", "cửa sổ PowerPoint", "(docs/vi/tro-ly/video-bai-giang.md)", "--rate"):
             self.assertIn(phrase, body)
 
+    def test_agents_vi_video_section_exports_the_narrated_pptx_first(self):
+        """C2: thiếu bước này thì đường PowerPoint không bao giờ chạy được."""
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_VIDEO_HEADING)
+        self.assertIn("--recorded-narration", body)
+        self.assertIn("svg_to_pptx.py", body)
+        self.assertIn("--quick-generate", body)
+        self.assertIn("docs/audio-narration.md", body)
+        self.assertLess(body.index("--recorded-narration"), body.index(VIDEO_COMMAND))
+
+    def test_agents_vi_video_section_maps_every_intake_answer(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_VIDEO_HEADING)
+        for flag in ("--phu-de file", "--phu-de hinh", "--phu-de khong",
+                     "--do-phan-giai 1080", "--do-phan-giai 720",
+                     "--cach powerpoint", "--cach ffmpeg", "--cach auto"):
+            self.assertIn(flag, body)
+
+    def test_agents_vi_video_section_keeps_the_venv_conditional(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_VIDEO_HEADING)
+        self.assertIn("mục 4", body)
+        self.assertIn("không có thì dùng `python`", body)
+
+    def test_agents_vi_video_section_routes_missing_notes_to_the_notes_step(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_VIDEO_HEADING)
+        self.assertIn("quay lại bước 1 nếu dự án chưa có `notes/*.md`", body)
+
+    def test_video_docs_state_the_ffmpeg_resolution_cap(self):
+        for path in ("AGENTS.vi.md", "docs/vi/lam-video.md", "docs/vi/tro-ly/video-bai-giang.md"):
+            with self.subTest(path=path):
+                self.assertIn("1280×720", read(path))
+
+    def test_troubleshooting_splits_the_render_remedy(self):
+        body = section(read("docs/vi/xu-ly-loi.md"), "## Dựng video thất bại")
+        self.assertIn("không chụp được ảnh slide", body)
+        self.assertIn("hết dung lượng ổ đĩa hoặc đường dẫn quá dài", body)
+        self.assertIn("dán nguyên dòng `error.message`", body)
+        self.assertIn("dự án chưa có slide nào", body)
+        self.assertIn("trên 200 ký tự", body)
+
     def test_agents_vi_triggers_include_video_phrases(self):
         body = section(read("AGENTS.vi.md"), "## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`")
         for phrase in ("làm video bài giảng", "xuất video"):

@@ -11,7 +11,11 @@ Bộ công cụ biến một bài giảng đã làm thành video có lời giả
 
 Nhắn cho AI: `Làm video bài giảng này`. AI hỏi bốn câu ngắn (giọng đọc, tốc độ, phụ đề, độ phân giải) rồi làm.
 
-Máy có PowerPoint thì AI dùng PowerPoint để giữ hiệu ứng chuyển cảnh; lúc đó **cửa sổ PowerPoint sẽ hiện lên và chiếm máy vài phút**. Máy không có PowerPoint thì AI ghép bằng FFmpeg, lần đầu phải tải Chromium khoảng 150–300 MB để chụp ảnh từng slide.
+Có hai cách dựng. AI dùng PowerPoint khi máy có PowerPoint **và** bài giảng đã có bản PPTX gắn tiếng (AI xuất bản này trước khi dựng video); cách đó giữ được hiệu ứng chuyển cảnh, nhưng **cửa sổ PowerPoint sẽ hiện lên và chiếm máy vài phút**. Còn lại AI ghép bằng FFmpeg, lần đầu phải tải Chromium khoảng 150–300 MB để chụp ảnh từng slide.
+
+## Độ phân giải
+
+Đường FFmpeg ghép từ ảnh chụp slide, nên độ phân giải cao nhất bằng khổ slide: 1280×720 với slide 16:9. Chọn 1080 ở đường này không làm chữ nét hơn, chỉ nặng thêm — bộ công cụ giữ đúng 720 dòng. Đường PowerPoint xuất đúng 1080 dòng.
 
 ## Thời gian và dung lượng
 

@@ -33,7 +33,7 @@ Thầy cô đã có bài giảng trong PPT Master thì nhắn một câu là ra 
 | 2 | Bước thuyết minh cần `notes/*.md` (tách từ `notes/total.md` ở Step 7.1 của Generate). Một ghi chú → một file tiếng. | `workflows/stages/generate-audio.md:15-16` | Thiếu ghi chú thì AI chạy bước ghi chú của upstream trước, không tự chia nhỏ. |
 | 3 | Xuất video sẵn có gọi PowerPoint bản cài trên Windows qua API `CreateVideo`; tham số `-o`, `--resolution` (mặc định 1080), `--fps` (30), `--quality` (85); `--check` để dò PowerPoint. | `scripts/powerpoint_video.py:10-20,214-247` | Đường PowerPoint dùng nguyên lệnh này, không sửa. |
 | 4 | Upstream nói rõ: phụ đề là file rời, không nhúng vào PPTX và không in lên MP4. | `docs/audio-narration.md:28` | Việc in phụ đề lên hình do lớp Việt làm bằng FFmpeg. |
-| 5 | `video_subtitles.py` canh phụ đề theo tiếng nói nhưng cần `stable-ts` (nặng, kéo theo mô hình nhận dạng). | `scripts/video_subtitles.py:16-18` | Không dùng. Phụ đề cuối dựng bằng cách cộng dồn thời lượng từng slide. |
+| 5 | `video_subtitles.py` canh phụ đề theo tiếng nói nhưng cần `stable-ts` (nặng, kéo theo mô hình nhận dạng). | `scripts/video_subtitles.py:16-18` | Không dùng. Phụ đề cuối dựng từ các SRT theo slide, dịch theo mốc thật của đường dựng (§5.5). |
 | 6 | Có sẵn bộ chụp ảnh slide bằng Playwright/Chromium, ghi ra `<dự án>/.preview/<tên>.png`, tự dò máy chủ xem trước, mã thoát 0/2/3/4. | `scripts/visual_review.py:19-25,256-301` | Đường FFmpeg dùng lại bộ này thay vì tự viết bộ chuyển SVG sang ảnh. |
 | 7 | Máy chủ xem trước bật bằng `server.py <dự án> --daemon --live --no-browser`, tắt bằng `server.py <dự án> --shutdown`; file trạng thái ở `<dự án>/live_preview/`. | `scripts/svg_editor/server.py:1197-1222,1247-1286` | Đường FFmpeg tự bật rồi tự tắt máy chủ, không để lại tiến trình. |
 | 8 | `playwright` **không** nằm trong `requirements.txt`; `ffmpeg`/`ffprobe` là công cụ tuỳ chọn đã có lệnh cài trong lớp Việt. | `skills/ppt-master/requirements.txt`; `tools/vi/pptmaster.ps1` (`-Action tool`) | Thêm `-Name chromium` cho lệnh cài tuỳ chọn; hỏi thầy cô trước vì tải nặng. |
@@ -50,7 +50,7 @@ Thầy cô đã có bài giảng trong PPT Master thì nhắn một câu là ra 
 | Cách dựng | Hai đường trong gói này: PowerPoint và FFmpeg + ảnh slide. Kiến trúc chừa sẵn đường thứ ba (Remotion) |
 | Chọn cách dựng | Theo yêu cầu của thầy cô; không nêu thì: có PowerPoint → PowerPoint, không có → FFmpeg |
 | TTS | Dùng nguyên bước thuyết minh của upstream, giọng Việt mặc định `edge-tts` |
-| Phụ đề | Dựng bằng cộng dồn thời lượng; thầy cô chọn file `.srt` rời (mặc định) hoặc in lên hình |
+| Phụ đề | Dựng từ SRT theo slide: đường FFmpeg cộng dồn thời lượng, đường PowerPoint đọc mốc trong bản PPTX gắn tiếng; thầy cô chọn file `.srt` rời (mặc định) hoặc in lên hình |
 | Cài thêm | `chromium` thêm vào `-Action tool`; hỏi thầy cô trước khi tải |
 | Ranh giới | Không sửa `skills/`; không nhạc nền, không chèn video rời, không người dẫn ảo |
 | Phiên bản | `v6.3.2-vi.4`, nhánh `feat/vi-video` |
@@ -69,6 +69,7 @@ tools/vi/video_parts/             # (mới) phần tính toán thuần, test đ�
 ├── __init__.py
 ├── srt.py                        # đọc, dịch mốc thời gian và ghép phụ đề
 ├── media.py                      # đo thời lượng, dựng file concat và câu lệnh FFmpeg
+├── pptx_timeline.py              # đọc mốc thời gian trong bản PPTX đã gắn tiếng
 └── selection.py                  # chọn cách dựng và liệt kê các bước
 tools/vi/pptmaster.ps1            # (sửa) -Action tool -Name chromium
 docs/vi/lam-video.md              # (mới) hướng dẫn cho thầy cô
@@ -124,11 +125,13 @@ Tiến trình ra stderr; stdout đúng một dòng JSON, như bộ cài.
 
 1. Kiểm `audio/*.mp3`; thiếu → `error.step = "audio"`, cách sửa là chạy bước thuyết minh của upstream.
 2. Bật máy chủ xem trước: `server.py <dự án> --daemon --live --no-browser`.
-3. Chụp ảnh: `visual_review.py <dự án>` → `.preview/<tên>.png`.
+3. Chụp ảnh: `visual_review.py <dự án>` → `.preview/<tên>.png`. Ảnh cũ chỉ dùng lại khi đủ tên **và** mới hơn file `svg_output/<tên>.svg` tương ứng; ngược lại chụp lại.
 4. Tắt máy chủ: `server.py <dự án> --shutdown`, kể cả khi bước 3 lỗi.
 5. Đọc thời lượng từng file tiếng bằng `ffprobe`.
 6. Ghép bằng một lệnh FFmpeg: mỗi ảnh giữ đúng thời lượng tiếng của slide đó, cắt thẳng giữa các slide, nối tiếng theo thứ tự, xuất H.264 + AAC. Cắt thẳng dùng bộ ghép `concat` nên câu lệnh cố định và ít lỗi; hiệu ứng mờ dần cần dựng chuỗi lọc riêng cho từng cặp slide nên để dành cho gói sau. Thầy cô muốn có hiệu ứng chuyển cảnh thì dùng đường PowerPoint.
-7. Phụ đề theo §5.5.
+7. Cắt đúng tổng thời lượng tiếng bằng `-t`: bộ ghép `concat` phải lặp lại ảnh cuối để ảnh đó có thời lượng, nên không cắt thì video dài hơn tiếng đúng một nhịp ảnh cuối (đo được 92,167 s so với 90,384 s tiếng). `-shortest` không cắt được phần này nên không dùng.
+8. Độ phân giải là **trần, không phải đích**: `scale=-2:'min(ih,<độ phân giải>)'`. Ảnh chụp slide đúng khổ canvas (`ppt169` là 1280×720) nên `--do-phan-giai 1080` ở đường này giữ nguyên 720 dòng thay vì phóng to.
+9. Phụ đề theo §5.5.
 
 ### 5.4 Đường PowerPoint
 
@@ -138,11 +141,13 @@ Tiến trình ra stderr; stdout đúng một dòng JSON, như bộ cài.
 
 ### 5.5 Phụ đề
 
-- Mốc bắt đầu của slide thứ n bằng tổng thời lượng các slide trước; cộng mốc đó vào từng dòng trong `audio/<tên>.srt`, ghép thành `exports/<tên>_video.srt`.
+- Mốc bắt đầu của từng slide **phụ thuộc đường dựng**; cộng mốc đó vào từng dòng trong `audio/<tên>.srt`, ghép thành `exports/<tên>_video.srt`.
+- **Đường FFmpeg:** mốc của slide thứ n bằng tổng thời lượng các slide trước. Bộ ghép `concat` phát tiếng liên tục nên mốc này đúng tuyệt đối.
+- **Đường PowerPoint:** PowerPoint **không** phát tiếng liên tục — mỗi slide có thời gian chuyển cảnh, một khoảng chờ trước khi tiếng bắt đầu (`narration_start_floor`, mặc định 0,8 s) và phần đệm cuối (`narration_padding`, mặc định 0,5 s). Vì vậy mốc phải đọc từ chính bản PPTX đã gắn tiếng: `advTm`, `p14:dur` và `delay` của node `p:audio` trong từng `ppt/slides/slideN.xml` (đọc bằng `zipfile` + `xml.etree`, không mở PowerPoint). Cộng dồn thời lượng tiếng ở đường này lệch dần khoảng 1 giây mỗi slide. Không đọc được bản PPTX thì quay về cộng dồn và ghi cảnh báo có nêu `--cach ffmpeg`.
 - `--phu-de file` (mặc định): chỉ ghi file `.srt`.
-- `--phu-de hinh`: in phụ đề lên video bằng FFmpeg, giữ nguyên file `.srt` bên cạnh.
+- `--phu-de hinh`: in phụ đề lên video bằng FFmpeg, giữ nguyên file `.srt` bên cạnh. Ở đường PowerPoint, bản video chưa in phụ đề bị xoá sau khi in xong.
 - `--phu-de khong`: không tạo phụ đề.
-- Đường PowerPoint có sai số vì PowerPoint tự thêm thời gian chuyển cảnh. Khi in phụ đề lên hình ở đường này, script so tổng thời lượng video với tổng thời lượng tiếng; lệch quá 2% thì ghi cảnh báo vào `warnings` và vẫn xuất file `.srt` rời.
+- Cảnh báo lệch so **từng slide**, không so tổng: mốc phụ đề của mỗi slide so với mốc thật của slide đó trong video đã dựng (mốc dự kiến của đường đang dùng, co giãn theo thời lượng video thực tế). Lệch quá 0,5 s ở slide nào thì ghi cảnh báo nêu số slide, độ lệch và `--cach ffmpeg`; vẫn xuất file `.srt` rời. So tổng thời lượng bỏ sót đúng loại sai số của đường PowerPoint, vì sai số đó tăng dần theo số slide.
 
 ### 5.6 Báo thầy cô
 
@@ -174,7 +179,8 @@ AI nêu: đường dẫn video, thời lượng, dung lượng, cách dựng đ�
 ```
 
 - `error` là `null` hoặc `{ "step", "message", "fix" }`; `step` thuộc `audio`, `narrated_pptx`, `chromium`, `ffmpeg`, `render`, `powerpoint`.
-- `--plan-only` in `{ "backend", "steps": [...], "warnings": [...] }` mà không dựng gì, để test.
+- `--plan-only` in `{ "backend", "steps": [...], "warnings": [...] }` mà không dựng gì, để test. Chế độ này **không được gọi COM**: dò PowerPoint bằng registry (`HKEY_CLASSES_ROOT\PowerPoint.Application`) và các đường dẫn `POWERPNT.EXE` đã biết, không chạy `powerpoint_video.py --check`, nên không có cửa sổ hay tiến trình PowerPoint nào. Chỉ lúc dựng thật mới dùng `--check`.
+- Kiểm `playwright` bằng `subprocess.run([python_exe(), "-c", "import playwright"])` — phải hỏi đúng trình thông dịch sẽ chạy `visual_review.py`, không phải trình thông dịch đang chạy `video.py`.
 - Mã thoát 0 khi `ready`, ngược lại 1.
 - Chỉ dùng thư viện chuẩn Python; gọi `ffmpeg`, `ffprobe` và các script upstream bằng tiến trình con.
 
@@ -205,7 +211,9 @@ Mục `## Khổ slide` của file này chỉ nêu `ppt169` trong backtick; độ
 
 | Tình huống | Cách xử lý |
 |---|---|
-| Dự án chưa có `notes/*.md` | `error.step = "audio"`, cách sửa: chạy bước ghi chú rồi bước thuyết minh của upstream |
+| Dự án chưa có `notes/*.md` | `error.step = "audio"` (giữ đúng bộ `step` đã ghi ở §6.1), `message` nói rõ thiếu ghi chú, `fix` gọi tên bước ghi chú trước rồi mới tới bước thuyết minh của upstream. `read_state` vì vậy phải đếm cả `notes/*.md` |
+| Thiếu ghi chú của một vài slide | `error.step = "audio"`, nêu tên slide thiếu ghi chú và trỏ về bước ghi chú |
+| Ảnh `.preview/` cũ hơn slide | Chụp lại, không dùng ảnh cũ (đủ tên là chưa đủ); không có mốc thời gian để so thì coi như cũ |
 | Có ghi chú nhưng chưa có tiếng | AI chạy `notes_to_audio.py` với giọng Việt rồi dựng tiếp |
 | Số file tiếng khác số slide | Dừng, nêu tên slide thiếu tiếng |
 | Máy không có PowerPoint mà thầy cô chọn `--cach powerpoint` | Dừng, gợi ý dùng `--cach ffmpeg` |
@@ -265,5 +273,6 @@ Sau nghiệm thu: cập nhật `CHANGELOG-VI.md` và dòng phiên bản README t
 | Chromium nặng, mạng trường tải lâu | Hỏi trước khi tải; máy có PowerPoint thì không cần |
 | Video 10 phút nặng 100–300 MB | Cảnh báo dung lượng trống trước khi dựng |
 | Tiếng máy đọc sai tên riêng, thuật ngữ tiếng Anh | Tài liệu nhắc thầy cô nghe lại; có thể sửa ghi chú rồi dựng lại |
-| Phụ đề lệch ở đường PowerPoint do thời gian chuyển cảnh | So tổng thời lượng, lệch quá 2% thì cảnh báo và giữ phụ đề rời |
+| Phụ đề lệch ở đường PowerPoint do thời gian chuyển cảnh | Đọc mốc từ bản PPTX đã gắn tiếng (§5.5); so từng slide, lệch quá 0,5 s thì cảnh báo và giữ phụ đề rời |
+| §5.2 ghi `--cach auto` có thể **dựng được** bản `*_narrated.pptx`, nhưng gói này chưa làm — `video.py` không tự xuất bản PPTX gắn tiếng | Bước xuất đó nằm trong thứ tự làm việc ở `AGENTS.vi.md` mục 11; AI bỏ bước thì `--cach auto` vẫn tự chuyển sang FFmpeg kèm cảnh báo. Việc để `video.py` tự dựng bản PPTX để dành cho gói sau |
 | Máy chủ xem trước còn chạy sau khi lỗi | Luôn tắt trong khối `finally`; test kiểm không còn file khoá |

@@ -91,11 +91,14 @@ Xem dòng kết quả AI đọc được, phần `error`:
 
 - `chromium`: máy chưa có Chromium để chụp ảnh slide. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB).
 - `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
-- `audio`: bài giảng chưa có tiếng đọc. Nhờ AI tạo lời giảng và tiếng đọc trước.
+- `audio`: bài giảng chưa có lời giảng hoặc chưa có tiếng đọc. Đọc `error.message`: thiếu ghi chú thì nhờ AI viết lời giảng trước, rồi mới tạo tiếng đọc.
 - `powerpoint`: PowerPoint không xuất được video. Thử lại bằng cách ghép ảnh: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án> --cach ffmpeg`.
-- `render`: thường do hết dung lượng ổ đĩa hoặc đường dẫn quá dài. Dọn ổ đĩa, hoặc chuyển bộ công cụ sang `D:\PPTmaster` rồi làm lại.
-- `project`: đường dẫn dự án không đúng hoặc thư mục không phải dự án PPT Master — kiểm lại tên dự án trong `projects\`.
+- `render`, không chụp được ảnh slide (thường thiếu Chromium hoặc một slide bị lỗi): cho AI cài Chromium như mục `chromium` ở trên, hoặc mở bài giảng xem slide nào lỗi rồi sửa.
+- `render`, hết dung lượng ổ đĩa hoặc đường dẫn quá dài: dọn ổ đĩa, hoặc chuyển bộ công cụ sang `D:\PPTmaster` rồi làm lại.
+- `project`: đường dẫn dự án không đúng, thư mục không phải dự án PPT Master, dự án chưa có slide nào, hoặc đường dẫn quá dài (trên 200 ký tự) — kiểm lại tên dự án trong `projects\`, và chuyển bộ công cụ sang `D:\PPTmaster` nếu `error.message` nói về độ dài đường dẫn.
 - `narrated_pptx`: chưa có bản PPTX đã gắn tiếng, nên đường PowerPoint không chạy được — nhờ AI xuất lại bản PPTX có thuyết minh, hoặc dựng bằng cách ghép ảnh với `--cach ffmpeg`.
+
+Khi hỏi hỗ trợ, dán nguyên dòng `error.message` — dòng đó nêu đúng nguyên nhân, còn tên `error.step` chỉ nói bước nào dừng.
 
 ## Đường dẫn quá dài
 
