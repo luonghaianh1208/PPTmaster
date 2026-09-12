@@ -516,8 +516,7 @@ class SelfInstallGuideTest(unittest.TestCase):
         body = section(text, AGENTS_VI_ENV_HEADING)
         for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
-        headings = h2_headings(text)
-        self.assertIn(AGENTS_VI_ASSISTANT_HEADING, headings)
+        self.assertEqual(h2_headings(text)[-2], AGENTS_VI_ASSISTANT_HEADING)
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
@@ -585,7 +584,7 @@ class VideoGuideTest(unittest.TestCase):
         self.assertIn(AGENTS_VI_VIDEO_HEADING, h2_headings(text))
         body = section(text, AGENTS_VI_VIDEO_HEADING)
         self.assertIn(VIDEO_COMMAND, body)
-        for phrase in ("notes_to_audio.py", "chromium", "cửa sổ PowerPoint", "(docs/vi/tro-ly/video-bai-giang.md)"):
+        for phrase in ("notes_to_audio.py", "chromium", "cửa sổ PowerPoint", "(docs/vi/tro-ly/video-bai-giang.md)", "--rate"):
             self.assertIn(phrase, body)
 
     def test_agents_vi_triggers_include_video_phrases(self):
@@ -595,8 +594,16 @@ class VideoGuideTest(unittest.TestCase):
 
     def test_video_guide_quick_section_covers_voice_and_subtitles(self):
         body = section(read("docs/vi/tro-ly/video-bai-giang.md"), "## Tạo nhanh")
-        self.assertIn("giọng", body)
-        self.assertIn("phụ đề", body)
+        self.assertIn("giọng", body.lower())
+        self.assertIn("phụ đề", body.lower())
+
+    def test_task_type_count_matches_the_table(self):
+        agents_vi_body = section(read("AGENTS.vi.md"), "## 10. Hỗ trợ thầy cô trước khi tạo PPTX")
+        self.assertIn("6 loại", agents_vi_body)
+        self.assertNotIn("5 loại", agents_vi_body)
+        quy_trinh_body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("6 loại", quy_trinh_body)
+        self.assertNotIn("5 loại", quy_trinh_body)
 
 
 if __name__ == "__main__":

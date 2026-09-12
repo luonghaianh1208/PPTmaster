@@ -7,7 +7,7 @@ File dành cho AI. Nó bổ sung ngữ cảnh cho quy trình tạo PPTX trong `s
 Áp dụng khi cả ba điều kiện đều đúng:
 
 1. Người dùng viết tiếng Việt.
-2. Yêu cầu thuộc một trong 5 loại việc dưới đây: câu lệnh có dấu hiệu trong bảng hoặc nói rõ loại việc.
+2. Yêu cầu thuộc một trong 6 loại việc dưới đây: câu lệnh có dấu hiệu trong bảng hoặc nói rõ loại việc.
 3. Bối cảnh là trường học hoặc Đoàn (ví dụ lớp, môn học, tổ chuyên môn, học sinh, phụ huynh, giáo viên, đoàn viên).
 
 | Loại việc | Dấu hiệu nhận biết | File hướng dẫn |

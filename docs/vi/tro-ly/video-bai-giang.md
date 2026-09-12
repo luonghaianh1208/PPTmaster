@@ -27,8 +27,8 @@ Ví dụ câu lệnh:
 
 ## Tạo nhanh
 
-1. giọng đọc (câu hỏi bắt buộc 1).
-2. phụ đề (câu hỏi bắt buộc 3).
+1. Giọng đọc (câu hỏi bắt buộc 1).
+2. Phụ đề (câu hỏi bắt buộc 3).
 
 ## Cấu trúc gợi ý
 
