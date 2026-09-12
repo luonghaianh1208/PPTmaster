@@ -179,6 +179,7 @@ GUIDE_FILES = (
     "hoat-dong-doan.md",
     "poster-mang-xa-hoi.md",
     "tap-huan-workshop.md",
+    "video-bai-giang.md",
 )
 GUIDE_HEADINGS = (
     "## Khi nào dùng",
@@ -396,9 +397,10 @@ AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi tạo P
 
 
 class TeacherAssistantWiringTest(unittest.TestCase):
-    def test_agents_vi_has_assistant_section_last(self):
+    def test_agents_vi_keeps_assistant_then_video_sections_last(self):
         headings = h2_headings(read("AGENTS.vi.md"))
-        self.assertEqual(headings[-1], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(headings[-2], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(headings[-1], AGENTS_VI_VIDEO_HEADING)
 
     def test_assistant_section_links_common_rules_and_all_guides(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
@@ -514,7 +516,8 @@ class SelfInstallGuideTest(unittest.TestCase):
         body = section(text, AGENTS_VI_ENV_HEADING)
         for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
-        self.assertEqual(h2_headings(text)[-1], AGENTS_VI_ASSISTANT_HEADING)
+        headings = h2_headings(text)
+        self.assertIn(AGENTS_VI_ASSISTANT_HEADING, headings)
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
@@ -564,6 +567,36 @@ class SelfInstallUserDocsTest(unittest.TestCase):
         body = section(read("docs/vi/phat-trien/bao-tri.md"), "## Bộ cài Python cố định")
         for phrase in ("3.12.10", "SHA256", "MD5", "$PythonInstallers", "Get-UserPythonPath", "`Python312`/`Python312-arm64`"):
             self.assertIn(phrase, body)
+
+
+AGENTS_VI_VIDEO_HEADING = "## 11. Làm video bài giảng"
+VIDEO_COMMAND = r"venv\Scripts\python.exe tools\vi\video.py"
+
+
+class VideoGuideTest(unittest.TestCase):
+    def test_common_rules_table_lists_video_task(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("video-bai-giang.md", body)
+        for keyword in ("làm video", "xuất video", "lồng tiếng"):
+            self.assertIn(keyword, body)
+
+    def test_agents_vi_video_section_explains_order_and_command(self):
+        text = read("AGENTS.vi.md")
+        self.assertIn(AGENTS_VI_VIDEO_HEADING, h2_headings(text))
+        body = section(text, AGENTS_VI_VIDEO_HEADING)
+        self.assertIn(VIDEO_COMMAND, body)
+        for phrase in ("notes_to_audio.py", "chromium", "cửa sổ PowerPoint", "(docs/vi/tro-ly/video-bai-giang.md)"):
+            self.assertIn(phrase, body)
+
+    def test_agents_vi_triggers_include_video_phrases(self):
+        body = section(read("AGENTS.vi.md"), "## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`")
+        for phrase in ("làm video bài giảng", "xuất video"):
+            self.assertIn(phrase, body)
+
+    def test_video_guide_quick_section_covers_voice_and_subtitles(self):
+        body = section(read("docs/vi/tro-ly/video-bai-giang.md"), "## Tạo nhanh")
+        self.assertIn("giọng", body)
+        self.assertIn("phụ đề", body)
 
 
 if __name__ == "__main__":

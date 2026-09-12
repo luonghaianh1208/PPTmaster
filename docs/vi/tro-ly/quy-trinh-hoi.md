@@ -17,6 +17,7 @@ File dành cho AI. Nó bổ sung ngữ cảnh cho quy trình tạo PPTX trong `s
 | Hoạt động Đoàn – sự kiện | "Đoàn", "chi đoàn", "cuộc thi", "sự kiện", "lễ kỷ niệm", "trao giải" | [hoat-dong-doan.md](hoat-dong-doan.md) |
 | Poster/ấn phẩm Zalo – Facebook | "poster", "ảnh đăng Zalo", "bài đăng Facebook", "story", "TikTok" | [poster-mang-xa-hoi.md](poster-mang-xa-hoi.md) |
 | Tập huấn/workshop | "tập huấn", "bồi dưỡng", "sinh hoạt chuyên môn", "workshop", "chia sẻ chuyên đề" | [tap-huan-workshop.md](tap-huan-workshop.md) |
+| Video bài giảng | "làm video", "xuất video", "lồng tiếng", "video bài giảng" | [video-bai-giang.md](video-bai-giang.md) |
 
 - Chỉ xếp vào một loại khi câu lệnh có dấu hiệu trong bảng hoặc nói rõ loại việc. Bối cảnh trường học hay Đoàn một mình không đủ để xếp loại (ví dụ giới thiệu trường, giới thiệu một phòng chức năng): coi là yêu cầu không thuộc loại nào. Chữ "Đoàn" hay "chi đoàn" chỉ là dấu hiệu khi đi kèm một hoạt động (chương trình, cuộc thi, sự kiện, lễ kỷ niệm, trao giải).
 - Yêu cầu không thuộc loại nào, hoặc có từ khoá nhưng không phải bối cảnh trường học hay Đoàn (ví dụ báo cáo doanh thu của công ty, giới thiệu sản phẩm): không dùng phần nào của file này (không tìm hay nhắc tới hồ sơ đơn vị, không viết brief, không dùng dạng câu hỏi kèm "Gợi ý:" hay dòng chốt cách xác nhận), làm theo `SKILL.md` như bình thường.

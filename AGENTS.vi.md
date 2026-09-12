@@ -15,7 +15,7 @@ File này bổ sung ngữ cảnh Việt Nam cho [AGENTS.md](AGENTS.md). Nó khô
 
 ## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`
 
-"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide".
+"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video".
 
 Các cụm "tạo nhanh", "làm nhanh", "không cần hỏi lại" là yêu cầu Quick tường minh (với bài tạo mới thông thường là hồ sơ `workflows/profiles/quick-generate.md` của upstream). Việc chọn hồ sơ và các bước thực hiện vẫn theo đúng `SKILL.md`.
 
@@ -72,6 +72,21 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 5 lo
 | Hoạt động Đoàn – sự kiện | [docs/vi/tro-ly/hoat-dong-doan.md](docs/vi/tro-ly/hoat-dong-doan.md) |
 | Poster/ấn phẩm Zalo – Facebook | [docs/vi/tro-ly/poster-mang-xa-hoi.md](docs/vi/tro-ly/poster-mang-xa-hoi.md) |
 | Tập huấn/workshop | [docs/vi/tro-ly/tap-huan-workshop.md](docs/vi/tro-ly/tap-huan-workshop.md) |
+| Video bài giảng | [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md) |
 
 - `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3). Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
 - Yêu cầu không thuộc 5 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
+
+## 11. Làm video bài giảng
+
+Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọc [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự sau:
+
+1. Chưa có `notes/*.md`: viết ghi chú lời giảng cho từng slide theo quy trình của upstream.
+2. Chưa có `audio/*.mp3`: chạy `skills/ppt-master/scripts/notes_to_audio.py <đường_dẫn_dự_án> --voice vi-VN-HoaiMyNeural` (hoặc `vi-VN-NamMinhNeural`).
+3. Dựng video: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án> --cach auto --phu-de file --do-phan-giai 1080`.
+4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn video, thời lượng, dung lượng và nơi để phụ đề; `error` khác `null` thì làm theo `error.fix`, tối đa một lần, rồi báo thầy cô.
+
+- `error.step` là `chromium`: hỏi thầy cô trước rồi chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium`, vì bước này tải khoảng 150–300 MB.
+- `error.step` là `audio`: quay lại bước 2.
+- Cách dựng `powerpoint` sẽ mở **cửa sổ PowerPoint** và chiếm máy vài phút; báo trước cho thầy cô một dòng.
+- Không tự cài phần mềm nào khác, không tự chạy FFmpeg theo cách riêng.
