@@ -184,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plan-only", action="store_true")
     args = parser.parse_args(argv)
 
-    project = args.project_path
+    project = args.project_path.resolve()
     payload = {
         "ready": False, "backend": None, "video": None, "subtitle": None,
         "duration_seconds": None, "size_mb": None, "slides": 0,
