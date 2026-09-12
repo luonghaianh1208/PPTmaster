@@ -36,6 +36,10 @@ WARN_PPTX_TIMELINE = (
     "thời lượng tiếng; phụ đề sẽ lệch dần khoảng 1 giây mỗi slide. Dùng --cach ffmpeg nếu "
     "cần phụ đề chính xác."
 )
+WARN_NARRATED_PPTX = (
+    "Dùng mốc thời gian trong {name}; nếu đây không phải bản mới nhất của bài này, "
+    "xuất lại rồi dựng lại."
+)
 
 
 def log(text: str) -> None:
@@ -113,7 +117,15 @@ def read_state(project: Path) -> selection.ProjectState:
     slide_paths = sorted((project / "svg_output").glob("*.svg"))
     preview_paths = sorted((project / ".preview").glob("*.png"))
     audio = sorted(path.stem for path in (project / "audio").glob("*.mp3"))
-    notes = sorted(path.stem for path in (project / "notes").glob("*.md"))
+    slide_stems = {path.stem for path in slide_paths}
+    # Chỉ đếm ghi chú theo từng slide: `notes/total.md` (trạng thái trước khi
+    # upstream tách ở Step 7.1) không phải tên slide nào, đếm nó vào đây sẽ
+    # khiến dự án chưa tách ghi chú bị coi là "đã có ghi chú" và nhận nhầm
+    # cách sửa "chạy bước thuyết minh" thay vì "tách ghi chú trước".
+    notes = sorted(
+        stem for stem in (path.stem for path in (project / "notes").glob("*.md"))
+        if stem in slide_stems
+    )
     narrated = sorted((project / "exports").glob("*_narrated.pptx"), key=lambda p: p.stat().st_mtime)
     return selection.ProjectState(
         slides=[path.stem for path in slide_paths],
@@ -207,6 +219,7 @@ def subtitle_offsets(state: selection.ProjectState, backend: str, durations: lis
         log(f"Không đọc được mốc thời gian của bản PPTX gắn tiếng: {exc}")
         warnings.append(WARN_PPTX_TIMELINE)
         return sums, None
+    warnings.append(WARN_NARRATED_PPTX.format(name=Path(state.narrated_pptx).name))
     return starts, timeline
 
 
@@ -313,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
             payload["ready"] = True
             emit(payload)
             return 0
-        if backend == "ffmpeg" and not state.has_chromium:
+        if backend == "ffmpeg" and not selection.previews_fresh(state) and not state.has_chromium:
             raise media.MediaError("chromium", "Chưa cài Chromium để chụp ảnh slide.", FIX_CHROMIUM)
         if shutil.which("ffprobe") is None or shutil.which("ffmpeg") is None:
             raise media.MediaError("ffmpeg", "Máy chưa có FFmpeg.", media.FIX_FFMPEG)

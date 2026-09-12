@@ -108,9 +108,10 @@ def previews_fresh(state: ProjectState) -> bool:
 def plan_steps(state: ProjectState, backend: str, subtitle_mode: str) -> list[dict]:
     steps: list[dict] = []
     if backend == "ffmpeg":
-        if not state.has_chromium:
+        needs_capture = not previews_fresh(state)
+        if needs_capture and not state.has_chromium:
             steps.append({"step": "chromium", "action": "require", "method": "pip+playwright"})
-        if not previews_fresh(state):
+        if needs_capture:
             steps.append({"step": "preview", "action": "capture", "method": "visual_review.py"})
         if subtitle_mode != "khong":
             steps.append({"step": "subtitle", "action": "merge", "method": "srt"})

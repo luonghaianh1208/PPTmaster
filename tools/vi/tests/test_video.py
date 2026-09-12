@@ -324,6 +324,13 @@ class PlanStepsTest(unittest.TestCase):
         steps = [s["step"] for s in selection.plan_steps(fresh_state(), "ffmpeg", "file")]
         self.assertNotIn("preview", steps)
 
+    def test_ffmpeg_plan_skips_chromium_when_previews_are_fresh(self):
+        # Ruling R23: không có bước chụp ảnh nào trong kế hoạch thì cũng
+        # không cần đòi Chromium, dù has_chromium là False.
+        steps = [s["step"] for s in selection.plan_steps(fresh_state(has_chromium=False), "ffmpeg", "file")]
+        self.assertNotIn("chromium", steps)
+        self.assertNotIn("preview", steps)
+
     def test_ffmpeg_plan_recaptures_when_a_slide_is_newer_than_its_preview(self):
         stale = fresh_state(slide_mtimes={"01_mo_dau": 100.0, "02_noi_dung": 300.0})
         steps = [s["step"] for s in selection.plan_steps(stale, "ffmpeg", "file")]
@@ -678,7 +685,10 @@ class SubtitleOffsetsTest(unittest.TestCase):
             )
         self.assertEqual([round(value, 3) for value in offsets], [0.8, 30.467, 62.03])
         self.assertAlmostEqual(timeline, 94.282, places=3)
-        self.assertEqual(warnings, [])
+        # Ruling R24/N1: đặt tên đúng bản PPTX đã dùng để tính mốc, để một bản
+        # PPTX sai (nhưng cùng số slide) không âm thầm lọt qua.
+        self.assertEqual(len(warnings), 1)
+        self.assertIn(pptx.name, warnings[0])
 
     def test_unreadable_pptx_falls_back_to_sums_with_an_actionable_warning(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -693,6 +703,160 @@ class SubtitleOffsetsTest(unittest.TestCase):
         self.assertIsNone(timeline)
         self.assertEqual(len(warnings), 1)
         self.assertIn("--cach ffmpeg", warnings[0])
+
+
+class ReadStateNotesFilterTest(unittest.TestCase):
+    """Ruling R22/N5: `notes/total.md` một mình không được tính là đã có ghi
+    chú theo slide, nếu không dự án ở trạng thái trước khi tách ghi chú sẽ
+    nhận nhầm cách sửa "chạy bước thuyết minh" thay vì "tách ghi chú trước".
+    """
+
+    def build_project(self, root):
+        (root / "svg_output").mkdir(parents=True)
+        (root / "audio").mkdir(parents=True)
+        (root / "exports").mkdir(parents=True)
+        (root / "notes").mkdir(parents=True)
+        for stem in ("01_mo_dau", "02_noi_dung"):
+            (root / "svg_output" / f"{stem}.svg").write_text("<svg/>", encoding="utf-8")
+        return root
+
+    def test_total_notes_only_gets_the_notes_first_remedy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            (project / "notes" / "total.md").write_text("noi dung", encoding="utf-8")
+            state_obj = video.read_state(project)
+            self.assertEqual(state_obj.notes, [])
+            with self.assertRaises(selection.SelectionError) as ctx:
+                selection.check_audio(state_obj)
+            self.assertEqual(ctx.exception.step, "audio")
+            self.assertIn("bước ghi chú", ctx.exception.fix)
+
+    def test_per_slide_notes_get_the_narration_remedy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            for stem in ("01_mo_dau", "02_noi_dung"):
+                (project / "notes" / f"{stem}.md").write_text("noi dung", encoding="utf-8")
+            state_obj = video.read_state(project)
+            self.assertEqual(state_obj.notes, ["01_mo_dau", "02_noi_dung"])
+            with self.assertRaises(selection.SelectionError) as ctx:
+                selection.check_audio(state_obj)
+            self.assertEqual(ctx.exception.step, "audio")
+            self.assertIn("notes_to_audio.py", ctx.exception.fix)
+            self.assertNotIn("bước ghi chú", ctx.exception.fix)
+
+
+class ChromiumGateTest(unittest.TestCase):
+    """Ruling R23: đường FFmpeg chỉ đòi Chromium khi kế hoạch thật sự có bước
+    chụp ảnh — dùng lại đúng phép so mới/cũ mà `plan_steps` đã dùng.
+    """
+
+    def build_project(self, root):
+        (root / "svg_output").mkdir(parents=True)
+        (root / "audio").mkdir(parents=True)
+        (root / "exports").mkdir(parents=True)
+        (root / ".preview").mkdir(parents=True)
+        for stem in ("01_mo_dau", "02_noi_dung"):
+            svg = root / "svg_output" / f"{stem}.svg"
+            svg.write_text("<svg/>", encoding="utf-8")
+            os.utime(svg, (100, 100))
+            (root / "audio" / f"{stem}.mp3").write_bytes(b"")
+        return root
+
+    def make_previews_fresh(self, root):
+        for stem in ("01_mo_dau", "02_noi_dung"):
+            png = root / ".preview" / f"{stem}.png"
+            png.write_bytes(b"")
+            os.utime(png, (200, 200))
+
+    def test_fresh_previews_skip_the_chromium_gate_and_reach_render(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            self.make_previews_fresh(project)
+
+            def render(_project, _stems, _durations, out_path, _height, _burn):
+                out_path.write_bytes(b"video")
+
+            with mock.patch.object(video, "has_chromium", return_value=False), \
+                    mock.patch.object(video.shutil, "which", return_value="ffmpeg"), \
+                    mock.patch.object(video.media, "probe_duration", return_value=2.0), \
+                    mock.patch.object(video, "capture_previews") as capture, \
+                    mock.patch.object(video, "render_ffmpeg", side_effect=render) as render_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "ffmpeg"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0, data)
+            self.assertIsNone(data["error"])
+            render_mock.assert_called_once()
+            capture.assert_not_called()
+
+    def test_stale_previews_still_raise_the_chromium_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            # Không chụp ảnh xem trước nào -> coi như cũ, vẫn cần Chromium.
+            with mock.patch.object(video, "has_chromium", return_value=False):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "ffmpeg"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 1)
+            self.assertEqual(data["error"]["step"], "chromium")
+
+
+class NarratedPptxWarningCliTest(unittest.TestCase):
+    """Ruling R24/N1: cảnh báo nêu tên bản PPTX đã dùng, chỉ ở đường
+    PowerPoint (đường FFmpeg không đọc bản PPTX này nên không thể cảnh báo).
+    """
+
+    def build_project(self, root):
+        (root / "svg_output").mkdir(parents=True)
+        (root / "audio").mkdir(parents=True)
+        (root / "exports").mkdir(parents=True)
+        for stem in ("01_mo_dau", "02_noi_dung"):
+            (root / "svg_output" / f"{stem}.svg").write_text("<svg/>", encoding="utf-8")
+            (root / "audio" / f"{stem}.mp3").write_bytes(b"")
+        return root
+
+    def test_powerpoint_route_names_the_narrated_pptx_in_warnings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            pptx = project / "exports" / "bai_narrated.pptx"
+            write_narrated_pptx(pptx, [(400, 400, 29267), (400, 400, 31163)])
+
+            def render(_pptx, out_path, _height):
+                out_path.write_bytes(b"video")
+
+            with mock.patch.object(video, "has_powerpoint", return_value=True), \
+                    mock.patch.object(video, "has_chromium", return_value=True), \
+                    mock.patch.object(video.shutil, "which", return_value="ffmpeg"), \
+                    mock.patch.object(video.media, "probe_duration", return_value=2.0), \
+                    mock.patch.object(video, "render_powerpoint", side_effect=render):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "powerpoint"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0, data)
+            self.assertTrue(any("bai_narrated.pptx" in warning for warning in data["warnings"]))
+
+    def test_ffmpeg_route_has_no_narrated_pptx_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            (project / "exports" / "bai_narrated.pptx").write_bytes(b"khong dung toi")
+
+            def render(_project, _stems, _durations, out_path, _height, _burn):
+                out_path.write_bytes(b"video")
+
+            with mock.patch.object(video, "has_chromium", return_value=True), \
+                    mock.patch.object(video.shutil, "which", return_value="ffmpeg"), \
+                    mock.patch.object(video.media, "probe_duration", return_value=2.0), \
+                    mock.patch.object(video, "capture_previews"), \
+                    mock.patch.object(video, "render_ffmpeg", side_effect=render):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                    code = video.main([str(project), "--cach", "ffmpeg"])
+            data = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0, data)
+            self.assertFalse(any("narrated" in warning for warning in data["warnings"]))
 
 
 if __name__ == "__main__":
