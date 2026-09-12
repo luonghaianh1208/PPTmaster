@@ -153,5 +153,132 @@ class RenderCommandTest(unittest.TestCase):
         self.assertIn(r"C\:", escaped)
 
 
+from video_parts import selection  # noqa: E402
+
+VIDEO_CLI = REPO_ROOT / "tools" / "vi" / "video.py"
+
+
+def state(**kwargs):
+    base = dict(
+        slides=["01_mo_dau", "02_noi_dung"],
+        audio=["01_mo_dau", "02_noi_dung"],
+        narrated_pptx="exports/bai_narrated.pptx",
+        has_powerpoint=True,
+        has_chromium=True,
+        previews=[],
+    )
+    base.update(kwargs)
+    return selection.ProjectState(**base)
+
+
+class SelectBackendTest(unittest.TestCase):
+    def test_auto_prefers_powerpoint_when_available(self):
+        backend, warnings = selection.select_backend(state(), "auto")
+        self.assertEqual(backend, "powerpoint")
+        self.assertEqual(warnings, [])
+
+    def test_auto_falls_back_to_ffmpeg_without_powerpoint(self):
+        backend, warnings = selection.select_backend(state(has_powerpoint=False), "auto")
+        self.assertEqual(backend, "ffmpeg")
+        self.assertTrue(any("PowerPoint" in warning for warning in warnings))
+
+    def test_auto_falls_back_to_ffmpeg_without_narrated_pptx(self):
+        backend, _ = selection.select_backend(state(narrated_pptx=None), "auto")
+        self.assertEqual(backend, "ffmpeg")
+
+    def test_explicit_powerpoint_without_powerpoint_is_an_error(self):
+        with self.assertRaises(selection.SelectionError) as ctx:
+            selection.select_backend(state(has_powerpoint=False), "powerpoint")
+        self.assertEqual(ctx.exception.step, "powerpoint")
+
+    def test_missing_audio_is_an_error_for_every_backend(self):
+        for requested in ("auto", "powerpoint", "ffmpeg"):
+            with self.subTest(requested=requested):
+                with self.assertRaises(selection.SelectionError) as ctx:
+                    selection.select_backend(state(audio=[]), requested)
+                self.assertEqual(ctx.exception.step, "audio")
+
+    def test_audio_missing_for_one_slide_is_an_error(self):
+        with self.assertRaises(selection.SelectionError) as ctx:
+            selection.select_backend(state(audio=["01_mo_dau"]), "ffmpeg")
+        self.assertEqual(ctx.exception.step, "audio")
+        self.assertIn("02_noi_dung", ctx.exception.message)
+
+
+class PlanStepsTest(unittest.TestCase):
+    def test_ffmpeg_plan_lists_capture_and_render(self):
+        steps = [(s["step"], s["action"], s["method"]) for s in selection.plan_steps(state(), "ffmpeg", "file")]
+        self.assertEqual(steps, [
+            ("preview", "capture", "visual_review.py"),
+            ("subtitle", "merge", "srt"),
+            ("render", "run", "ffmpeg"),
+        ])
+
+    def test_ffmpeg_plan_adds_chromium_install_when_missing(self):
+        steps = selection.plan_steps(state(has_chromium=False), "ffmpeg", "file")
+        self.assertEqual(steps[0]["step"], "chromium")
+        self.assertEqual(steps[0]["method"], "pip+playwright")
+
+    def test_ffmpeg_plan_skips_capture_when_previews_exist(self):
+        steps = [s["step"] for s in selection.plan_steps(state(previews=["01_mo_dau", "02_noi_dung"]), "ffmpeg", "file")]
+        self.assertNotIn("preview", steps)
+
+    def test_powerpoint_plan_uses_upstream_exporter(self):
+        steps = [(s["step"], s["method"]) for s in selection.plan_steps(state(), "powerpoint", "hinh")]
+        self.assertIn(("render", "powerpoint_video.py"), steps)
+        self.assertIn(("subtitle", "srt"), steps)
+        self.assertIn(("burn", "ffmpeg"), steps)
+
+    def test_no_subtitle_mode_drops_subtitle_steps(self):
+        steps = [s["step"] for s in selection.plan_steps(state(), "ffmpeg", "khong")]
+        self.assertNotIn("subtitle", steps)
+        self.assertNotIn("burn", steps)
+
+
+class VideoCliPlanTest(unittest.TestCase):
+    def build_project(self, root, with_audio=True):
+        (root / "svg_output").mkdir(parents=True)
+        (root / "audio").mkdir(parents=True)
+        (root / "exports").mkdir(parents=True)
+        for stem in ("01_mo_dau", "02_noi_dung"):
+            (root / "svg_output" / f"{stem}.svg").write_text("<svg/>", encoding="utf-8")
+            if with_audio:
+                (root / "audio" / f"{stem}.mp3").write_bytes(b"")
+                (root / "audio" / f"{stem}.srt").write_text(SAMPLE_SRT, encoding="utf-8")
+        return root
+
+    def run_cli(self, *args):
+        proc = subprocess.run(
+            [sys.executable, str(VIDEO_CLI), *args],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        )
+        stdout = proc.stdout.strip()
+        self.assertEqual(len(stdout.splitlines()), 1, f"stdout phải là một dòng JSON:\n{proc.stdout}\n{proc.stderr}")
+        return proc.returncode, json.loads(stdout)
+
+    def test_plan_only_reports_backend_and_steps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an")
+            code, data = self.run_cli(str(project), "--cach", "ffmpeg", "--plan-only")
+            self.assertEqual(code, 0)
+            self.assertEqual(data["backend"], "ffmpeg")
+            self.assertIn("render", [step["step"] for step in data["steps"]])
+
+    def test_missing_audio_reports_error_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = self.build_project(Path(tmp) / "du_an", with_audio=False)
+            code, data = self.run_cli(str(project), "--plan-only")
+            self.assertEqual(code, 1)
+            self.assertEqual(data["error"]["step"], "audio")
+            self.assertIn("notes_to_audio.py", data["error"]["fix"])
+
+    def test_unknown_project_reports_error_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, data = self.run_cli(str(Path(tmp) / "khong_co"), "--plan-only")
+            self.assertEqual(code, 1)
+            self.assertEqual(data["error"]["step"], "project")
+
+
 if __name__ == "__main__":
     unittest.main()
