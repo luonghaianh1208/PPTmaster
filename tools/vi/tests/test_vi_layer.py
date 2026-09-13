@@ -785,6 +785,14 @@ class ExamGuideTest(unittest.TestCase):
     def test_exam_guide_has_no_unsupported_essay_question(self):
         self.assertNotIn("chỗ trống", section(read(EXAM_GUIDE), "## Câu hỏi tuỳ chọn"))
 
+    def test_exam_guide_flow_a_reads_first(self):
+        self.assertIn("Luồng A: đọc đề trước rồi mới hỏi thầy cô", section(read(EXAM_GUIDE), "## Khi nào dùng"))
+
+    def test_exam_guide_quick_mode_still_asks_thcs_counts(self):
+        body = section(read(EXAM_GUIDE), "## Tạo nhanh")
+        self.assertIn("không cần hỏi lại", body)
+        self.assertIn("THCS", body)
+
 
 class ScienceEnglishGuideTest(unittest.TestCase):
     def test_guide_states_every_principle(self):
@@ -828,6 +836,11 @@ class ScienceEnglishGuideTest(unittest.TestCase):
         self.assertNotIn("Chỉ nhiệt độ mới có khoảng trắng", text)
         self.assertNotIn("Anh-Mỹ cũ", text)
         self.assertIn("5 kg", text)
+
+    def test_guide_forbids_tilde_for_approximately(self):
+        text = read(ENGLISH_GUIDE)
+        self.assertIn("≈", text)
+        self.assertIn("chỉ thêm dấu ~ ~", text)
 
 
 class ExamWiringTest(unittest.TestCase):
@@ -876,6 +889,12 @@ class ExamWiringTest(unittest.TestCase):
         for phrase in ("SVG", "skills/", "ma trận", "vi:", "Cần thầy cô soát"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, body)
+
+    def test_agents_vi_exam_flow_a_reads_the_paper_before_asking(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXAM_HEADING)
+        self.assertIn("source_to_md.py", body)
+        self.assertIn("hỏi một lượt", body)
+        self.assertLess(body.index("source_to_md.py"), body.index("hỏi một lượt"))
 
     def test_common_rules_say_pptx_steps_do_not_apply_to_exams(self):
         body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")

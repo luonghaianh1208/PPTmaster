@@ -91,7 +91,7 @@ Xem dòng kết quả AI đọc được, phần `error`:
 
 - `input`: chưa có file `de.md` trong thư mục đề. Nhờ AI viết file `de.md` rồi chạy lại lệnh xuất.
 - `parse`: `error.message` nêu đúng số **Dòng** trong `de.md` cần sửa. Mở file, sửa đúng dòng đó rồi chạy lại.
-- `docx`: máy chưa có thư viện `python-docx`. Chạy `python -m pip install -r tools/vi/requirements-vi.txt`, hoặc bấm đúp `CAI-DAT.bat`.
+- `docx`: máy chưa có thư viện `python-docx`. Có `venv\Scripts\python.exe` ở thư mục gốc repo thì chạy `venv\Scripts\python.exe -m pip install -r tools/vi/requirements-vi.txt`; không thì chạy `python -m pip install -r tools/vi/requirements-vi.txt`, hoặc bấm đúp `CAI-DAT.bat`.
 - `write`: một file Word trong kết quả **đang mở trong Word** — đóng file đó rồi chạy lại; hoặc ổ đĩa hết dung lượng; hoặc đường dẫn dự án quá 200 ký tự, xem mục **Đường dẫn quá dài**.
 - `internal`: lỗi ngoài dự kiến. Dán nguyên dòng `error.message` gửi người bảo trì.
 

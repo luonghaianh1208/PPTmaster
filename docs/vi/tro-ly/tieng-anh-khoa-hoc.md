@@ -45,7 +45,7 @@ Dạng phủ định phải in đậm chữ `not` bằng `**not**` để học s
 
 ## 4. Chính tả IUPAC / Anh-Anh
 
-Dùng chính tả IUPAC — trùng tiếng Anh-Anh hiện hành ở `aluminium`, `caesium`; riêng `sulfur` viết theo IUPAC, không viết `sulphur` (cách viết Anh cũ). Kèm theo: `sulfuric acid`, `sulfate`. Tên hợp chất có số oxi hoá viết theo dạng `iron(III) oxide`, `copper(II) sulfate`. Ký hiệu nguyên tố và phương trình hoá học giữ nguyên, không dịch hay đổi định dạng.
+Dùng chính tả IUPAC — trùng tiếng Anh-Anh hiện hành ở `aluminium`, `caesium`; riêng `sulfur` viết theo IUPAC, không viết `sulphur` (cách viết Anh cũ). Kèm theo: `sulfuric acid`, `sulfate`. Tên hợp chất có số oxi hoá viết theo dạng `iron(III) oxide`, `copper(II) sulfate`. Ký hiệu nguyên tố và phương trình hoá học giữ nguyên, không dịch hay đổi định dạng — giữ nguyên không có nghĩa là cấm hai dấu này: chỉ thêm dấu ~ ~ cho chỉ số dưới và ^ ^ cho chỉ số trên (H~2~SO~4~, m/s^2^).
 
 ## 5. Số và đơn vị
 
@@ -54,6 +54,7 @@ Dùng chính tả IUPAC — trùng tiếng Anh-Anh hiện hành ở `aluminium`,
 - Luôn có khoảng trắng giữa số và đơn vị: `5 kg`, `25 °C`. Trong các đơn vị dùng dấu °, chỉ độ C (nhiệt độ) có khoảng trắng: `25 °C`; góc thì viết liền: `30°`.
 - "Ở đktc" viết rõ thành `at 0 °C and 1 atm`, **không** dịch thành `at STP`.
 - "Ở điều kiện chuẩn" (đkc, 25 °C và 1 bar, thể tích mol 24,79 L/mol) viết thành `at 25 °C and 1 bar`; không gộp với đktc (`at 0 °C and 1 atm`). Đề không nói rõ là điều kiện nào thì ghi vào `## CAN SOAT`, không tự chọn.
+- Không dùng dấu ~ để nói "khoảng": dấu ~…~ là chỉ số dưới. Viết ≈ hoặc about (ví dụ ≈ 5 kg).
 
 ## 6. Ngữ cảnh Việt Nam
 

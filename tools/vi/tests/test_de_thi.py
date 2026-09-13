@@ -627,11 +627,22 @@ class CliTest(unittest.TestCase):
 
     def test_missing_python_docx_reports_docx_step_with_the_install_command(self):
         self.write_source()
-        with mock.patch.object(de_thi, "load_docx_build", side_effect=ImportError("No module named 'docx'")):
+        with mock.patch.object(
+            de_thi, "load_docx_build",
+            side_effect=ImportError("No module named 'docx'", name="docx"),
+        ):
             code, data = self.run_cli()
         self.assertEqual(code, 1)
         self.assertEqual(data["error"]["step"], "docx")
         self.assertIn("requirements-vi.txt", data["error"]["fix"])
+
+    def test_unrelated_import_error_reports_internal_step(self):
+        self.write_source()
+        with mock.patch.object(de_thi, "load_docx_build",
+                               side_effect=ImportError("cannot import name 'x'", name="word_parts.base")):
+            code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "internal")
 
     def test_write_failure_reports_write_step(self):
         self.write_source()
@@ -664,6 +675,16 @@ class CliTest(unittest.TestCase):
         code, data = self.run_cli()
         self.assertEqual(code, 0, data)
         self.assertTrue(any("Ghi đè" in warning for warning in data["warnings"]))
+
+    def test_operational_warnings_stay_out_of_the_answer_key(self):
+        self.write_source()
+        self.run_cli()
+        code, data = self.run_cli()
+        self.assertEqual(code, 0, data)
+        self.assertTrue(any("Ghi đè" in warning for warning in data["warnings"]))
+        with zipfile.ZipFile(self.folder / "dap-an.docx") as archive:
+            xml = archive.read("word/document.xml").decode("utf-8")
+        self.assertNotIn("Ghi đè", xml)
 
     def test_emit_falls_back_to_utf8_buffer(self):
         class LegacyStdout:

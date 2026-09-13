@@ -108,18 +108,19 @@ Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọ
 
 ## 12. Soạn đề KHTN bằng tiếng Anh
 
-Khi người dùng cần đề kiểm tra KHTN bằng tiếng Anh, đọc [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) và [docs/vi/tro-ly/tieng-anh-khoa-hoc.md](docs/vi/tro-ly/tieng-anh-khoa-hoc.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự dưới. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây.
+Khi người dùng cần đề kiểm tra KHTN bằng tiếng Anh, đọc [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) và [docs/vi/tro-ly/tieng-anh-khoa-hoc.md](docs/vi/tro-ly/tieng-anh-khoa-hoc.md) rồi làm đúng thứ tự dưới. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây.
 
-1. Chỉ luồng A (đã có đề tiếng Việt): đọc đề thầy cô đưa bằng `python skills/ppt-master/scripts/source_to_md.py <file> -o <thư_mục_tạm>`. Thầy cô đưa **ảnh** thì nói rõ không đọc được ảnh, xin bản PDF hoặc Word.
-2. Tạo `projects/_de-thi/<tên_đề>/`. Luồng B (đề mới hoàn toàn): soạn ma trận đặc tả trước (chủ đề × mức độ × số câu) theo câu trả lời của thầy cô, viết câu hỏi trực tiếp bằng tiếng Anh, ghi bản tiếng Việt của từng câu vào `vi:` để thầy cô soát. Viết `de.md` theo đúng ngữ pháp trong file hướng dẫn.
-3. Chạy `python tools\vi\de_thi.py projects\_de-thi\<tên_đề>`; thêm `--phan de,dap-an` khi thầy cô không cần bản song ngữ; thêm `--plan-only` khi chỉ muốn kiểm cú pháp.
-4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn các file thực sự sinh ra (hai file khi chạy `--phan de,dap-an`, ba file với các trường hợp còn lại), số câu mỗi phần, tổng điểm, đọc nguyên văn các dòng `warnings`, và báo cho thầy cô các mục trong "Cần thầy cô soát" của file đáp án.
+1. Luồng A (đã có đề tiếng Việt): đọc đề thầy cô đưa bằng `python skills/ppt-master/scripts/source_to_md.py <file> -o <thư_mục_tạm>` trước khi hỏi gì. Thầy cô đưa **ảnh** thì nói rõ không đọc được ảnh, xin bản PDF hoặc Word. Luồng B (đề mới hoàn toàn) không có gì để đọc, bỏ qua bước này.
+2. Sau bước 1 (luồng A) hoặc ngay từ đầu (luồng B), hỏi một lượt theo file hướng dẫn: luồng A lấy câu 3, 4 và 5 (chủ đề, số câu mỗi phần, tỉ lệ mức độ) trực tiếp từ đề vừa đọc, chỉ hỏi phần đề không trả lời được; luồng B hỏi đủ theo file đó.
+3. Tạo `projects/_de-thi/<tên_đề>/`. Luồng B soạn ma trận đặc tả trước (chủ đề × mức độ × số câu) theo câu trả lời của thầy cô, viết câu hỏi trực tiếp bằng tiếng Anh, ghi bản tiếng Việt của từng câu vào `vi:` để thầy cô soát. Viết `de.md` theo đúng ngữ pháp trong file hướng dẫn.
+4. Chạy `python tools\vi\de_thi.py projects\_de-thi\<tên_đề>`; thêm `--phan de,dap-an` khi thầy cô không cần bản song ngữ; thêm `--plan-only` khi chỉ muốn kiểm cú pháp.
+5. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn các file thực sự sinh ra (hai file khi chạy `--phan de,dap-an`, ba file với các trường hợp còn lại), số câu mỗi phần, tổng điểm, đọc nguyên văn các dòng `warnings`, và báo cho thầy cô các mục trong "Cần thầy cô soát" của file đáp án.
 
 | `error.step` | Xử lý |
 |---|---|
 | `input` | Chưa có `de.md`, viết file rồi chạy lại. |
 | `parse` | Sửa đúng dòng `error.message` nêu rồi chạy lại. |
-| `docx` | Chạy `python -m pip install -r tools/vi/requirements-vi.txt` rồi chạy lại, tối đa một lần. |
+| `docx` | Có `venv\Scripts\python.exe` ở thư mục gốc repo thì chạy `venv\Scripts\python.exe -m pip install -r tools/vi/requirements-vi.txt`; không thì chạy `python -m pip install -r tools/vi/requirements-vi.txt` (thư viện `python-docx`). Chạy lại lệnh xuất, tối đa một lần. |
 | `write` | Xin thầy cô đóng file Word đang mở rồi chạy lại. |
 | `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
 

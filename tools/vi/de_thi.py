@@ -26,10 +26,15 @@ FIX_SOURCE = (
     "Viết file de.md trong thư mục đề theo docs/vi/tro-ly/de-khtn-tieng-anh.md rồi chạy lại."
 )
 FIX_PARSE = "Sửa đúng dòng đó trong de.md theo docs/vi/tro-ly/de-khtn-tieng-anh.md rồi chạy lại."
-FIX_DOCX = (
-    "Cài thư viện bằng: python -m pip install -r tools/vi/requirements-vi.txt "
-    "(hoặc chạy lại CAI-DAT.bat)"
-)
+
+
+def fix_docx() -> str:
+    return (
+        f'Cài thư viện bằng: "{sys.executable}" -m pip install -r tools/vi/requirements-vi.txt '
+        "(hoặc chạy lại CAI-DAT.bat)"
+    )
+
+
 FIX_WRITE = "Đóng file Word đang mở rồi chạy lại; kiểm tra ổ đĩa còn trống."
 FIX_INTERNAL = f"Gửi nguyên dòng error.message cho người bảo trì; xem {SOURCE_NAME} có ký tự lạ."
 FIX_ARGS = "Chạy: python tools/vi/de_thi.py <thư_mục_đề> [--phan tat-ca|de,song-ngu,dap-an] [--plan-only]"
@@ -171,8 +176,12 @@ def run(args) -> int:
     try:
         docx_build = load_docx_build()
     except ImportError as exc:
-        emit(failure("docx", f"Chưa cài thư viện python-docx ({exc})", FIX_DOCX,
-                     counts=counts, points=points, warnings=warnings))
+        if getattr(exc, "name", None) in ("docx", "lxml"):
+            emit(failure("docx", f"Chưa cài thư viện python-docx ({exc})", fix_docx(),
+                         counts=counts, points=points, warnings=warnings))
+        else:
+            emit(failure("internal", f"Lỗi ngoài dự kiến khi nạp bộ dựng Word: {exc}", FIX_INTERNAL,
+                         counts=counts, points=points, warnings=warnings))
         return 1
 
     for part in parts:

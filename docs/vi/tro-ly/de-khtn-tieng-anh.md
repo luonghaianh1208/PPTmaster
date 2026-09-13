@@ -10,6 +10,8 @@ Có hai trường hợp:
 - Luồng A — thầy cô đã có đề tiếng Việt, cần chuyển sang tiếng Anh kèm bản song ngữ để tổ chuyên môn soát.
 - Luồng B — thầy cô chưa có gì, cần AI soạn đề mới hoàn toàn bằng tiếng Anh: soạn ma trận đặc tả trước (chủ đề × mức độ × số câu) theo câu trả lời của thầy cô, viết câu hỏi trực tiếp bằng tiếng Anh, và ghi bản tiếng Việt của từng câu vào `vi:` để thầy cô soát.
 
+Luồng A: đọc đề trước rồi mới hỏi thầy cô; câu 3, 4 và 5 lấy từ chính đề, chỉ hỏi phần còn thiếu.
+
 Ví dụ câu lệnh:
 - "Chuyển đề giữa kì Hoá 11 này sang tiếng Anh"
 - "Soạn đề Vật lí 10 tiếng Anh 45 phút chương động lực học"
@@ -49,6 +51,8 @@ Bản này không có phần tự luận. Thầy cô hỏi hoặc muốn có câ
 2. Số câu mỗi phần (câu hỏi bắt buộc 4).
 
 Hỏi xong hai câu trên thì viết `de.md` ngay và chạy lệnh; loại việc này không theo `quick-generate.md` của upstream (hồ sơ đó dành cho PPTX).
+
+Đề THCS mà câu lệnh có "không cần hỏi lại": vẫn dừng lại hỏi đúng một câu về số câu mỗi phần, vì môn KHTN ở THCS không có định dạng chung.
 
 ## Cấu trúc đề
 
@@ -97,6 +101,8 @@ Khoá dùng trong một câu:
 | `unit` | III | không | Đơn vị của đáp số |
 
 Phần II **không** dùng khoá `key`; ghi khoá này ở Phần II là lỗi cú pháp. Mỗi khoá chỉ được ghi một lần trong một câu.
+
+Trong đề tiếng Anh, viết đáp số với dấu chấm thập phân (12.5); công cụ vẫn nhận 12,5 nhưng in đúng như đã viết.
 
 Trong `en:` và `vi:` chỉ dùng ba dấu đánh dấu: `~ ~` (chỉ số dưới, ví dụ `H~2~O`), `^ ^` (chỉ số trên, ví dụ `m/s^2^`), `**` (in đậm, ví dụ `**not**`). Không dùng Markdown nào khác trong hai trường này.
 
