@@ -49,12 +49,21 @@ def log(text: str) -> None:
 
 
 def emit(payload: dict) -> None:
+    """In đúng một dòng JSON và không bao giờ ném lỗi, để main không phải trả lời lần thứ hai."""
     text = json.dumps(payload, ensure_ascii=False) + "\n"
     try:
-        sys.stdout.write(text)
-    except UnicodeEncodeError:
-        sys.stdout.buffer.write(text.encode("utf-8", errors="replace"))
-    sys.stdout.flush()
+        try:
+            sys.stdout.write(text)
+        except UnicodeEncodeError:
+            buffer = getattr(sys.stdout, "buffer", None)
+            if buffer is not None:
+                buffer.write(text.encode("utf-8", errors="replace"))
+            else:
+                sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        sys.stdout.flush()
+    except OSError:
+        # stdout đã đóng hoặc hỏng (ví dụ bên đọc thoát sớm): không còn cách nào trả lời thêm.
+        pass
 
 
 def result(

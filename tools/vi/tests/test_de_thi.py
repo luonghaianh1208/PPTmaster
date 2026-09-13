@@ -670,6 +670,45 @@ class CliTest(unittest.TestCase):
         self.assertEqual(data["error"]["step"], "internal")
         self.assertIn("hỏng bất ngờ", data["error"]["message"])
 
+    def test_broken_stdout_is_not_answered_twice(self):
+        self.write_source()
+
+        class BrokenStdout:
+            def __init__(self):
+                self.writes = 0
+
+            def write(self, text):
+                self.writes += 1
+                raise BrokenPipeError("bên đọc đã đóng")
+
+            def flush(self):
+                pass
+
+        stream = BrokenStdout()
+        with mock.patch.object(de_thi.sys, "stdout", stream), contextlib.redirect_stderr(io.StringIO()):
+            code = de_thi.main([str(self.folder), "--plan-only"])
+        self.assertEqual(stream.writes, 1)
+        self.assertEqual(code, 0)
+
+    def test_emit_without_buffer_falls_back_to_ascii_json(self):
+        class AsciiOnlyStdout:
+            def __init__(self):
+                self.chunks = []
+
+            def write(self, text):
+                text.encode("ascii")
+                self.chunks.append(text)
+                return len(text)
+
+            def flush(self):
+                pass
+
+        stream = AsciiOnlyStdout()
+        with mock.patch.object(de_thi.sys, "stdout", stream):
+            de_thi.emit({"ready": False, "warnings": ["Thiếu bản tiếng Việt"]})
+        self.assertEqual(len(stream.chunks), 1)
+        self.assertEqual(json.loads(stream.chunks[0])["warnings"], ["Thiếu bản tiếng Việt"])
+
 
 if __name__ == "__main__":
     unittest.main()
