@@ -1819,10 +1819,10 @@ git commit -m "feat(vi): add the de_thi command with a one-line JSON contract"
 **Files:**
 - Create: `tools/vi/requirements-vi.txt`
 - Modify: `tools/vi/doctor.py` (hàm `check_packages`, hàm `collect`)
-- Modify: `tools/vi/pptmaster.ps1` (hai chỗ `pip install -r`: trong `Invoke-Setup` và trong nhánh `-Auto`)
+- Modify: `tools/vi/pptmaster.ps1` (hai chỗ `pip install -r`: trong `Invoke-Setup` và trong nhánh `-Auto`; và hàm `Test-PackagesOk`)
 - Modify: `tools/vi/setup.sh` (dòng `pip install -r`)
-- Modify: `tools/vi/tests/test_doctor.py` (thêm `ViPackagesTest`)
-- Modify: `tools/vi/tests/test_installer.py` (thêm `ViRequirementsWiringTest`)
+- Modify: `tools/vi/tests/test_doctor.py` (thêm hằng `VI_REQUIREMENTS` và lớp `ViPackagesTest`)
+- Modify: `tools/vi/tests/test_installer.py` (thêm lớp `ViRequirementsWiringTest`, và một phương thức mới trong lớp có sẵn `InstallerPlanTest`)
 
 **Interfaces:**
 - Consumes: không có.
@@ -1847,15 +1847,17 @@ python-docx>=1.1.0
 Thêm vào `tools/vi/tests/test_doctor.py`:
 
 ```python
+VI_REQUIREMENTS = Path(doctor.__file__).resolve().parent / "requirements-vi.txt"
+
+
 class ViPackagesTest(unittest.TestCase):
     def test_vi_requirements_file_declares_python_docx(self):
-        text = (REPO_ROOT / "tools" / "vi" / "requirements-vi.txt").read_text(encoding="utf-8")
+        text = VI_REQUIREMENTS.read_text(encoding="utf-8")
         self.assertIn("python-docx", doctor.parse_requirement_names(text))
 
     def test_check_packages_uses_the_given_name_and_level(self):
-        path = REPO_ROOT / "tools" / "vi" / "requirements-vi.txt"
         result = doctor.check_packages(
-            path,
+            VI_REQUIREMENTS,
             find_dist=lambda name: object(),
             name="Thư viện lớp Việt",
             level=doctor.RECOMMENDED,
@@ -1868,9 +1870,8 @@ class ViPackagesTest(unittest.TestCase):
         def missing(name):
             raise doctor.importlib.metadata.PackageNotFoundError(name)
 
-        path = REPO_ROOT / "tools" / "vi" / "requirements-vi.txt"
         result = doctor.check_packages(
-            path,
+            VI_REQUIREMENTS,
             find_dist=missing,
             name="Thư viện lớp Việt",
             level=doctor.RECOMMENDED,
@@ -1886,7 +1887,7 @@ class ViPackagesTest(unittest.TestCase):
         self.assertIn("Thư viện lớp Việt", [item.name for item in results])
 ```
 
-Nếu `test_doctor.py` chưa import `REPO_ROOT` hoặc `doctor` theo tên đó, dùng đúng tên mà file đang dùng; không đổi các import có sẵn.
+`test_doctor.py` **không** có hằng `REPO_ROOT`: nó thêm `tools/vi` vào `sys.path`, `import doctor`, và đã import sẵn `Path`. Đặt hằng `VI_REQUIREMENTS` ở mức mô-đun ngay trước lớp `ViPackagesTest`; không đổi các import có sẵn.
 
 - [ ] **Step 3: Chạy test để thấy nó fail**
 
@@ -1936,34 +1937,117 @@ Trong `collect` (hiện ở `tools/vi/doctor.py:316-339`), ngay sau dòng `resul
 
 Thêm vào `tools/vi/tests/test_installer.py`:
 
+`test_installer.py` đã có sẵn hằng `REPO_ROOT` và `LAUNCHER` (`= REPO_ROOT / "tools" / "vi" / "pptmaster.ps1"`). Thêm lớp mới này **sau** lớp `InstallerPlanTest`, trước khối `if __name__`:
+
 ```python
 class ViRequirementsWiringTest(unittest.TestCase):
     def test_launcher_installs_the_vi_requirements_in_both_paths(self):
-        text = (REPO_ROOT / "tools" / "vi" / "pptmaster.ps1").read_text(encoding="utf-8-sig")
+        text = LAUNCHER.read_text(encoding="utf-8-sig")
         self.assertEqual(text.count("'tools\\vi\\requirements-vi.txt'"), 2, text.count("requirements-vi"))
+
+    def test_upstream_install_code_is_captured_before_the_vi_install(self):
+        """Lệnh cài lớp Việt chạy sau không được che mất lỗi của lệnh cài thư viện upstream."""
+        lines = LAUNCHER.read_text(encoding="utf-8-sig").splitlines()
+        upstream = [i for i, line in enumerate(lines) if "'requirements.txt'" in line and "pip install" in line]
+        vi_layer = [i for i, line in enumerate(lines) if "'tools\\vi\\requirements-vi.txt'" in line]
+        self.assertEqual(len(upstream), 2, upstream)
+        self.assertEqual(len(vi_layer), 2, vi_layer)
+        for upstream_line, vi_line in zip(upstream, vi_layer):
+            between = lines[upstream_line + 1:vi_line]
+            self.assertTrue(
+                any("$pipCode = $LASTEXITCODE" in line for line in between),
+                f"thiếu '$pipCode = $LASTEXITCODE' giữa dòng {upstream_line + 1} và dòng {vi_line + 1}",
+            )
+
+    def test_package_check_also_watches_the_vi_layer_packages(self):
+        text = LAUNCHER.read_text(encoding="utf-8-sig")
+        start = text.index("function Test-PackagesOk")
+        body = text[start:text.index("\n}", start)]
+        self.assertIn("'Thư viện lớp Việt'", body)
 
     def test_setup_sh_installs_the_vi_requirements(self):
         text = (REPO_ROOT / "tools" / "vi" / "setup.sh").read_text(encoding="utf-8")
         self.assertIn("tools/vi/requirements-vi.txt", text)
 ```
 
-Dùng đúng tên hằng `REPO_ROOT` mà `test_installer.py` đang dùng.
+Thêm phương thức này **vào trong lớp có sẵn `InstallerPlanTest`**, ngay sau `test_auto_setup_second_run_installs_nothing` — nó cần các tiện ích `self.repo` và `self.run_launcher` của lớp đó. Không sửa `test_auto_setup_second_run_installs_nothing`:
+
+```python
+    def test_auto_setup_installs_when_vi_layer_packages_are_missing(self):
+        """Máy đã cài bản cũ (đủ thư viện upstream, thiếu python-docx) phải vào nhánh cài thư viện."""
+        report = {"ready": True, "python": "x", "checks": [
+            {"name": "Thư viện Python", "level": "required", "ok": True, "detail": "", "fix": ""},
+            {"name": "Thư viện lớp Việt", "level": "recommended", "ok": False,
+             "detail": "Thiếu: python-docx", "fix": ""},
+        ]}
+        payload = json.dumps(report, ensure_ascii=False)
+        (self.repo / "tools" / "vi" / "doctor.py").write_text(
+            f"import sys\nsys.stdout.reconfigure(encoding='utf-8')\nprint({payload!r})\n", encoding="utf-8",
+        )
+        subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(self.repo / "venv")],
+                       check=True, capture_output=True, timeout=120)
+        (self.repo / ".env").write_text("", encoding="utf-8")
+        returncode, result = self.run_launcher("-Action", "setup", "-Auto")
+        # venv được tạo không có pip, nên nhánh cài thư viện dừng ở bước kiểm pip.
+        # Kết quả này chứng tỏ bộ cài đã KHÔNG bỏ qua bước cài như trước.
+        self.assertEqual(returncode, 1, result)
+        self.assertEqual(result["error"]["step"], "venv", result)
+```
 
 - [ ] **Step 6: Sửa `pptmaster.ps1`**
 
-Ở `Invoke-Setup`, ngay sau dòng cài `requirements.txt` (hiện ở `tools/vi/pptmaster.ps1:180`), thêm:
+Ba chỗ. Giữ nguyên BOM UTF-8 của file: sửa bằng công cụ sửa file, không ghi lại toàn bộ file bằng PowerShell.
+
+**(a)** Ở `Invoke-Setup`, thay hai dòng hiện ở `tools/vi/pptmaster.ps1:180-181`:
 
 ```powershell
+    & $py.Path -m pip install -r (Join-Path $RepoRoot 'requirements.txt') | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+```
+
+thành:
+
+```powershell
+    & $py.Path -m pip install -r (Join-Path $RepoRoot 'requirements.txt') | Out-Host
+    $pipCode = $LASTEXITCODE
     & $py.Path -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') | Out-Host
+    if ($pipCode -ne 0 -or $LASTEXITCODE -ne 0) {
 ```
 
-Ở nhánh `-Auto`, ngay sau dòng cài `requirements.txt` (hiện ở `tools/vi/pptmaster.ps1:385`), thêm trong cùng khối `Invoke-Logged`:
+**(b)** Ở nhánh `-Auto`, thay hai dòng hiện ở `tools/vi/pptmaster.ps1:385-386`:
 
 ```powershell
-            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') }
+            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'requirements.txt') }
+            $pipCode = $LASTEXITCODE
 ```
 
-Đặt dòng này **trước** dòng `$pipCode = $LASTEXITCODE` để lỗi cài thư viện lớp Việt cũng được tính vào `$pipCode`. Giữ nguyên BOM UTF-8 của file: sửa bằng công cụ sửa file, không ghi lại toàn bộ file bằng PowerShell.
+thành:
+
+```powershell
+            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'requirements.txt') }
+            $pipCode = $LASTEXITCODE
+            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') }
+            if ($LASTEXITCODE -ne 0) { $pipCode = $LASTEXITCODE }
+```
+
+Lý do cho (a) và (b): đọc `$LASTEXITCODE` sau hai lệnh cài liên tiếp chỉ thấy mã của lệnh sau, nên lỗi cài thư viện upstream sẽ bị che mất.
+
+**(c)** Thay toàn bộ hàm `Test-PackagesOk` (hiện ở `tools/vi/pptmaster.ps1:319-325`) thành:
+
+```powershell
+function Test-PackagesOk($Report) {
+    if (-not $Report) { return $false }
+    $upstreamOk = $false
+    foreach ($check in $Report.checks) {
+        if ($check.name -eq 'Thư viện Python') { $upstreamOk = [bool]$check.ok }
+        # Doctor cũ không có mục này thì coi như ổn; có mục mà báo thiếu thì phải cài.
+        if ($check.name -eq 'Thư viện lớp Việt' -and -not [bool]$check.ok) { return $false }
+    }
+    return $upstreamOk
+}
+```
+
+Lý do cho (c): hàm cũ chỉ nhìn mục `Thư viện Python`, nên máy đã cài bản cũ (đủ thư viện upstream, thiếu `python-docx`) chạy `-Action setup -Auto` sẽ bỏ qua bước cài.
 
 - [ ] **Step 7: Sửa `setup.sh`**
 
