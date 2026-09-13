@@ -2314,9 +2314,10 @@ class ExamUserDocsTest(unittest.TestCase):
         text = read("docs/vi/xu-ly-loi.md")
         headings = h2_headings(text)
         self.assertIn("## Xuất đề Word thất bại", headings)
+        # Đứng NGAY TRƯỚC mục video: test gói video khoá mục video phải ngay trước "Đường dẫn quá dài".
         self.assertEqual(
             headings.index("## Xuất đề Word thất bại"),
-            headings.index("## Dựng video thất bại") + 1,
+            headings.index("## Dựng video thất bại") - 1,
         )
         body = section(text, "## Xuất đề Word thất bại")
         for phrase in ("requirements-vi.txt", "python-docx", "đang mở trong Word", "Dòng", "de.md"):
@@ -2348,7 +2349,7 @@ Viết cho thầy cô, không viết cho lập trình viên. Các mục:
 
 - [ ] **Step 4: Sửa `docs/vi/xu-ly-loi.md`**
 
-Thêm mục `## Xuất đề Word thất bại` **ngay sau** `## Dựng video thất bại`. Viết theo từng mã lỗi:
+Thêm mục `## Xuất đề Word thất bại` **ngay trước** `## Dựng video thất bại`. Không chèn vào giữa `## Dựng video thất bại` và `## Đường dẫn quá dài`: test của gói video khoá hai mục đó phải liền nhau. Viết theo từng mã lỗi:
 
 - `error.step` là `input`: chưa có `de.md` trong thư mục đề — nhờ AI viết file rồi chạy lại.
 - `error.step` là `parse`: `error.message` nêu đúng số dòng; mở `de.md`, sửa dòng đó.
