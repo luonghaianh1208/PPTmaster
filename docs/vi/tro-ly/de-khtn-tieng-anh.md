@@ -8,7 +8,7 @@ Thầy cô cần đề kiểm tra môn khoa học tự nhiên viết bằng ti�
 
 Có hai trường hợp:
 - Luồng A — thầy cô đã có đề tiếng Việt, cần chuyển sang tiếng Anh kèm bản song ngữ để tổ chuyên môn soát.
-- Luồng B — thầy cô chưa có gì, cần AI soạn đề mới hoàn toàn bằng tiếng Anh.
+- Luồng B — thầy cô chưa có gì, cần AI soạn đề mới hoàn toàn bằng tiếng Anh: soạn ma trận đặc tả trước (chủ đề × mức độ × số câu) theo câu trả lời của thầy cô, viết câu hỏi trực tiếp bằng tiếng Anh, và ghi bản tiếng Việt của từng câu vào `vi:` để thầy cô soát.
 
 Ví dụ câu lệnh:
 - "Chuyển đề giữa kì Hoá 11 này sang tiếng Anh"
@@ -40,12 +40,15 @@ Luồng A đã có đề sẵn thì câu 3, 4 và 5 đọc được từ chính 
 ## Câu hỏi tuỳ chọn
 
 - Có cần mã đề không? Chỉ hỏi khi thầy cô nhắc tới mã đề.
-- Có cần in chỗ trống cho học sinh trình bày bài tự luận không? Chỉ hỏi khi thầy cô nhắc tới việc này.
+
+Bản này không có phần tự luận. Thầy cô hỏi hoặc muốn có câu tự luận thì nói rõ đề chỉ gồm Phần I trắc nghiệm, Phần II đúng/sai và Phần III trả lời ngắn, và gợi ý dùng Phần III trả lời ngắn thay cho câu tự luận.
 
 ## Tạo nhanh
 
 1. Môn và lớp (câu hỏi bắt buộc 1).
 2. Số câu mỗi phần (câu hỏi bắt buộc 4).
+
+Hỏi xong hai câu trên thì viết `de.md` ngay và chạy lệnh; loại việc này không theo `quick-generate.md` của upstream (hồ sơ đó dành cho PPTX).
 
 ## Cấu trúc đề
 
@@ -56,13 +59,98 @@ Giữ cấu trúc đề Việt Nam đang dùng:
 
 Thang điểm in trong file đáp án: Phần I mỗi câu 0,25 điểm; Phần II mỗi câu tối đa 1,0 điểm (chia theo số ý đúng); Phần III mỗi câu 0,25 điểm.
 
-Ngữ pháp `de.md`: khối meta ở đầu file giữa hai dòng `---`; mỗi câu bắt đầu bằng `### <số>` và dùng các khoá `en:` (đề bài tiếng Anh, bắt buộc), `vi:` (bản tiếng Việt, không bắt buộc — thiếu thì chỉ là cảnh báo), `A:`–`D:` (bốn lựa chọn ở Phần I), `a:`–`d:` (bốn ý ở Phần II, mỗi dòng kết bằng ` | T` hoặc ` | F`), `key:` (đáp án đúng), `unit:` (đơn vị đáp số ở Phần III), `why:` (giải thích ngắn, chỉ in trong file đáp án), `level:` (`biet`, `hieu` hoặc `vandung`), `topic:` (chủ đề, dùng dựng ma trận).
+Ngữ pháp `de.md` dưới đây khớp đúng với `tools/vi/de_thi_parts/parse.py`. Sai một chỗ, công cụ báo lỗi kèm số dòng; viết đúng ngay từ đầu thay vì đoán.
+
+### Khối thông tin đề (meta)
+
+Dòng đầu file là một dòng `---`. Sau đó mỗi dòng một cặp `khoá: giá trị`, đóng lại bằng một dòng `---` khác.
+
+| Khoá | Bắt buộc | Ý nghĩa |
+|---|---|---|
+| `school` | có | Tên trường |
+| `title` | có | Tên kỳ kiểm tra |
+| `subject` | có | Môn và lớp |
+| `time` | có | Số phút làm bài, chỉ chữ số |
+| `department` | không | Tổ chuyên môn |
+| `code` | không | Mã đề |
+| `points` | không | Tổng điểm, mặc định `10` |
+
+Dùng khoá nào ngoài bảy khoá trên là lỗi cú pháp.
+
+### Các phần và câu hỏi
+
+Sau khối meta là các dòng tiêu đề phần, đúng thứ tự: `## PART I`, `## PART II`, `## PART III`. Phần nào không dùng thì bỏ hẳn dòng đó, không để trống. Không dùng tiêu đề `## ` nào khác, trừ mục `## CAN SOAT` không bắt buộc ở cuối file. Mỗi câu mở bằng `### <số>`; số câu đếm lại từ 1 trong mỗi phần, đúng theo thứ tự xuất hiện.
+
+Khoá dùng trong một câu:
+
+| Khoá | Ở phần | Bắt buộc | Ý nghĩa |
+|---|---|---|---|
+| `en` | I, II, III | có | Đề bài tiếng Anh |
+| `vi` | I, II, III | không | Bản tiếng Việt; thiếu thì chỉ là cảnh báo, không phải lỗi |
+| `level` | I, II, III | có | Một trong `biet`, `hieu`, `vandung` |
+| `topic` | I, II, III | không | Chủ đề, dùng dựng ma trận |
+| `why` | I, II, III | không | Giải thích ngắn, chỉ in trong file đáp án |
+| `A`–`D` | I | có, đủ bốn | Bốn lựa chọn |
+| `key` | I | có | Một chữ trong `A`–`D` |
+| `a`–`d` | II | có, đủ bốn | Bốn ý, mỗi dòng kết bằng ` | T` hoặc ` | F`; phần nội dung trước dấu `|` không được để trống |
+| `key` | III | có | Đáp số, phải là một số: `36`, `12.5`, `12,5`, `-0.25` — không phải chữ, không phải `12.` hay `.5` |
+| `unit` | III | không | Đơn vị của đáp số |
+
+Phần II **không** dùng khoá `key`; ghi khoá này ở Phần II là lỗi cú pháp. Mỗi khoá chỉ được ghi một lần trong một câu.
 
 Trong `en:` và `vi:` chỉ dùng ba dấu đánh dấu: `~ ~` (chỉ số dưới, ví dụ `H~2~O`), `^ ^` (chỉ số trên, ví dụ `m/s^2^`), `**` (in đậm, ví dụ `**not**`). Không dùng Markdown nào khác trong hai trường này.
 
-Sau phần cuối, file có thể có mục `## CAN SOAT`: mỗi dòng bắt đầu bằng `- ` là một việc AI muốn thầy cô soát lại. Mục này in ở cuối `dap-an.docx` thành "Cần thầy cô soát"; không có mục này thì file đáp án ghi "Không có mục nào cần soát".
+Sau phần cuối, file có thể có mục `## CAN SOAT`, phải là mục cuối cùng: mỗi dòng bắt đầu bằng `- ` là một việc AI muốn thầy cô soát lại. Mục này in ở cuối `dap-an.docx` thành "Cần thầy cô soát"; không có mục này thì file đáp án ghi "Không có mục nào cần soát".
 
-Đọc chi tiết đầy đủ và các ca biên ở docs/vi/phat-trien/2026-09-12-de-khtn-tieng-anh-design.md trước khi viết `de.md` cho đề dài hoặc đề có tình huống lạ.
+### Ví dụ đầy đủ
+
+```
+---
+school: TRUONG THCS VI DU
+title: KIEM TRA GIUA KY II
+subject: KHTN — Grade 8
+time: 45
+points: 10
+---
+## PART I
+
+### 1
+en: Which of the following is **not** a state of matter?
+vi: Chất nào sau đây không phải là một trạng thái của vật chất?
+level: biet
+topic: Trang thai cua vat chat
+A: Solid
+B: Liquid
+C: Gas
+D: Energy
+key: D
+
+## PART II
+
+### 1
+en: Consider the following statements about density.
+vi: Xét các phát biểu sau về khối lượng riêng.
+level: hieu
+topic: Khoi luong rieng
+a: Density is mass divided by volume. | T
+b: Density has the unit of newton. | F
+c: Two objects of the same volume always have the same density. | F
+d: Density can be used to identify a material. | T
+
+## PART III
+
+### 1
+en: A block has a mass of 2 kg and a volume of 0.001 m^3^. Calculate its density.
+vi: Một khối vật chất có khối lượng 2 kg và thể tích 0,001 m^3^. Tính khối lượng riêng của nó.
+level: vandung
+topic: Khoi luong rieng
+key: 2000
+unit: kg/m^3^
+
+## CAN SOAT
+
+- Thuật ngữ "trạng thái vật chất" giữ nguyên state of matter; cần thầy cô soát lại cách diễn đạt.
+```
 
 ## Đầu ra
 
@@ -75,6 +163,7 @@ Sau phần cuối, file có thể có mục `## CAN SOAT`: mỗi dòng bắt đ�
 ## Ghi vào brief
 
 - Loại việc: Soạn đề KHTN tiếng Anh.
+- Brief lưu tại `projects/_de-thi/<tên_đề>/brief.md`, viết theo đúng bố cục của docs/vi/tro-ly/mau-brief.md.
 - Thầy cô yêu cầu: ghi đúng lời thầy cô cho từng câu hỏi bắt buộc và tuỳ chọn.
-- AI đề xuất (thầy cô đã đồng ý): các gợi ý thầy cô chấp nhận, theo đúng quy ước của docs/vi/tro-ly/mau-brief.md.
-- Viết theo mẫu docs/vi/tro-ly/mau-brief.md.
+- AI đề xuất (thầy cô đã đồng ý): các gợi ý thầy cô chấp nhận.
+- Loại việc này không dùng các bước dành cho PPTX: không kết thúc tin nhắn hỏi bằng dòng chốt cách xác nhận, không chạy `project_manager.py import-sources`, không chạy `project_manager.py init`, và không có bước xác nhận của upstream. Thầy cô trả lời xong lượt hỏi thì viết `de.md` rồi chạy lệnh ngay.

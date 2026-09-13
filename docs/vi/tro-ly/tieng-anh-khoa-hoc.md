@@ -27,7 +27,8 @@ Dùng đúng thuật ngữ chuẩn của từng môn, không dùng một từ ti
 | Hoá học | khối lượng riêng | `density` |
 | Sinh học | hô hấp tế bào | `cellular respiration` |
 | Sinh học | trao đổi chất | `metabolism` |
-| Sinh học | cơ thể | `organism` |
+| Sinh học | cơ thể (sinh vật, cấp tổ chức sống) | `organism` |
+| Sinh học | cơ thể người | `the human body` |
 | KHTN 6–9 | tốc độ | `speed` |
 | KHTN 6–9 | khối lượng riêng | `density` |
 | KHTN 6–9 | hô hấp tế bào | `cellular respiration` |
@@ -44,14 +45,15 @@ Dạng phủ định phải in đậm chữ `not` bằng `**not**` để học s
 
 ## 4. Chính tả IUPAC / Anh-Anh
 
-Dùng chính tả IUPAC và tiếng Anh-Anh cho tên hợp chất: `sulfuric acid`, `sulfate`, `aluminium`. Ký hiệu nguyên tố và phương trình hoá học giữ nguyên, không dịch hay đổi định dạng.
+Dùng chính tả IUPAC, không dùng chính tả Anh-Mỹ cũ: `sulfur` (IUPAC, **không** viết `sulphur`), `sulfuric acid`, `sulfate`, `aluminium`, `caesium`. Tên hợp chất có số oxi hoá viết theo dạng `iron(III) oxide`, `copper(II) sulfate`. Ký hiệu nguyên tố và phương trình hoá học giữ nguyên, không dịch hay đổi định dạng.
 
 ## 5. Số và đơn vị
 
 - Dấu thập phân: `25,5` (tiếng Việt) viết thành `25.5` (tiếng Anh).
 - Dấu phân cách hàng nghìn: `1.000.000` viết thành `1 000 000`.
-- Luôn có khoảng trắng giữa số và đơn vị: `5 kg`, `25 °C`.
+- Luôn có khoảng trắng giữa số và đơn vị: `5 kg`, `25 °C`; riêng góc phẳng thì viết liền, không có khoảng trắng: `30°`. Chỉ nhiệt độ mới có khoảng trắng trước đơn vị.
 - "Ở đktc" viết rõ thành `at 0 °C and 1 atm`, **không** dịch thành `at STP`.
+- "Ở điều kiện chuẩn" (đkc, 25 °C và 1 bar, thể tích mol 24,79 L/mol) viết thành `at 25 °C and 1 bar`; không gộp với đktc (`at 0 °C and 1 atm`). Đề không nói rõ là điều kiện nào thì ghi vào `## CAN SOAT`, không tự chọn.
 
 ## 6. Ngữ cảnh Việt Nam
 

@@ -213,7 +213,15 @@ NUMBERED_RE = re.compile(r"^\d+\. ")
 
 
 def h2_headings(text: str) -> list:
-    return [line.strip() for line in text.splitlines() if line.startswith("## ")]
+    headings = []
+    in_fence = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence and line.startswith("## "):
+            headings.append(line.strip())
+    return headings
 
 
 def section(text: str, heading: str) -> str:
@@ -222,8 +230,11 @@ def section(text: str, heading: str) -> str:
     if not starts:
         raise AssertionError(f"Thiếu mục: {heading}")
     body = []
+    in_fence = False
     for line in lines[starts[0] + 1:]:
-        if line.startswith("## "):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("## "):
             break
         body.append(line)
     return "\n".join(body)
@@ -738,6 +749,34 @@ class ExamGuideTest(unittest.TestCase):
             with self.subTest(file=name):
                 self.assertEqual(LINK_RE.findall(read(f"docs/vi/tro-ly/{name}")), [])
 
+    def test_exam_guide_states_the_full_parser_grammar(self):
+        body = section(read(EXAM_GUIDE), "## Cấu trúc đề")
+        for token in ("## PART I", "## PART II", "## PART III", "## CAN SOAT",
+                      "school", "title", "subject", "time", "department", "code", "points",
+                      "### ", "biet", "hieu", "vandung", "| T", "| F", "12,5", "-0.25", "unit:"):
+            with self.subTest(token=token):
+                self.assertIn(token, body)
+
+    def test_exam_guide_example_source_parses(self):
+        import sys
+        sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
+        from de_thi_parts import parse
+
+        body = section(read(EXAM_GUIDE), "## Cấu trúc đề")
+        blocks = re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)
+        self.assertTrue(blocks, "thiếu file de.md mẫu trong khối code")
+        exam = parse.parse_exam(blocks[0])
+        self.assertEqual(exam.counts(), {"part1": 1, "part2": 1, "part3": 1})
+
+    def test_exam_guide_skips_the_pptx_only_steps(self):
+        body = section(read(EXAM_GUIDE), "## Ghi vào brief")
+        for phrase in ("projects/_de-thi/", "brief.md", "import-sources", "dòng chốt"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_exam_guide_has_no_unsupported_essay_question(self):
+        self.assertNotIn("chỗ trống", section(read(EXAM_GUIDE), "## Câu hỏi tuỳ chọn"))
+
 
 class ScienceEnglishGuideTest(unittest.TestCase):
     def test_guide_states_every_principle(self):
@@ -769,6 +808,12 @@ class ScienceEnglishGuideTest(unittest.TestCase):
     def test_guide_forbids_making_the_english_harder_than_the_science(self):
         text = read(ENGLISH_GUIDE)
         self.assertIn("Độ khó nằm ở khoa học", text)
+
+    def test_guide_covers_the_corrections_from_review(self):
+        text = read(ENGLISH_GUIDE)
+        for phrase in ("30°", "the human body", "at 25 °C and 1 bar", "24,79", "sulfur", "sulphur", "iron(III) oxide"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
 
 
 class ExamWiringTest(unittest.TestCase):
@@ -811,6 +856,17 @@ class ExamWiringTest(unittest.TestCase):
 
     def test_brief_template_lists_the_exam_task(self):
         self.assertIn("Soạn đề KHTN tiếng Anh", read("docs/vi/tro-ly/mau-brief.md"))
+
+    def test_agents_vi_exam_section_states_bans_matrix_and_review_items(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXAM_HEADING)
+        for phrase in ("SVG", "skills/", "ma trận", "vi:", "Cần thầy cô soát"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_common_rules_say_pptx_steps_do_not_apply_to_exams(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("de-khtn-tieng-anh.md", body)
+        self.assertIn("import-sources", body)
 
 
 if __name__ == "__main__":

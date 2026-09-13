@@ -75,7 +75,7 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 7 lo
 | Video bài giảng | [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md) |
 | Soạn đề KHTN tiếng Anh | [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) |
 
-- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3). Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12) — loại việc đó không có bước xác nhận của upstream, xem mục 12. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
 - Yêu cầu không thuộc 7 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
 ## 11. Làm video bài giảng
@@ -111,9 +111,9 @@ Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọ
 Khi người dùng cần đề kiểm tra KHTN bằng tiếng Anh, đọc [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) và [docs/vi/tro-ly/tieng-anh-khoa-hoc.md](docs/vi/tro-ly/tieng-anh-khoa-hoc.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự dưới. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây.
 
 1. Chỉ luồng A (đã có đề tiếng Việt): đọc đề thầy cô đưa bằng `python skills/ppt-master/scripts/source_to_md.py <file> -o <thư_mục_tạm>`. Thầy cô đưa **ảnh** thì nói rõ không đọc được ảnh, xin bản PDF hoặc Word.
-2. Tạo `projects/_de-thi/<tên_đề>/` và viết `de.md` theo đúng ngữ pháp trong file hướng dẫn.
+2. Tạo `projects/_de-thi/<tên_đề>/`. Luồng B (đề mới hoàn toàn): soạn ma trận đặc tả trước (chủ đề × mức độ × số câu) theo câu trả lời của thầy cô, viết câu hỏi trực tiếp bằng tiếng Anh, ghi bản tiếng Việt của từng câu vào `vi:` để thầy cô soát. Viết `de.md` theo đúng ngữ pháp trong file hướng dẫn.
 3. Chạy `python tools\vi\de_thi.py projects\_de-thi\<tên_đề>`; thêm `--phan de,dap-an` khi thầy cô không cần bản song ngữ; thêm `--plan-only` khi chỉ muốn kiểm cú pháp.
-4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn ba file, số câu mỗi phần, tổng điểm, và đọc nguyên văn các dòng `warnings`.
+4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn các file thực sự sinh ra (hai file khi chạy `--phan de,dap-an`, ba file với các trường hợp còn lại), số câu mỗi phần, tổng điểm, đọc nguyên văn các dòng `warnings`, và báo cho thầy cô các mục trong "Cần thầy cô soát" của file đáp án.
 
 | `error.step` | Xử lý |
 |---|---|
@@ -123,4 +123,4 @@ Khi người dùng cần đề kiểm tra KHTN bằng tiếng Anh, đọc [docs/
 | `write` | Xin thầy cô đóng file Word đang mở rồi chạy lại. |
 | `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
 
-Điều cấm: không tự sửa số liệu hay đáp án của đề gốc; không chạy `project_manager.py init`; không commit gì trong `projects/`.
+Điều cấm: không tự sửa số liệu hay đáp án của đề gốc; không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`; không commit gì trong `projects/`.
