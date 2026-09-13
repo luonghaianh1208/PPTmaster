@@ -2086,6 +2086,24 @@ class CliTest(unittest.TestCase):
         self.assertEqual(data["error"]["step"], "parse")
         self.assertIn("Bài 4.", data["error"]["fix"])
 
+    def test_missing_command_reports_input_step(self):
+        code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+
+    def test_unknown_flag_reports_input_step(self):
+        self.write_source()
+        code, data = self.run_cli("xuat", str(self.folder), "--khong-co-co-nay")
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+
+    def test_cut_textbook_without_lesson_name_reports_input_step(self):
+        source = self.folder / "sgk.md"
+        source.write_text(SGK_SAMPLE, encoding="utf-8")
+        code, data = self.run_cli("trich-sgk", str(source))
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+
     def test_emit_falls_back_to_utf8_buffer(self):
         class LegacyStdout:
             def __init__(self):
@@ -2150,6 +2168,21 @@ FIX_DOCX = (
 )
 FIX_WRITE = "Đóng file Word đang mở rồi chạy lại; kiểm tra ổ đĩa còn trống."
 FIX_INTERNAL = "Gửi nguyên dòng error.message cho người bảo trì."
+FIX_ARGS = (
+    "Chạy: python tools/vi/giao_an.py xuat <thư_mục_giáo_án> [--plan-only], hoặc "
+    "python tools/vi/giao_an.py trich-sgk <file_sgk.md> --bai \"<tên bài>\" [--ra <file.md>]"
+)
+
+
+class ArgumentError(Exception):
+    """Tham số dòng lệnh sai; báo bằng JSON thay vì để argparse tự thoát."""
+
+
+class JsonArgumentParser(argparse.ArgumentParser):
+    """Lệnh con tạo bằng add_subparsers kế thừa lớp này, nên cũng báo lỗi bằng ngoại lệ."""
+
+    def error(self, message):
+        raise ArgumentError(message)
 
 
 def log(text: str) -> None:
@@ -2308,7 +2341,7 @@ def command_cut(args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     configure_streams()
-    parser = argparse.ArgumentParser(description="Soạn giáo án tích hợp năng lực số và năng lực AI")
+    parser = JsonArgumentParser(description="Soạn giáo án tích hợp năng lực số và năng lực AI")
     commands = parser.add_subparsers(dest="command", required=True)
 
     export = commands.add_parser("xuat", help="Xuất giáo án từ giao-an.md")
@@ -2322,7 +2355,11 @@ def main(argv: list[str] | None = None) -> int:
     cut.add_argument("--ra", type=Path, default=None, help="Đường dẫn file kết quả")
     cut.set_defaults(handler=command_cut)
 
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except ArgumentError as exc:
+        emit(failure("input", f"Tham số không hợp lệ: {exc}", FIX_ARGS))
+        return 1
     try:
         return args.handler(args)
     except Exception as exc:  # noqa: BLE001 - stdout không bao giờ được để trống
