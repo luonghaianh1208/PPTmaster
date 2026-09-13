@@ -291,8 +291,8 @@ class ViRequirementsWiringTest(unittest.TestCase):
         text = LAUNCHER.read_text(encoding="utf-8-sig")
         self.assertEqual(text.count("'tools\\vi\\requirements-vi.txt'"), 2, text.count("requirements-vi"))
 
-    def test_upstream_install_code_is_captured_before_the_vi_install(self):
-        """Lệnh cài lớp Việt chạy sau không được che mất lỗi của lệnh cài thư viện upstream."""
+    def test_upstream_install_result_is_checked_before_the_vi_install(self):
+        """Lỗi cài thư viện upstream phải dừng bộ cài trước khi chạy lệnh cài lớp Việt."""
         lines = LAUNCHER.read_text(encoding="utf-8-sig").splitlines()
         upstream = [i for i, line in enumerate(lines) if "'requirements.txt'" in line and "pip install" in line]
         vi_layer = [i for i, line in enumerate(lines) if "'tools\\vi\\requirements-vi.txt'" in line]
@@ -300,10 +300,26 @@ class ViRequirementsWiringTest(unittest.TestCase):
         self.assertEqual(len(vi_layer), 2, vi_layer)
         for upstream_line, vi_line in zip(upstream, vi_layer):
             between = lines[upstream_line + 1:vi_line]
-            self.assertTrue(
-                any("$pipCode = $LASTEXITCODE" in line for line in between),
-                f"thiếu '$pipCode = $LASTEXITCODE' giữa dòng {upstream_line + 1} và dòng {vi_line + 1}",
-            )
+            self.assertTrue(any("$LASTEXITCODE" in line for line in between),
+                            f"không đọc mã thoát upstream giữa dòng {upstream_line + 1} và {vi_line + 1}")
+            self.assertTrue(any("return 1" in line for line in between),
+                            f"lỗi upstream không dừng bộ cài trước dòng {vi_line + 1}")
+
+    def test_vi_layer_install_failure_does_not_abort_setup(self):
+        """python-docx là mức khuyến nghị: cài hỏng thì cảnh báo, không chặn máy chỉ làm slide."""
+        lines = LAUNCHER.read_text(encoding="utf-8-sig").splitlines()
+        vi_layer = [i for i, line in enumerate(lines) if "'tools\\vi\\requirements-vi.txt'" in line]
+        self.assertEqual(len(vi_layer), 2, vi_layer)
+        for index in vi_layer:
+            block = []
+            for line in lines[index + 1:]:
+                if "$installed += 'packages'" in line or "Write-Ok 'Đã cài thư viện.'" in line:
+                    break
+                block.append(line)
+            else:
+                self.fail(f"không tìm thấy điểm kết thúc khối cài sau dòng {index + 1}")
+            self.assertFalse(any("return 1" in line for line in block), block)
+            self.assertTrue(any("python-docx" in line for line in block), block)
 
     def test_package_check_also_watches_the_vi_layer_packages(self):
         text = LAUNCHER.read_text(encoding="utf-8-sig")

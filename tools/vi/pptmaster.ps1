@@ -178,12 +178,14 @@ function Invoke-Setup {
     Write-Step 'Bước 2/4: Cài thư viện Python (lần đầu có thể mất vài phút)'
     & $py.Path -m pip install --upgrade pip | Out-Host
     & $py.Path -m pip install -r (Join-Path $RepoRoot 'requirements.txt') | Out-Host
-    $pipCode = $LASTEXITCODE
-    & $py.Path -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') | Out-Host
-    if ($pipCode -ne 0 -or $LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -ne 0) {
         Write-Fail 'Cài thư viện thất bại. Xem thông báo phía trên.'
         Write-Host "Cách xử lý: $FixDoc (mục Cài thư viện thất bại)"
         return 1
+    }
+    & $py.Path -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '[CẢNH BÁO] Chưa cài được python-docx (thư viện soạn đề). Tạo slide vẫn dùng bình thường; khi cần soạn đề, bấm đúp lại CAI-DAT.bat.' -ForegroundColor Yellow
     }
     Write-Ok 'Đã cài thư viện.'
 
@@ -389,8 +391,6 @@ function Invoke-AutoSetup {
             Invoke-Logged { & $VenvPython -m pip install --upgrade pip }
             Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'requirements.txt') }
             $pipCode = $LASTEXITCODE
-            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') }
-            if ($LASTEXITCODE -ne 0) { $pipCode = $LASTEXITCODE }
         }
         if ($pipCode -ne 0) {
             $packagesFix = 'Xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'
@@ -400,6 +400,10 @@ function Invoke-AutoSetup {
             Set-SetupError 'packages' 'Cài thư viện Python thất bại.' $packagesFix
             Write-SetupResult $false $installed $warnings @()
             return 1
+        }
+        Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') }
+        if ($LASTEXITCODE -ne 0) {
+            $warnings += 'Chưa cài được python-docx (thư viện soạn đề). Tạo slide vẫn dùng bình thường; khi cần soạn đề, chạy: python -m pip install -r tools/vi/requirements-vi.txt'
         }
         $installed += 'packages'
     }
