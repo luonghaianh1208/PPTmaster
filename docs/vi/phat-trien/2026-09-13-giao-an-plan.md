@@ -2104,6 +2104,45 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(data["error"]["step"], "input")
 
+    def test_broken_stdout_is_not_answered_twice(self):
+        self.write_source()
+
+        class BrokenStdout:
+            def __init__(self):
+                self.writes = 0
+
+            def write(self, text):
+                self.writes += 1
+                raise BrokenPipeError("bên đọc đã đóng")
+
+            def flush(self):
+                pass
+
+        stream = BrokenStdout()
+        with mock.patch.object(giao_an.sys, "stdout", stream), contextlib.redirect_stderr(io.StringIO()):
+            code = giao_an.main(["xuat", str(self.folder), "--plan-only"])
+        self.assertEqual(stream.writes, 1)
+        self.assertEqual(code, 0)
+
+    def test_emit_without_buffer_falls_back_to_ascii_json(self):
+        class AsciiOnlyStdout:
+            def __init__(self):
+                self.chunks = []
+
+            def write(self, text):
+                text.encode("ascii")
+                self.chunks.append(text)
+                return len(text)
+
+            def flush(self):
+                pass
+
+        stream = AsciiOnlyStdout()
+        with mock.patch.object(giao_an.sys, "stdout", stream):
+            giao_an.emit({"ready": False, "warnings": ["Thiếu phiếu học tập"]})
+        self.assertEqual(len(stream.chunks), 1)
+        self.assertEqual(json.loads(stream.chunks[0])["warnings"], ["Thiếu phiếu học tập"])
+
     def test_emit_falls_back_to_utf8_buffer(self):
         class LegacyStdout:
             def __init__(self):
@@ -2190,12 +2229,21 @@ def log(text: str) -> None:
 
 
 def emit(payload: dict) -> None:
+    """In đúng một dòng JSON và không bao giờ ném lỗi, để main không phải trả lời lần thứ hai."""
     text = json.dumps(payload, ensure_ascii=False) + "\n"
     try:
-        sys.stdout.write(text)
-    except UnicodeEncodeError:
-        sys.stdout.buffer.write(text.encode("utf-8", errors="replace"))
-    sys.stdout.flush()
+        try:
+            sys.stdout.write(text)
+        except UnicodeEncodeError:
+            buffer = getattr(sys.stdout, "buffer", None)
+            if buffer is not None:
+                buffer.write(text.encode("utf-8", errors="replace"))
+            else:
+                sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        sys.stdout.flush()
+    except OSError:
+        # stdout đã đóng hoặc hỏng (ví dụ bên đọc thoát sớm): không còn cách nào trả lời thêm.
+        pass
 
 
 def result(*, ready: bool, files=(), warnings=(), error: dict | None = None, **extra) -> dict:
