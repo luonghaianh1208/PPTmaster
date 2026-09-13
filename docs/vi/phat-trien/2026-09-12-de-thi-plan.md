@@ -2032,6 +2032,8 @@ thành:
 
 Lý do cho (a) và (b): đọc `$LASTEXITCODE` sau hai lệnh cài liên tiếp chỉ thấy mã của lệnh sau, nên lỗi cài thư viện upstream sẽ bị che mất.
 
+> **Đính chính sau review Task 5 (Ruling T5-R1):** bản (a) và (b) ở trên gộp mã thoát của hai lệnh cài, nên nếu chỉ `python-docx` cài hỏng thì cả bộ cài báo thất bại — trái quyết định trong spec rằng thư viện này ở mức khuyến nghị và máy chỉ làm slide vẫn phải báo sẵn sàng. Code phát hành làm theo thứ tự thay vì gộp mã: kiểm mã thoát của lệnh cài upstream ngay sau nó (hỏng thì dừng như cũ), rồi mới cài `requirements-vi.txt`; lệnh này hỏng thì chỉ cảnh báo (nhánh `-Auto` thêm vào `$warnings`, chế độ tương tác in dòng `[CẢNH BÁO]`) và cài tiếp. Test tương ứng là `test_upstream_install_result_is_checked_before_the_vi_install` và `test_vi_layer_install_failure_does_not_abort_setup`.
+
 **(c)** Thay toàn bộ hàm `Test-PackagesOk` (hiện ở `tools/vi/pptmaster.ps1:319-325`) thành:
 
 ```powershell
