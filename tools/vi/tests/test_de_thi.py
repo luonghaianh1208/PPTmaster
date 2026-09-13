@@ -1,13 +1,15 @@
 """Test cho lớp soạn đề KHTN tiếng Anh của bản Việt."""
 
 import sys
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
 
-from de_thi_parts import parse  # noqa: E402
+from de_thi_parts import docx_build, parse  # noqa: E402
 from word_parts import inline  # noqa: E402
 
 
@@ -310,6 +312,142 @@ class ExamMathTest(unittest.TestCase):
     def test_questions_without_topic_land_in_one_row(self):
         exam = self.build(0, 0, 2)
         self.assertEqual(exam.matrix(), [(parse.NO_TOPIC, 0, 0, 2, 2)])
+
+
+def document_xml(path: Path) -> str:
+    with zipfile.ZipFile(path) as archive:
+        return archive.read("word/document.xml").decode("utf-8")
+
+
+def footer_xml(path: Path) -> str:
+    with zipfile.ZipFile(path) as archive:
+        names = [name for name in archive.namelist() if name.startswith("word/footer")]
+        if not names:
+            return ""
+        return archive.read(names[0]).decode("utf-8")
+
+
+class OptionLayoutTest(unittest.TestCase):
+    def test_short_options_use_four_columns(self):
+        options = {"A": "2.0 m/s^2^", "B": "5.0 m/s^2^", "C": "10 m/s^2^", "D": "20 m/s^2^"}
+        self.assertEqual(docx_build.option_columns(options), 4)
+
+    def test_medium_options_use_two_columns(self):
+        options = {"A": "kinetic friction", "B": "static friction", "C": "air resistance", "D": "normal contact force"}
+        self.assertEqual(docx_build.option_columns(options), 2)
+
+    def test_long_options_use_one_column(self):
+        long_text = "The resultant force acting on the trolley points down the slope at all times"
+        options = {"A": long_text, "B": long_text, "C": long_text, "D": long_text}
+        self.assertEqual(docx_build.option_columns(options), 1)
+
+    def test_marks_do_not_count_towards_option_length(self):
+        options = {"A": "H~2~SO~4~", "B": "HCl", "C": "NaOH", "D": "KOH"}
+        self.assertEqual(docx_build.option_columns(options), 4)
+
+
+class DocxBuildTest(unittest.TestCase):
+    def setUp(self):
+        self.exam = parse.parse_exam(VALID_SOURCE)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.folder = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_paper_uses_a4_and_exam_margins(self):
+        from docx import Document
+
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        section = Document(str(path)).sections[0]
+        # Word lưu khổ giấy theo twip nên đọc lại lệch vài trăm EMU (< 0,001 cm); so tới 0,01 cm.
+        for attribute, expected_cm in (
+            ("page_width", 21.0),
+            ("page_height", 29.7),
+            ("top_margin", 1.8),
+            ("bottom_margin", 1.8),
+            ("left_margin", 2.5),
+            ("right_margin", 1.5),
+        ):
+            with self.subTest(attribute=attribute):
+                self.assertAlmostEqual(getattr(section, attribute).cm, expected_cm, places=2)
+
+    def test_body_font_is_times_new_roman_twelve(self):
+        from docx import Document
+        from docx.shared import Pt
+
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        normal = Document(str(path)).styles["Normal"]
+        self.assertEqual(normal.font.name, "Times New Roman")
+        self.assertEqual(normal.font.size, Pt(12))
+
+    def test_footer_carries_page_number_fields(self):
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        xml = footer_xml(path)
+        self.assertIn("PAGE", xml)
+        self.assertIn("NUMPAGES", xml)
+        self.assertIn("Trang", xml)
+
+    def test_subscript_marks_become_real_subscript(self):
+        source = VALID_SOURCE.replace("A: 2.0 m/s^2^", "A: H~2~SO~4~")
+        exam = parse.parse_exam(source)
+        path = docx_build.build_de(exam, self.folder / "de-en.docx")
+        self.assertIn('w:val="subscript"', document_xml(path))
+
+    def test_superscript_marks_become_real_superscript(self):
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        self.assertIn('w:val="superscript"', document_xml(path))
+
+    def test_student_paper_hides_answers_and_explanations(self):
+        source = VALID_SOURCE.replace(
+            "why: a = F/m = 10/2.0 = 5.0 m/s^2^", "why: DAU-HIEU-GIAI-THICH"
+        )
+        exam = parse.parse_exam(source)
+        path = docx_build.build_de(exam, self.folder / "de-en.docx")
+        xml = document_xml(path)
+        self.assertNotIn("DAU-HIEU-GIAI-THICH", xml)
+        self.assertNotIn("Đáp án", xml)
+
+    def test_student_paper_has_the_candidate_line_and_end_marker(self):
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        xml = document_xml(path)
+        self.assertIn("Full name", xml)
+        self.assertIn("THE END", xml)
+
+    def test_bilingual_paper_carries_the_vietnamese_line(self):
+        path = docx_build.build_de(self.exam, self.folder / "song-ngu.docx", bilingual=True)
+        xml = document_xml(path)
+        self.assertIn("Tính gia tốc của vật", xml)
+
+    def test_student_paper_has_no_vietnamese_question_text(self):
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        self.assertNotIn("Tính gia tốc của vật", document_xml(path))
+
+    def test_answer_file_has_keys_scoring_matrix_and_review(self):
+        path = docx_build.build_dap_an(self.exam, self.folder / "dap-an.docx", [])
+        xml = document_xml(path)
+        for expected in ("Thang điểm", "Ma trận đặc tả", "Cần thầy cô soát", "Hướng dẫn giải", "Dynamics"):
+            self.assertIn(expected, xml)
+
+    def test_answer_file_repeats_tool_warnings_on_paper(self):
+        path = docx_build.build_dap_an(self.exam, self.folder / "dap-an.docx", ["CANH-BAO-THU-NGHIEM"])
+        self.assertIn("CANH-BAO-THU-NGHIEM", document_xml(path))
+
+    def test_answer_file_says_so_when_nothing_needs_review(self):
+        source = VALID_SOURCE.split("## CAN SOAT")[0]
+        exam = parse.parse_exam(source)
+        path = docx_build.build_dap_an(exam, self.folder / "dap-an.docx", [])
+        self.assertIn("Không có mục nào cần soát", document_xml(path))
+
+    def test_build_writes_every_requested_file(self):
+        written = docx_build.build(self.exam, self.folder, ["de", "song-ngu", "dap-an"], [])
+        self.assertEqual([path.name for path in written],
+                         ["de-en.docx", "de-song-ngu.docx", "dap-an.docx"])
+        for path in written:
+            self.assertTrue(path.is_file(), path)
+
+    def test_build_writes_only_the_requested_subset(self):
+        written = docx_build.build(self.exam, self.folder, ["de", "dap-an"], [])
+        self.assertEqual([path.name for path in written], ["de-en.docx", "dap-an.docx"])
+        self.assertFalse((self.folder / "de-song-ngu.docx").exists())
 
 
 if __name__ == "__main__":
