@@ -449,6 +449,50 @@ class DocxBuildTest(unittest.TestCase):
         self.assertEqual([path.name for path in written], ["de-en.docx", "dap-an.docx"])
         self.assertFalse((self.folder / "de-song-ngu.docx").exists())
 
+    @staticmethod
+    def border_values(table):
+        from docx.oxml.ns import qn
+
+        borders = table._tbl.tblPr.find(qn("w:tblBorders"))
+        if borders is None:
+            return set()
+        return {edge.get(qn("w:val")) for edge in borders}
+
+    @staticmethod
+    def option_tables(path):
+        from docx import Document
+
+        return [table for table in Document(str(path)).tables
+                if table.rows[0].cells[0].text.startswith("A.")]
+
+    def test_header_is_borderless_and_true_false_table_is_a_grid(self):
+        from docx import Document
+
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        tables = Document(str(path)).tables
+        self.assertEqual(self.border_values(tables[0]), {"none"})
+        statements = [table for table in tables if table.rows[0].cells[0].text == "Statement"]
+        self.assertEqual(len(statements), 1)
+        self.assertEqual(self.border_values(statements[0]), {"single"})
+
+    def test_short_options_render_as_one_row_of_four_columns(self):
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        tables = self.option_tables(path)
+        self.assertEqual(len(tables), 2)
+        for table in tables:
+            self.assertEqual((len(table.rows), len(table.columns)), (1, 4))
+            self.assertEqual(self.border_values(table), {"none"})
+
+    def test_long_options_render_one_per_row(self):
+        long_text = "The resultant force acting on the trolley points down the slope"
+        source = VALID_SOURCE
+        for label, old in (("A", "2.0 m/s^2^"), ("B", "5.0 m/s^2^"), ("C", "10 m/s^2^"), ("D", "20 m/s^2^")):
+            source = source.replace(f"{label}: {old}", f"{label}: {long_text} {label}", 1)
+        exam = parse.parse_exam(source)
+        path = docx_build.build_de(exam, self.folder / "de-en.docx")
+        first = self.option_tables(path)[0]
+        self.assertEqual((len(first.rows), len(first.columns)), (4, 1))
+
 
 if __name__ == "__main__":
     unittest.main()
