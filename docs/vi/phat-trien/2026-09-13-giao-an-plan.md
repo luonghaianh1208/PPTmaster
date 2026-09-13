@@ -2531,6 +2531,25 @@ class LessonGuideTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, body)
 
+    def test_guide_example_source_parses_and_validates(self):
+        """Bài học từ gói đề thi: ngữ pháp trong hướng dẫn phải khớp parser thật, chứng minh bằng file mẫu."""
+        import sys
+        sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
+        from giao_an_parts import frameworks, parse
+
+        body = section(read(LESSON_GUIDE), "## Cấu trúc giáo án")
+        blocks = re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)
+        self.assertTrue(blocks, "thiếu file giao-an.md mẫu trong khối code")
+        lesson = parse.parse_lesson(blocks[0])
+        frameworks.validate(lesson, frameworks.load_file())
+        self.assertTrue(lesson.activities)
+
+    def test_guide_skips_the_pptx_only_steps(self):
+        body = section(read(LESSON_GUIDE), "## Ghi vào brief")
+        for phrase in ("projects/_giao-an/", "brief.md", "import-sources", "dòng chốt"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
     def test_guide_names_the_output_files(self):
         body = section(read(LESSON_GUIDE), "## Đầu ra")
         for name in ("giao-an.docx", "can-soat.md", "projects/_giao-an/"):
@@ -2605,6 +2624,17 @@ class LessonWiringTest(unittest.TestCase):
         self.assertIn("không sửa", body)
         self.assertIn("phân phối chương trình", body)
 
+    def test_common_rules_say_pptx_steps_do_not_apply_to_lesson_plans(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("giao-an.md", body)
+        self.assertIn("import-sources", body)
+
+    def test_agents_vi_lesson_section_bans_svg_and_skills(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        for phrase in ("SVG", "skills/"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
     def test_agents_vi_triggers_include_lesson_plan_phrases(self):
         body = section(read("AGENTS.vi.md"), "## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`")
         for phrase in ("kế hoạch bài dạy", "giáo án"):
@@ -2628,9 +2658,9 @@ Tạo file với đúng bảy mục h2 theo thứ tự `LESSON_GUIDE_HEADINGS`. 
 - `## Câu hỏi bắt buộc`: đúng bảy câu theo §6.6 của spec, mỗi câu kèm `Gợi ý:`.
 - `## Câu hỏi tuỳ chọn`: chỉ hỏi khi thầy cô nhắc tới — trường có khung ký duyệt riêng không; lớp có học sinh cần hỗ trợ riêng không.
 - `## Tạo nhanh`: hai câu — môn, lớp, tên bài, số tiết; và có giáo án cũ hay soạn mới.
-- `## Cấu trúc giáo án`: nêu ngữ pháp `giao-an.md` đầy đủ — khối thông tin đầu, sáu mục h3 của `## MUC TIEU`, hai mục của `## THIET BI`, tám khoá bắt buộc của mỗi hoạt động cộng `nls:`/`ai:`, `## PHIEU HOC TAP`, `## RUBRIC` ba mức, `## CAN SOAT`; ba dấu đánh dấu `~ ~`, `^ ^`, `**`; khoá lặp thành nhiều đoạn. Nêu rõ các phép kiểm sẽ chặn.
+- `## Cấu trúc giáo án`: nêu ngữ pháp `giao-an.md` đầy đủ — khối thông tin đầu, sáu mục h3 của `## MUC TIEU`, hai mục của `## THIET BI`, tám khoá bắt buộc của mỗi hoạt động cộng `nls:`/`ai:`, `## PHIEU HOC TAP`, `## RUBRIC` ba mức, `## CAN SOAT`; ba dấu đánh dấu `~ ~`, `^ ^`, `**`; khoá lặp thành nhiều đoạn. Nêu rõ các phép kiểm sẽ chặn. Đọc `tools/vi/giao_an_parts/parse.py` và `frameworks.py` làm nguồn chuẩn: ngữ pháp trong hướng dẫn phải khớp chính xác parser (khoá meta bắt buộc và tuỳ chọn, `grade`/`periods` chỉ chữ số, thứ tự mục h2, tên mục h3 không dấu, khoá hoạt động, `Mức 1:`–`Mức 3:`, dòng `mã — mô tả`, hai chuỗi `(chưa có khung mã cho môn này)` và `(chưa có mã)`). Kết thúc mục bằng **một file `giao-an.md` mẫu hoàn chỉnh trong khối code có rào** (dòng đầu khối là `---`) cho Hoá học lớp 11, hai tiết, đủ bốn hoạt động và tổng 90 phút — test sẽ chạy file mẫu này qua parser và `frameworks.validate` thật. Không dẫn AI sang tài liệu thiết kế để tra ngữ pháp; hướng dẫn phải tự đủ.
 - `## Đầu ra`: `projects/_giao-an/<tên_bài>/` chứa `giao-an.md`, `giao-an.docx`, `can-soat.md`. Ghi rõ `can-soat.md` là ghi chú nội bộ, không nằm trong giáo án nộp cho trường.
-- `## Ghi vào brief`: loại việc "Soạn giáo án tích hợp năng lực số và năng lực AI", ghi đúng lời thầy cô.
+- `## Ghi vào brief`: loại việc "Soạn giáo án tích hợp năng lực số và năng lực AI", ghi đúng lời thầy cô. Brief đặt ở `projects/_giao-an/<tên_bài>/brief.md` theo khuôn `mau-brief.md`. Nêu rõ các bước chỉ dành cho PPTX trong quy-trinh-hoi.md **không áp dụng**: không kết thúc tin nhắn hỏi bằng dòng chốt cách xác nhận, không chạy `import-sources` hay `project_manager.py init`, không có bước xác nhận của upstream, không theo `quick-generate.md` — thầy cô trả lời xong thì viết `giao-an.md` rồi chạy lệnh.
 
 Điều cấm phải ghi nguyên văn: `Luồng A phải giữ nguyên nội dung chuyên môn của thầy cô: không rút gọn, không viết lại cho hay hơn, không đổi bài tập. Chỉ thêm phần năng lực số, năng lực AI và rubric. Không tự đặt mã chỉ báo cho môn chưa có khung. Chỗ nào không đọc được từ file gốc thì ghi vào mục CAN SOAT, không tự viết bù.`
 
@@ -2654,7 +2684,8 @@ Tạo file với đúng bảy mục h2 theo thứ tự `LESSON_GUIDE_HEADINGS`. 
 - Bước 5: `python tools\vi\giao_an.py xuat projects\_giao-an\<tên_bài>`; thêm `--plan-only` khi chỉ muốn kiểm.
 - Bước 6: đọc dòng JSON. `ready` là `true` thì báo thầy cô đường dẫn hai file, số hoạt động, tổng thời lượng, các mã đã dùng, và đọc nguyên văn `warnings` cùng nội dung `can-soat.md`.
 - Bảng xử lý lỗi, mỗi `error.step` một dòng: `input` → chưa có `giao-an.md`; `parse` → sửa đúng dòng `error.message` nêu; `framework` → sửa mã theo `error.fix`, **không tự đặt mã mới**; `docx` → chạy `python -m pip install -r tools/vi/requirements-vi.txt` rồi chạy lại, tối đa một lần; `write` → xin thầy cô đóng file Word rồi chạy lại.
-- Điều cấm: không sửa nội dung chuyên môn của thầy cô; không sửa file phân phối chương trình; không tự đặt mã; không in ghi chú nội bộ vào giáo án; không commit gì trong `projects/`.
+- Điều cấm: không sửa nội dung chuyên môn của thầy cô; không sửa file phân phối chương trình; không tự đặt mã; không in ghi chú nội bộ vào giáo án; không commit gì trong `projects/`; không tạo SVG; không chạm `skills/`.
+- Trong thân mục 10, ở gạch đầu dòng nói bước xác nhận của upstream vẫn bắt buộc, thêm ngoại lệ: không áp dụng cho loại việc đề thi (mục 12) và giáo án (mục 13). Không xoá cụm từ nào đang có.
 
 - [ ] **Step 5: Sửa `docs/vi/tro-ly/quy-trinh-hoi.md`**
 
@@ -2670,7 +2701,7 @@ Tạo file với đúng bảy mục h2 theo thứ tự `LESSON_GUIDE_HEADINGS`. 
 - Chữ "giáo án" một mình là ca mơ hồ đã biết: nó có thể là file Word kế hoạch bài dạy, cũng có thể là slide. Hỏi đúng một câu trước khi làm gì khác: "Thầy cô cần file Word kế hoạch bài dạy (giáo án 5512), hay slide trình chiếu cho bài này?" Trả lời Word thì dùng giao-an.md; trả lời slide thì dùng bai-giang.md.
 ```
 
-3. Thêm một dòng: `Loại việc "Soạn giáo án tích hợp năng lực số và AI" không tạo PPTX; nó ghi brief như các loại khác nhưng không đi vào quy trình của upstream.`
+3. Thêm một dòng: `Loại việc "Soạn giáo án tích hợp năng lực số và AI" không tạo PPTX; nó ghi brief như các loại khác nhưng không đi vào quy trình của upstream.` Nối tiếp ngay trong dòng đó: các bước chỉ dành cho PPTX (dòng chốt cách xác nhận, `import-sources`, bước xác nhận của upstream, `quick-generate.md`) không áp dụng; làm theo mục "Ghi vào brief" của docs/vi/tro-ly/giao-an.md. Không xoá hay diễn đạt lại câu nào đang có trong quy-trinh-hoi.md — nhiều câu bị test khoá.
 
 - [ ] **Step 6: Sửa `docs/vi/tro-ly/mau-brief.md`**
 
