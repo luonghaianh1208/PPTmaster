@@ -6,7 +6,7 @@ Bộ công cụ soạn đề kiểm tra môn khoa học tự nhiên (KHTN, Vật
 
 - **Có đề tiếng Việt rồi:** chuyển sang tiếng Anh, giữ nguyên số liệu, đáp án và thứ tự câu.
 - **Chưa có gì:** AI soạn đề mới hoàn toàn bằng tiếng Anh theo môn, lớp, chương và số câu thầy cô yêu cầu.
-- Cả hai trường hợp đều ra ba file Word: đề tiếng Anh để in cho học sinh, đề song ngữ Anh–Việt để tổ chuyên môn soát, và đáp án kèm ma trận đặc tả.
+- Cả hai trường hợp đều ra ba file Word (hai file nếu thầy cô không cần bản song ngữ): đề tiếng Anh để in cho học sinh, đề song ngữ Anh–Việt để tổ chuyên môn soát, và đáp án kèm ma trận đặc tả.
 
 ## Cách nhắn cho AI
 

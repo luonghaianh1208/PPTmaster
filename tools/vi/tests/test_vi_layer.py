@@ -925,6 +925,14 @@ class ExamUserDocsTest(unittest.TestCase):
     def test_readme_mentions_the_exam_feature(self):
         self.assertIn("đề kiểm tra", section(read("README.md"), "## Làm được gì"))
 
+    def test_exam_docs_do_not_promise_three_files_unconditionally(self):
+        for path in ("docs/vi/soan-de-tieng-anh.md", "README.md"):
+            with self.subTest(path=path):
+                lines = [line for line in read(path).splitlines() if "ba file Word" in line]
+                self.assertTrue(lines, f"{path} không còn nhắc ba file Word")
+                for line in lines:
+                    self.assertIn("hai file", line, line)
+
 
 if __name__ == "__main__":
     unittest.main()

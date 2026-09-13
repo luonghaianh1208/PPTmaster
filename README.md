@@ -49,7 +49,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 | [Câu lệnh mẫu](docs/vi/cau-lenh-mau.md) | Câu lệnh cho bài giảng, báo cáo, poster, thuyết minh |
 | [Xử lý lỗi](docs/vi/xu-ly-loi.md) | Lỗi thường gặp và cách sửa |
 | [Lấy API key](docs/vi/lay-api-key.md) | Bật tạo ảnh bằng AI |
-| [Soạn đề tiếng Anh](docs/vi/soan-de-tieng-anh.md) | Từ đề tiếng Việt hoặc từ đầu, ra ba file Word |
+| [Soạn đề tiếng Anh](docs/vi/soan-de-tieng-anh.md) | Từ đề tiếng Việt hoặc từ đầu, ra ba file Word (hai file nếu không cần bản song ngữ) |
 
 Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 
