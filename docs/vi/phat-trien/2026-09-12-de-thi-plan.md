@@ -2315,7 +2315,7 @@ Không dùng liên kết Markdown trong file này.
 - [ ] **Step 5: Sửa `AGENTS.vi.md`**
 
 1. Mục 3: thêm vào danh sách câu lệnh `"soạn đề"`, `"làm đề kiểm tra"`, `"đề tiếng Anh"`.
-2. Đổi tiêu đề mục 10 thành `## 10. Hỗ trợ thầy cô trước khi làm bài`; trong thân mục đổi "6 loại việc" thành "7 loại việc" và thêm dòng bảng:
+2. Đổi tiêu đề mục 10 thành `## 10. Hỗ trợ thầy cô trước khi làm bài`. Trong thân mục có **hai** chỗ đếm, đổi cả hai: câu mở "một trong 6 loại việc dưới đây" thành "một trong 7 loại việc dưới đây", và gạch đầu dòng cuối "Yêu cầu không thuộc 6 loại" thành "Yêu cầu không thuộc 7 loại" (test kiểm cả thân mục không còn chuỗi "6 loại"). Rồi thêm dòng bảng:
 
 ```
 | Soạn đề KHTN tiếng Anh | [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) |
@@ -2344,7 +2344,7 @@ Không dùng liên kết Markdown trong file này.
 
 - [ ] **Step 7: Sửa `docs/vi/tro-ly/mau-brief.md`**
 
-Thêm `Soạn đề KHTN tiếng Anh` vào danh sách loại việc trong mẫu.
+Dòng 5 của file hiện là `- Loại việc: <Bài giảng | Báo cáo – tổng kết | Hoạt động Đoàn – sự kiện | Poster/ấn phẩm Zalo – Facebook | Tập huấn/workshop | Video bài giảng>`. Thêm ` | Soạn đề KHTN tiếng Anh` ngay trước dấu `>` cuối dòng; không đổi gì khác.
 
 - [ ] **Step 8: Chạy cả bộ test**
 
@@ -2388,6 +2388,7 @@ class ExamUserDocsTest(unittest.TestCase):
 
     def test_quick_start_mentions_the_exam_task(self):
         text = read("docs/vi/bat-dau-nhanh.md")
+        self.assertNotIn("6 loại", text)
         headings = h2_headings(text)
         self.assertIn("## Soạn đề tiếng Anh", headings)
         self.assertLess(headings.index("## Soạn đề tiếng Anh"), headings.index("## Lấy file kết quả"))
@@ -2447,7 +2448,7 @@ Thêm mục `## Xuất đề Word thất bại` **ngay trước** `## Dựng vid
 
 - [ ] **Step 5: Sửa `docs/vi/bat-dau-nhanh.md` và `docs/vi/cau-lenh-mau.md`**
 
-`bat-dau-nhanh.md`: thêm mục `## Soạn đề tiếng Anh` trước `## Lấy file kết quả`, có liên kết `(soan-de-tieng-anh.md)`.
+`bat-dau-nhanh.md`: thêm mục `## Soạn đề tiếng Anh` trước `## Lấy file kết quả`, có liên kết `(soan-de-tieng-anh.md)`. Đồng thời đổi câu ở dòng 47 "Với 6 loại việc trên" thành "Với 7 loại việc trên" — spec bắt mọi chỗ đếm thành 7, và test đã thêm phép kiểm file không còn chuỗi "6 loại".
 
 `cau-lenh-mau.md`: thêm mục `## Soạn đề tiếng Anh` với hai câu lệnh mẫu — một câu chuyển đề có sẵn ("Chuyển đề giữa kì Hoá 11 ở file này sang tiếng Anh"), một câu tạo đề mới ("Soạn đề Vật lí 10 tiếng Anh, 45 phút, chương động lực học").
 
