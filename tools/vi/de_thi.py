@@ -32,6 +32,16 @@ FIX_DOCX = (
 )
 FIX_WRITE = "Đóng file Word đang mở rồi chạy lại; kiểm tra ổ đĩa còn trống."
 FIX_INTERNAL = f"Gửi nguyên dòng error.message cho người bảo trì; xem {SOURCE_NAME} có ký tự lạ."
+FIX_ARGS = "Chạy: python tools/vi/de_thi.py <thư_mục_đề> [--phan tat-ca|de,song-ngu,dap-an] [--plan-only]"
+
+
+class ArgumentError(Exception):
+    """Tham số dòng lệnh sai; báo bằng JSON thay vì để argparse tự thoát."""
+
+
+class JsonArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise ArgumentError(message)
 
 
 def log(text: str) -> None:
@@ -103,14 +113,7 @@ def configure_streams() -> None:
                 pass
 
 
-def main(argv: list[str] | None = None) -> int:
-    configure_streams()
-    parser = argparse.ArgumentParser(description="Xuất đề kiểm tra KHTN tiếng Anh ra file Word")
-    parser.add_argument("folder", type=Path, help="Thư mục đề, chứa file de.md")
-    parser.add_argument("--phan", default="tat-ca", help="tat-ca, hoặc de,song-ngu,dap-an")
-    parser.add_argument("--plan-only", action="store_true", help="Chỉ kiểm de.md, không ghi file")
-    args = parser.parse_args(argv)
-
+def run(args) -> int:
     try:
         parts = select_parts(args.phan)
     except ValueError as exc:
@@ -182,6 +185,24 @@ def main(argv: list[str] | None = None) -> int:
     log(f"Đã xuất {len(written)} file Word.")
     emit(result(ready=True, files=written, counts=counts, points=points, warnings=warnings))
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    configure_streams()
+    parser = JsonArgumentParser(description="Xuất đề kiểm tra KHTN tiếng Anh ra file Word")
+    parser.add_argument("folder", type=Path, help="Thư mục đề, chứa file de.md")
+    parser.add_argument("--phan", default="tat-ca", help="tat-ca, hoặc de,song-ngu,dap-an")
+    parser.add_argument("--plan-only", action="store_true", help="Chỉ kiểm de.md, không ghi file")
+    try:
+        args = parser.parse_args(argv)
+    except ArgumentError as exc:
+        emit(failure("input", f"Tham số không hợp lệ: {exc}", FIX_ARGS))
+        return 1
+    try:
+        return run(args)
+    except Exception as exc:  # noqa: BLE001 - stdout không bao giờ được để trống
+        emit(failure("internal", f"Lỗi ngoài dự kiến: {exc}", FIX_INTERNAL))
+        return 1
 
 
 if __name__ == "__main__":

@@ -537,6 +537,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(len(printed), 1, printed)
         return code, json.loads(printed[0])
 
+    def run_raw(self, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = de_thi.main(argv)
+        printed = out.getvalue().strip().splitlines()
+        self.assertEqual(len(printed), 1, printed)
+        return code, json.loads(printed[0])
+
     def test_full_run_writes_three_files(self):
         self.write_source()
         code, data = self.run_cli()
@@ -642,6 +650,25 @@ class CliTest(unittest.TestCase):
             de_thi.emit({"ready": False, "warnings": ["Thiếu bản tiếng Việt"]})
         data = json.loads(stream.buffer.getvalue().decode("utf-8").strip())
         self.assertEqual(data["warnings"], ["Thiếu bản tiếng Việt"])
+
+    def test_missing_folder_argument_reports_input_step(self):
+        code, data = self.run_raw([])
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+
+    def test_unknown_flag_reports_input_step(self):
+        self.write_source()
+        code, data = self.run_raw([str(self.folder), "--khong-co-co-nay"])
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+
+    def test_unexpected_failure_while_reading_the_exam_reports_internal_step(self):
+        self.write_source()
+        with mock.patch.object(de_thi.parse, "parse_exam", side_effect=RuntimeError("hỏng bất ngờ")):
+            code, data = self.run_raw([str(self.folder)])
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "internal")
+        self.assertIn("hỏng bất ngờ", data["error"]["message"])
 
 
 if __name__ == "__main__":
