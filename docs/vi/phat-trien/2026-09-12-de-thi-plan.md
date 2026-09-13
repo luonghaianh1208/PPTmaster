@@ -872,16 +872,20 @@ class DocxBuildTest(unittest.TestCase):
 
     def test_paper_uses_a4_and_exam_margins(self):
         from docx import Document
-        from docx.shared import Cm
 
         path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
         section = Document(str(path)).sections[0]
-        self.assertEqual(section.page_width, Cm(21))
-        self.assertEqual(section.page_height, Cm(29.7))
-        self.assertEqual(section.top_margin, Cm(1.8))
-        self.assertEqual(section.bottom_margin, Cm(1.8))
-        self.assertEqual(section.left_margin, Cm(2.5))
-        self.assertEqual(section.right_margin, Cm(1.5))
+        # Word lưu khổ giấy theo twip nên đọc lại lệch vài trăm EMU (< 0,001 cm); so tới 0,01 cm.
+        for attribute, expected_cm in (
+            ("page_width", 21.0),
+            ("page_height", 29.7),
+            ("top_margin", 1.8),
+            ("bottom_margin", 1.8),
+            ("left_margin", 2.5),
+            ("right_margin", 1.5),
+        ):
+            with self.subTest(attribute=attribute):
+                self.assertAlmostEqual(getattr(section, attribute).cm, expected_cm, places=2)
 
     def test_body_font_is_times_new_roman_twelve(self):
         from docx import Document

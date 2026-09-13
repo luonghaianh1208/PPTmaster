@@ -1557,16 +1557,20 @@ class DocxBuildTest(unittest.TestCase):
 
     def test_page_uses_a4_and_the_school_margins(self):
         from docx import Document
-        from docx.shared import Cm
 
         path = docx_build.build(self.lesson, self.folder)
         section = Document(str(path)).sections[0]
-        self.assertEqual(section.page_width, Cm(21))
-        self.assertEqual(section.page_height, Cm(29.7))
-        self.assertEqual(section.top_margin, Cm(2))
-        self.assertEqual(section.bottom_margin, Cm(2))
-        self.assertEqual(section.left_margin, Cm(2.5))
-        self.assertEqual(section.right_margin, Cm(2))
+        # Word lưu khổ giấy theo twip nên đọc lại lệch vài trăm EMU (< 0,001 cm); so tới 0,01 cm.
+        for attribute, expected_cm in (
+            ("page_width", 21.0),
+            ("page_height", 29.7),
+            ("top_margin", 2.0),
+            ("bottom_margin", 2.0),
+            ("left_margin", 2.5),
+            ("right_margin", 2.0),
+        ):
+            with self.subTest(attribute=attribute):
+                self.assertAlmostEqual(getattr(section, attribute).cm, expected_cm, places=2)
 
     def test_body_font_is_times_new_roman_fourteen_spaced_one_point_three(self):
         from docx import Document
@@ -2647,9 +2651,11 @@ class LessonUserDocsTest(unittest.TestCase):
         text = read("docs/vi/xu-ly-loi.md")
         headings = h2_headings(text)
         self.assertIn("## Xuất giáo án thất bại", headings)
+        # Đứng NGAY TRƯỚC mục đề thi: gói đề thi khoá mục đề thi ngay trước mục video,
+        # và gói video khoá mục video ngay trước "Đường dẫn quá dài".
         self.assertEqual(
             headings.index("## Xuất giáo án thất bại"),
-            headings.index("## Xuất đề Word thất bại") + 1,
+            headings.index("## Xuất đề Word thất bại") - 1,
         )
         body = section(text, "## Xuất giáo án thất bại")
         for phrase in ("requirements-vi.txt", "python-docx", "đang mở trong Word", "Dòng",
@@ -2682,7 +2688,7 @@ Viết cho thầy cô. Các mục:
 
 - [ ] **Step 4: Sửa `docs/vi/xu-ly-loi.md`**
 
-Thêm mục `## Xuất giáo án thất bại` **ngay sau** `## Xuất đề Word thất bại`, viết theo từng mã lỗi: `input`, `parse`, `framework` (mã năng lực sai — làm theo `error.fix`, không tự đặt mã), `docx`, `write`, `internal`.
+Thêm mục `## Xuất giáo án thất bại` **ngay trước** `## Xuất đề Word thất bại`. Không chèn vào giữa `## Xuất đề Word thất bại`, `## Dựng video thất bại` và `## Đường dẫn quá dài`: test của hai gói trước khoá ba mục đó phải liền nhau theo đúng thứ tự. Viết theo từng mã lỗi: `input`, `parse`, `framework` (mã năng lực sai — làm theo `error.fix`, không tự đặt mã), `docx`, `write`, `internal`.
 
 - [ ] **Step 5: Sửa `docs/vi/bat-dau-nhanh.md` và `docs/vi/cau-lenh-mau.md`**
 
