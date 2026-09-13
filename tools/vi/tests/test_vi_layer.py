@@ -881,6 +881,11 @@ class ExamWiringTest(unittest.TestCase):
         self.assertIn("de-khtn-tieng-anh.md", body)
         self.assertIn("import-sources", body)
 
+    def test_common_rules_exam_exception_has_no_double_negative(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertNotIn("không viết brief để import vào dự án PPTX", body)
+        self.assertIn("đặt tên brief theo dự án PPTX rồi import vào dự án", body)
+
 
 if __name__ == "__main__":
     unittest.main()
