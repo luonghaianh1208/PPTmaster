@@ -233,6 +233,36 @@ class ParseTest(unittest.TestCase):
             parse.parse_exam(broken)
         self.assertIn("unit", caught.exception.message)
 
+    def test_superscript_digit_in_question_number_raises_parse_error(self):
+        broken = VALID_SOURCE.replace("### 1\n", "### ²\n", 1)
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse_exam(broken)
+        self.assertNotIsInstance(caught.exception, ValueError)
+        expected_line = broken.splitlines().index("### ²") + 1
+        self.assertEqual(caught.exception.line_no, expected_line)
+
+    def test_superscript_digit_in_time_raises_parse_error(self):
+        broken = VALID_SOURCE.replace("time: 45", "time: ²")
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse_exam(broken)
+        self.assertIn("time", caught.exception.message)
+
+    def test_part_three_key_must_be_numeric(self):
+        broken = VALID_SOURCE.replace("key: 36", "key: ba mươi sáu")
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse_exam(broken)
+        self.assertIn("PART III", caught.exception.message)
+        expected_line = broken.splitlines().index("key: ba mươi sáu") + 1
+        self.assertEqual(caught.exception.line_no, expected_line)
+
+    def test_part_three_key_accepts_decimal_and_negative_numbers(self):
+        source_with_decimal = VALID_SOURCE.replace("key: 36", "key: 12,5")
+        exam1 = parse.parse_exam(source_with_decimal)
+        self.assertEqual(exam1.part(3)[0].key, "12,5")
+        source_with_negative = VALID_SOURCE.replace("key: 36", "key: -0.25")
+        exam2 = parse.parse_exam(source_with_negative)
+        self.assertEqual(exam2.part(3)[0].key, "-0.25")
+
 
 class ExamMathTest(unittest.TestCase):
     def build(self, part1: int, part2: int, part3: int, points: str = "10") -> parse.Exam:

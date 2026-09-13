@@ -6,6 +6,7 @@ Chỉ dùng thư viện chuẩn Python.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,6 +19,7 @@ PART_LABELS = {1: "I", 2: "II", 3: "III"}
 META_REQUIRED = ("school", "title", "subject", "time")
 META_OPTIONAL = ("department", "code", "points")
 POINTS = {1: 0.25, 2: 1.0, 3: 0.25}
+_NUMBER_RE = re.compile(r"-?[0-9]+(?:[.,][0-9]+)?")
 
 
 class ParseError(Exception):
@@ -109,7 +111,7 @@ def parse_meta(lines: list[str]) -> tuple[dict[str, str], int]:
             missing = [key for key in META_REQUIRED if not meta.get(key)]
             if missing:
                 raise ParseError(line_no, "khối thông tin đề thiếu: " + ", ".join(missing))
-            if not meta["time"].isdigit():
+            if not meta["time"].isdecimal():
                 raise ParseError(line_no, f"'time' phải là số phút dạng chữ số, gặp {meta['time']!r}")
             if "points" in meta:
                 try:
@@ -208,6 +210,11 @@ def build_question(
         if not fields.get("key", (0, ""))[1]:
             raise ParseError(line_no, f"câu {number} ở PART III thiếu khoá 'key' (đáp số)")
         key_value = fields["key"][1]
+        if not _NUMBER_RE.fullmatch(key_value):
+            raise ParseError(
+                fields["key"][0],
+                f"'key' ở PART III phải là một số (ví dụ 36, 12.5, 12,5, -0.25), gặp {key_value!r}",
+            )
         unit = fields.get("unit", (0, ""))[1]
 
     vietnamese = fields.get("vi", (0, ""))[1]
@@ -288,7 +295,7 @@ def parse_exam(text: str) -> Exam:
                     "câu hỏi nằm ngoài phần nào; thêm dòng '## PART I' trước câu hỏi đầu tiên",
                 )
             number_text = stripped[4:].strip()
-            if not number_text.isdigit():
+            if not number_text.isdecimal():
                 raise ParseError(line_no, f"số câu phải là chữ số, gặp {number_text!r}")
             blocks.append((part, int(number_text), line_no, []))
             continue
