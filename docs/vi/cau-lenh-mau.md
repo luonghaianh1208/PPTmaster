@@ -79,6 +79,20 @@ Soạn đề mới hoàn toàn bằng tiếng Anh:
 Soạn đề Vật lí 10 tiếng Anh, 45 phút, chương động lực học
 ```
 
+## Soạn giáo án
+
+Nâng cấp giáo án có sẵn:
+
+```
+Nâng cấp giáo án Bài 5 Ammonia này thành kế hoạch bài dạy có tích hợp năng lực số và năng lực AI
+```
+
+Soạn giáo án mới hoàn toàn:
+
+```
+Soạn kế hoạch bài dạy Hoá 11 Bài 5 Ammonia, 2 tiết, có tích hợp năng lực số và năng lực AI
+```
+
 ## Tạo nhanh
 
 ```

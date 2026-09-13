@@ -142,6 +142,7 @@ REQUIRED_DOCS = (
     "phat-trien/bao-tri.md",
     "lam-video.md",
     "soan-de-tieng-anh.md",
+    "soan-giao-an.md",
 )
 
 
@@ -410,11 +411,12 @@ AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi làm b�
 
 
 class TeacherAssistantWiringTest(unittest.TestCase):
-    def test_agents_vi_keeps_the_three_task_sections_last_in_order(self):
+    def test_agents_vi_keeps_the_four_task_sections_last_in_order(self):
         headings = h2_headings(read("AGENTS.vi.md"))
-        self.assertEqual(headings[-3], AGENTS_VI_ASSISTANT_HEADING)
-        self.assertEqual(headings[-2], AGENTS_VI_VIDEO_HEADING)
-        self.assertEqual(headings[-1], AGENTS_VI_EXAM_HEADING)
+        self.assertEqual(headings[-4], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(headings[-3], AGENTS_VI_VIDEO_HEADING)
+        self.assertEqual(headings[-2], AGENTS_VI_EXAM_HEADING)
+        self.assertEqual(headings[-1], AGENTS_VI_LESSON_HEADING)
 
     def test_assistant_section_links_common_rules_and_all_guides(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
@@ -560,7 +562,7 @@ class SelfInstallGuideTest(unittest.TestCase):
         body = section(text, AGENTS_VI_ENV_HEADING)
         for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
-        self.assertEqual(h2_headings(text)[-3], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(h2_headings(text)[-4], AGENTS_VI_ASSISTANT_HEADING)
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
@@ -681,12 +683,12 @@ class VideoGuideTest(unittest.TestCase):
 
     def test_task_type_count_matches_the_table(self):
         agents_vi_body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
-        self.assertIn("7 loại", agents_vi_body)
-        for stale in ("5 loại", "6 loại"):
+        self.assertIn("8 loại", agents_vi_body)
+        for stale in ("5 loại", "6 loại", "7 loại"):
             self.assertNotIn(stale, agents_vi_body)
         quy_trinh_body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
-        self.assertIn("7 loại", quy_trinh_body)
-        for stale in ("5 loại", "6 loại"):
+        self.assertIn("8 loại", quy_trinh_body)
+        for stale in ("5 loại", "6 loại", "7 loại"):
             self.assertNotIn(stale, quy_trinh_body)
 
 
@@ -951,6 +953,215 @@ class ExamUserDocsTest(unittest.TestCase):
                 self.assertTrue(lines, f"{path} không còn nhắc ba file Word")
                 for line in lines:
                     self.assertIn("hai file", line, line)
+
+
+AGENTS_VI_LESSON_HEADING = "## 13. Soạn giáo án tích hợp năng lực số và năng lực AI"
+LESSON_GUIDE = "docs/vi/tro-ly/giao-an.md"
+FRAMEWORK_GUIDE = "docs/vi/tro-ly/nang-luc-so-va-ai.md"
+LESSON_GUIDE_HEADINGS = (
+    "## Khi nào dùng",
+    "## Câu hỏi bắt buộc",
+    "## Câu hỏi tuỳ chọn",
+    "## Tạo nhanh",
+    "## Cấu trúc giáo án",
+    "## Đầu ra",
+    "## Ghi vào brief",
+)
+LESSON_COMMAND = r"python tools\vi\giao_an.py xuat"
+ROUTING_QUESTION = "file Word kế hoạch bài dạy"
+
+
+class LessonGuideTest(unittest.TestCase):
+    def test_guide_has_its_own_sections_in_order(self):
+        self.assertEqual(h2_headings(read(LESSON_GUIDE)), list(LESSON_GUIDE_HEADINGS))
+
+    def test_guide_is_not_treated_as_a_slide_guide(self):
+        self.assertNotIn("giao-an.md", GUIDE_FILES)
+
+    def test_guide_names_the_unambiguous_routing_phrases(self):
+        body = section(read(LESSON_GUIDE), "## Khi nào dùng")
+        self.assertIn("là rõ ràng", body)
+
+    def test_guide_questions_are_limited_and_have_suggestions(self):
+        items = numbered_items(section(read(LESSON_GUIDE), "## Câu hỏi bắt buộc"))
+        self.assertTrue(1 <= len(items) <= 7, f"{len(items)} câu")
+        for item in items:
+            self.assertIn("Gợi ý:", item)
+
+    def test_guide_quick_mode_asks_two_or_three_questions(self):
+        items = numbered_items(section(read(LESSON_GUIDE), "## Tạo nhanh"))
+        self.assertTrue(2 <= len(items) <= 3, f"{len(items)} câu")
+
+    def test_guide_states_the_source_grammar(self):
+        body = section(read(LESSON_GUIDE), "## Cấu trúc giáo án")
+        for token in ("## MUC TIEU", "## THIET BI", "## TIEN TRINH", "## RUBRIC", "## CAN SOAT",
+                      "thoi-luong:", "muc-tieu:", "chuyen-giao:", "ket-luan:", "nls:", "ai:"):
+            with self.subTest(token=token):
+                self.assertIn(token, body)
+
+    def test_guide_example_source_parses_and_validates(self):
+        """Bài học từ gói đề thi: ngữ pháp trong hướng dẫn phải khớp parser thật, chứng minh bằng file mẫu."""
+        import sys
+        sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
+        from giao_an_parts import frameworks, parse
+
+        body = section(read(LESSON_GUIDE), "## Cấu trúc giáo án")
+        blocks = re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)
+        self.assertTrue(blocks, "thiếu file giao-an.md mẫu trong khối code")
+        lesson = parse.parse_lesson(blocks[0])
+        frameworks.validate(lesson, frameworks.load_file())
+        self.assertTrue(lesson.activities)
+
+    def test_guide_skips_the_pptx_only_steps(self):
+        body = section(read(LESSON_GUIDE), "## Ghi vào brief")
+        for phrase in ("projects/_giao-an/", "brief.md", "import-sources", "dòng chốt"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guide_names_the_output_files(self):
+        body = section(read(LESSON_GUIDE), "## Đầu ra")
+        for name in ("giao-an.docx", "can-soat.md", "projects/_giao-an/"):
+            self.assertIn(name, body)
+
+    def test_guide_points_to_the_framework_document(self):
+        self.assertIn("nang-luc-so-va-ai.md", read(LESSON_GUIDE))
+
+    def test_guide_forbids_rewriting_the_teacher_content_and_inventing_codes(self):
+        text = read(LESSON_GUIDE)
+        for phrase in ("giữ nguyên", "không tự đặt mã", "can-soat.md"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_tro_ly_files_have_no_markdown_links(self):
+        for name in ("giao-an.md", "nang-luc-so-va-ai.md"):
+            with self.subTest(file=name):
+                self.assertEqual(LINK_RE.findall(read(f"docs/vi/tro-ly/{name}")), [])
+
+    def test_framework_document_credits_its_author_and_sources(self):
+        text = read(FRAMEWORK_GUIDE)
+        for phrase in ("Lương Hải Anh", "2Anh AI Education", "Bộ GD&ĐT", "Phụ lục III & IV"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+
+class LessonWiringTest(unittest.TestCase):
+    def test_common_rules_table_lists_the_lesson_plan_task(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("giao-an.md", body)
+        for keyword in ("kế hoạch bài dạy", "KHBD"):
+            self.assertIn(keyword, body)
+
+    def test_common_rules_name_the_ambiguous_lesson_keyword(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn('"giáo án"', body)
+        self.assertIn(ROUTING_QUESTION, body)
+        self.assertIn("là rõ ràng", body)
+
+    def test_agents_vi_lesson_section_explains_both_flows_and_the_command(self):
+        text = read("AGENTS.vi.md")
+        self.assertIn(AGENTS_VI_LESSON_HEADING, h2_headings(text))
+        body = section(text, AGENTS_VI_LESSON_HEADING)
+        self.assertIn(LESSON_COMMAND, body)
+        for phrase in (
+            "source_to_md.py",
+            "trich-sgk",
+            "(docs/vi/tro-ly/giao-an.md)",
+            "(docs/vi/tro-ly/nang-luc-so-va-ai.md)",
+            "projects/_giao-an/",
+            "giao-an.md",
+            "ảnh",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_agents_vi_lesson_section_maps_every_error_step(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        for step in ("input", "parse", "framework", "docx", "write"):
+            self.assertIn(f"`{step}`", body)
+        self.assertIn("requirements-vi.txt", body)
+
+    def test_agents_vi_lesson_section_asks_before_routing(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        self.assertIn(ROUTING_QUESTION, body)
+        self.assertIn("là rõ ràng", body)
+
+    def test_agents_vi_lesson_section_keeps_the_venv_conditional(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        self.assertIn("mục 4", body)
+
+    def test_agents_vi_lesson_section_reads_the_curriculum_without_editing_it(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        self.assertIn("không sửa", body)
+        self.assertIn("phân phối chương trình", body)
+
+    def test_common_rules_say_pptx_steps_do_not_apply_to_lesson_plans(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("giao-an.md", body)
+        self.assertIn("import-sources", body)
+
+    def test_agents_vi_lesson_section_bans_svg_and_skills(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        for phrase in ("SVG", "skills/", "project_manager.py init"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_agents_vi_lesson_flow_a_reads_the_plan_before_asking(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_LESSON_HEADING)
+        self.assertIn("source_to_md.py", body)
+        self.assertIn("hỏi một lượt", body)
+        self.assertLess(body.index("source_to_md.py"), body.index("hỏi một lượt"))
+
+    def test_agents_vi_triggers_include_lesson_plan_phrases(self):
+        body = section(read("AGENTS.vi.md"), "## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`")
+        for phrase in ("kế hoạch bài dạy", "giáo án"):
+            self.assertIn(phrase, body)
+
+    def test_brief_template_lists_the_lesson_plan_task(self):
+        self.assertIn("Soạn giáo án", read("docs/vi/tro-ly/mau-brief.md"))
+
+
+class LessonUserDocsTest(unittest.TestCase):
+    def test_doc_explains_inputs_outputs_and_limits(self):
+        text = read("docs/vi/soan-giao-an.md")
+        for phrase in ("Word", "PDF", "ảnh", "giao-an.docx", "can-soat.md", "rubric",
+                       "năng lực số", "năng lực AI", "phân phối chương trình"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_doc_explains_the_routing_question(self):
+        self.assertIn("slide", read("docs/vi/soan-giao-an.md"))
+
+    def test_quick_start_mentions_the_lesson_plan_task(self):
+        text = read("docs/vi/bat-dau-nhanh.md")
+        self.assertNotIn("7 loại", text)
+        headings = h2_headings(text)
+        self.assertIn("## Soạn giáo án", headings)
+        self.assertLess(headings.index("## Soạn giáo án"), headings.index("## Lấy file kết quả"))
+        self.assertIn("(soan-giao-an.md)", section(text, "## Soạn giáo án"))
+
+    def test_sample_commands_cover_both_flows(self):
+        body = section(read("docs/vi/cau-lenh-mau.md"), "## Soạn giáo án")
+        self.assertIn("năng lực số", body)
+        self.assertIn("kế hoạch bài dạy", body)
+
+    def test_troubleshooting_has_the_lesson_plan_section(self):
+        text = read("docs/vi/xu-ly-loi.md")
+        headings = h2_headings(text)
+        self.assertIn("## Xuất giáo án thất bại", headings)
+        # Đứng NGAY TRƯỚC mục đề thi: gói đề thi khoá mục đề thi ngay trước mục video,
+        # và gói video khoá mục video ngay trước "Đường dẫn quá dài".
+        self.assertEqual(
+            headings.index("## Xuất giáo án thất bại"),
+            headings.index("## Xuất đề Word thất bại") - 1,
+        )
+        body = section(text, "## Xuất giáo án thất bại")
+        for phrase in ("requirements-vi.txt", "python-docx", "đang mở trong Word", "Dòng",
+                       "giao-an.md", "mã năng lực"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_readme_mentions_the_lesson_plan_feature(self):
+        self.assertIn("giáo án", section(read("README.md"), "## Làm được gì"))
 
 
 if __name__ == "__main__":

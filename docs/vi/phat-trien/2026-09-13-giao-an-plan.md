@@ -606,9 +606,12 @@ class ParseTest(unittest.TestCase):
         self.assertIn("tiến trình", caught.exception.message)
 
     def test_exam_with_no_activity_fails(self):
-        broken = VALID_SOURCE.split("## TIEN TRINH")[0] + "## TIEN TRINH\n\n" + VALID_SOURCE.split("## PHIEU HOC TAP")[1]
-        with self.assertRaises(parse.ParseError):
+        # Giữ dòng '## PHIEU HOC TAP' để lỗi đúng là "không có hoạt động", không phải phiếu bị đọc thành hoạt động.
+        broken = (VALID_SOURCE.split("## TIEN TRINH")[0] + "## TIEN TRINH\n\n## PHIEU HOC TAP"
+                  + VALID_SOURCE.split("## PHIEU HOC TAP")[1])
+        with self.assertRaises(parse.ParseError) as caught:
             parse.parse_lesson(broken)
+        self.assertIn("không có hoạt động nào", caught.exception.message)
 
     def test_rubric_needs_at_least_two_criteria(self):
         broken = VALID_SOURCE.split("### Kĩ năng kiểm chứng và phản biện AI")[0] + "\n## CAN SOAT\n- ghi chú\n"
@@ -1131,7 +1134,7 @@ git commit -m "feat(vi): read the lesson plan source and enforce the 5512 struct
 - Modify: `tools/vi/tests/test_giao_an.py` (thêm `FrameworkValidateTest`)
 
 **Interfaces:**
-- Consumes: `parse.Lesson` (kiểu vịt: chỉ dùng `meta`, `nls_codes`, `ai_codes`, `ai_no_framework`, `activities`).
+- Consumes: `parse.Lesson` (kiểu vịt: chỉ dùng `meta`, `nls_codes`, `ai_codes`, `ai_lines`, `ai_no_framework`, `activities`).
 - Produces: `frameworks.validate(lesson, frameworks: Frameworks) -> None`, raise `FrameworkError`.
 
 - [ ] **Step 1: Viết test trước**
@@ -1201,6 +1204,19 @@ class FrameworkValidateTest(unittest.TestCase):
             frameworks.validate(self.lesson_from(text), self.frameworks)
         self.assertIn("AI-H11.4", caught.exception.message)
 
+    def test_marker_subject_objectives_may_not_carry_codes(self):
+        """Spec §7: môn chưa có khung mà mục tiêu AI vẫn ghi mã thì chặn, kể cả khi hoạt động đã dùng (chưa có mã)."""
+        text = VALID_SOURCE.replace("subject: Hoá học", "subject: Ngữ văn")
+        text = text.replace(
+            "- AI-H11.2 — Viết prompt để AI dự đoán chiều chuyển dịch cân bằng khi tăng áp suất.\n",
+            f"- {frameworks.NO_FRAMEWORK}\n",
+        )
+        text = text.replace("ai: AI-H11.2, AI-H11.4", f"ai: {frameworks.NO_CODE}")
+        with self.assertRaises(frameworks.FrameworkError) as caught:
+            frameworks.validate(self.lesson_from(text), self.frameworks)
+        self.assertIn("AI-H11.4", caught.exception.message)
+        self.assertIn(frameworks.NO_FRAMEWORK, caught.exception.fix)
+
     def test_activity_code_missing_from_the_objectives_is_rejected(self):
         broken = VALID_SOURCE.replace("nls: 1.1.NC1a, 5.1.NC1a", "nls: 1.1.NC1a, 3.1.NC1a")
         with self.assertRaises(frameworks.FrameworkError) as caught:
@@ -1254,6 +1270,16 @@ def validate(lesson, frameworks: Frameworks) -> None:
                 f"Môn {subject} lớp {grade} chưa có khung mã AI trong {DOC_PATH.name}",
                 f"Ghi dòng đầu của mục '### Nang luc AI' là '- {NO_FRAMEWORK}', "
                 f"và dùng 'ai: {NO_CODE}' cho hoạt động AI.",
+            )
+        coded = [
+            line.split(" — ", 1)[0]
+            for line in lesson.ai_lines[1:]
+            if re.match(r"^AI-\S+\s+—\s+", line)
+        ]
+        if coded:
+            raise FrameworkError(
+                "Môn này chưa có khung mã AI nhưng mục tiêu vẫn ghi mã: " + ", ".join(coded),
+                f"Bỏ mã ở đầu các dòng đó; dòng đầu là '- {NO_FRAMEWORK}', các dòng sau viết bằng lời.",
             )
         stray = [code for code in _activity_codes(lesson, "ai") if code != NO_CODE]
         if stray:
@@ -1410,6 +1436,23 @@ class SgkTest(unittest.TestCase):
         self.assertEqual(heading, "Bài 5. Ammonia")
         self.assertIn("một", body)
         self.assertTrue(any("khớp" in warning for warning in warnings))
+
+    def test_table_of_contents_lines_are_skipped(self):
+        text = (
+            "MỤC LỤC\nBài 4. Nitrogen 20\nBài 5. Ammonia 25\nBài 6. Nitric acid 30\n\n"
+            "## Bài 5. Ammonia\n\nnội dung thật\n\n## Bài 6. Nitric acid\n\nkhác\n"
+        )
+        heading, body, _ = sgk.extract(text, "Bài 5")
+        self.assertEqual(heading, "Bài 5. Ammonia")
+        self.assertIn("nội dung thật", body)
+        self.assertNotIn("khác", body)
+
+    def test_lesson_number_does_not_match_a_longer_number(self):
+        text = "## Bài 50. Hệ sinh thái\n\nsai\n\n## Bài 5. Tế bào\n\nđúng\n"
+        heading, body, warnings = sgk.extract(text, "Bài 5")
+        self.assertEqual(heading, "Bài 5. Tế bào")
+        self.assertIn("đúng", body)
+        self.assertEqual(warnings, [])
 ```
 
 Đổi dòng import ở đầu file thành:
@@ -1467,6 +1510,17 @@ def headings(lines: list[str]) -> list[tuple[int, str]]:
     return found
 
 
+def _contains(title: str, target: str) -> bool:
+    """'bai 5' khớp 'bai 5. ammonia' nhưng không khớp 'bai 50. he sinh thai'."""
+    start = title.find(target)
+    while start != -1:
+        after = title[start + len(target):start + len(target) + 1]
+        if not (target[-1:].isdigit() and after.isdigit()):
+            return True
+        start = title.find(target, start + 1)
+    return False
+
+
 def extract(text: str, query: str) -> tuple[str, str, list[str]]:
     lines = text.splitlines()
     found = headings(lines)
@@ -1476,17 +1530,25 @@ def extract(text: str, query: str) -> tuple[str, str, list[str]]:
             "Kiểm lại file Markdown đã chuyển từ PDF; có thể bước chuyển đổi đã thất bại.",
         )
     target = normalise(query)
-    matches = [item for item in found if target in normalise(item[1])]
+    matches = [item for item in found if _contains(normalise(item[1]), target)]
     if not matches:
         nearest = "; ".join(title for _, title in found[:3])
         raise SgkError(
             f"Không tìm thấy tiêu đề nào chứa {query!r}",
             f"Ba tiêu đề đầu tiên trong file: {nearest}. Sửa lại --bai cho khớp.",
         )
-    start_index, heading = matches[0]
-    following = [index for index, _ in found if index > start_index]
-    end_index = following[0] if following else len(lines)
-    body = "\n".join(lines[start_index:end_index]).strip() + "\n"
+
+    def end_of(start_index: int) -> int:
+        following = [index for index, _ in found if index > start_index]
+        return following[0] if following else len(lines)
+
+    # Dòng mục lục ("Bài 5. Ammonia ... 25") cũng là tiêu đề nhưng không có nội dung phía sau: bỏ qua.
+    with_content = [
+        item for item in matches
+        if any(line.strip() for line in lines[item[0] + 1:end_of(item[0])])
+    ]
+    start_index, heading = (with_content or matches)[0]
+    body = "\n".join(lines[start_index:end_of(start_index)]).strip() + "\n"
     warnings: list[str] = []
     size_kb = len(body.encode("utf-8")) / 1024
     if size_kb > MAX_KB:
@@ -1503,7 +1565,7 @@ def extract(text: str, query: str) -> tuple[str, str, list[str]]:
 - [ ] **Step 4: Chạy test để thấy nó pass**
 
 Chạy: `python -m unittest discover -s tools/vi/tests -t tools/vi/tests -k SgkTest`
-Kỳ vọng: PASS, 8 test.
+Kỳ vọng: PASS, 10 test.
 
 - [ ] **Step 5: Chạy cả bộ test**
 
@@ -2602,6 +2664,7 @@ class LessonWiringTest(unittest.TestCase):
         body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
         self.assertIn('"giáo án"', body)
         self.assertIn(ROUTING_QUESTION, body)
+        self.assertIn("là rõ ràng", body)
 
     def test_agents_vi_lesson_section_explains_both_flows_and_the_command(self):
         text = read("AGENTS.vi.md")
@@ -2691,7 +2754,7 @@ Tạo file với đúng bảy mục h2 theo thứ tự `LESSON_GUIDE_HEADINGS`. 
 3. Thêm mục 13 làm mục cuối file, tiêu đề `## 13. Soạn giáo án tích hợp năng lực số và năng lực AI`:
 
 - Câu mở: câu lệnh có chữ "giáo án" thì **hỏi đúng một câu trước**: "Thầy cô cần file Word kế hoạch bài dạy (giáo án 5512), hay slide trình chiếu cho bài này?". Trả lời Word thì theo mục này; trả lời slide thì theo mục 10.
-- Đọc `docs/vi/tro-ly/giao-an.md` và `docs/vi/tro-ly/nang-luc-so-va-ai.md`, hỏi một lượt, chờ trả lời. Nhắc như mục 4 về `venv\Scripts\python.exe`.
+- Đọc [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) và [docs/vi/tro-ly/nang-luc-so-va-ai.md](docs/vi/tro-ly/nang-luc-so-va-ai.md) — viết đúng dạng liên kết Markdown như mục 12, vì test tìm chuỗi `(docs/vi/tro-ly/giao-an.md)` — hỏi một lượt, chờ trả lời. Nhắc như mục 4 về `venv\Scripts\python.exe`.
 - Bước 1 (luồng A): đọc giáo án cũ bằng `python skills/ppt-master/scripts/source_to_md.py <file> -o <thư_mục_tạm>`. Thầy cô đưa **ảnh** thì nói rõ không đọc được, xin PDF hoặc Word.
 - Bước 2 (tuỳ chọn): có file kế hoạch dạy học hoặc **phân phối chương trình** thì đọc để lấy tuần, tiết thứ, yêu cầu cần đạt và mã năng lực số đã khai. **Không sửa** file đó.
 - Bước 3 (tuỳ chọn): cần nội dung SGK thì chuyển quyển SGK sang Markdown **một lần** rồi cắt: `python tools\vi\giao_an.py trich-sgk <sgk.md> --bai "<tên bài>"`. Không nạp cả quyển.
@@ -2713,14 +2776,14 @@ Tạo file với đúng bảy mục h2 theo thứ tự `LESSON_GUIDE_HEADINGS`. 
 2. Thêm một dòng gạch đầu dòng ngay sau bảng:
 
 ```
-- Chữ "giáo án" một mình là ca mơ hồ đã biết: nó có thể là file Word kế hoạch bài dạy, cũng có thể là slide. Hỏi đúng một câu trước khi làm gì khác: "Thầy cô cần file Word kế hoạch bài dạy (giáo án 5512), hay slide trình chiếu cho bài này?" Trả lời Word thì dùng giao-an.md; trả lời slide thì dùng bai-giang.md.
+- Chữ "giáo án" một mình là ca mơ hồ đã biết: nó có thể là file Word kế hoạch bài dạy, cũng có thể là slide. Hỏi đúng một câu trước khi làm gì khác: "Thầy cô cần file Word kế hoạch bài dạy (giáo án 5512), hay slide trình chiếu cho bài này?" Trả lời Word thì dùng giao-an.md; trả lời slide thì dùng bai-giang.md. Câu lệnh có "kế hoạch bài dạy", "KHBD", "giáo án Word" hoặc "giáo án 5512" là rõ ràng: dùng giao-an.md và không hỏi câu này, dù cụm đó chứa chữ "bài dạy" hay "giáo án" của dòng Bài giảng.
 ```
 
 3. Thêm một dòng: `Loại việc "Soạn giáo án tích hợp năng lực số và AI" không tạo PPTX; nó ghi brief như các loại khác nhưng không đi vào quy trình của upstream.` Nối tiếp ngay trong dòng đó: các bước chỉ dành cho PPTX (dòng chốt cách xác nhận, `import-sources`, bước xác nhận của upstream, `quick-generate.md`) không áp dụng; làm theo mục "Ghi vào brief" của docs/vi/tro-ly/giao-an.md. Không xoá hay diễn đạt lại câu nào đang có trong quy-trinh-hoi.md — nhiều câu bị test khoá.
 
 - [ ] **Step 6: Sửa `docs/vi/tro-ly/mau-brief.md`**
 
-Thêm `Soạn giáo án tích hợp năng lực số và AI` vào danh sách loại việc.
+Dòng 5 là danh sách trong ngoặc nhọn cách nhau bằng ` | `. Thêm ` | Soạn giáo án tích hợp năng lực số và AI` ngay trước dấu `>`.
 
 - [ ] **Step 7: Chạy cả bộ test**
 
@@ -2768,6 +2831,7 @@ class LessonUserDocsTest(unittest.TestCase):
 
     def test_quick_start_mentions_the_lesson_plan_task(self):
         text = read("docs/vi/bat-dau-nhanh.md")
+        self.assertNotIn("7 loại", text)
         headings = h2_headings(text)
         self.assertIn("## Soạn giáo án", headings)
         self.assertLess(headings.index("## Soạn giáo án"), headings.index("## Lấy file kết quả"))
@@ -2823,7 +2887,7 @@ Thêm mục `## Xuất giáo án thất bại` **ngay trước** `## Xuất đ�
 
 - [ ] **Step 5: Sửa `docs/vi/bat-dau-nhanh.md` và `docs/vi/cau-lenh-mau.md`**
 
-`bat-dau-nhanh.md`: thêm `## Soạn giáo án` trước `## Lấy file kết quả`, có liên kết `(soan-giao-an.md)`.
+`bat-dau-nhanh.md`: thêm `## Soạn giáo án` trước `## Lấy file kết quả`, có liên kết `(soan-giao-an.md)`; đổi "Với 7 loại việc trên" (dòng 47) thành "Với 8 loại việc trên". Nếu mục `## AI sẽ hỏi gì` liệt kê tên các loại việc thì thêm loại giáo án vào danh sách đó.
 
 `cau-lenh-mau.md`: thêm `## Soạn giáo án` với hai câu lệnh mẫu — "Nâng cấp giáo án Bài 5 Ammonia này thành kế hoạch bài dạy có tích hợp năng lực số và năng lực AI" và "Soạn kế hoạch bài dạy Hoá 11 Bài 5 Ammonia, 2 tiết, có tích hợp năng lực số và năng lực AI".
 
@@ -2900,9 +2964,21 @@ python tools/vi/giao_an.py trich-sgk projects/_giao-an/_sgk/mau.md --bai "Bài 5
 
 Kỳ vọng: `ready` là `true`, `heading` đúng bài 5, file `sgk-trich.md` chỉ chứa phần bài 5.
 
+- [ ] **Step 6b: Chạy luồng A trên giáo án thật (spec §8.2)**
+
+Giáo án Bài 5 thật của chủ repo (PDF, nằm ngoài repo; controller đưa đường dẫn lúc giao việc). **Chỉ đọc**, không sửa, không chép file đó vào repo.
+
+1. Chuyển sang Markdown vào thư mục đã gitignore: `python skills/ppt-master/scripts/source_to_md.py "<đường dẫn PDF trên>" -o projects/_giao-an/bai-5-ammonia-that/nguon`.
+2. Đọc bản Markdown; ghi lại mục lục và số hoạt động của giáo án gốc.
+3. Viết `projects/_giao-an/bai-5-ammonia-that/giao-an.md` theo luồng A của `docs/vi/tro-ly/giao-an.md`: giữ nguyên nội dung chuyên môn; lớp chuyên nên dùng `track: chuyen` và khung `AI-H-Chuyên`; mã NLS lấy từ giáo án gốc nếu có, không thì chọn theo bảng; thêm hoạt động AI có đối chứng và rubric. Chỗ không đọc được ghi vào `## CAN SOAT`.
+4. Chạy `python tools/vi/giao_an.py xuat projects/_giao-an/bai-5-ammonia-that`; kiểm mã thoát 0, một dòng JSON, và so số hoạt động với giáo án gốc.
+5. Kiểm XML như Step 2. **Không mở Word.**
+
+Không đọc được PDF hoặc chuyển đổi hỏng: ghi rõ lý do vào báo cáo, không tự viết bù nội dung.
+
 - [ ] **Step 7: Viết báo cáo**
 
-Tạo `docs/vi/phat-trien/2026-09-13-giao-an-kiem-thu.md`: lệnh đã chạy, dòng JSON thật (rút gọn đường dẫn về dạng tương đối, **không** để lộ tên thư mục riêng của chủ repo), kết quả từng phép chặn, và kết quả kiểm XML. Ghi rõ một dòng: `Chưa mở Word để xem; phần đánh giá trình bày do chủ repo tự kiểm.` Ghi thêm một dòng: `Chưa chạy trên giáo án thật của chủ repo; bản mẫu là giáo án tự soạn.`
+Tạo `docs/vi/phat-trien/2026-09-13-giao-an-kiem-thu.md`: lệnh đã chạy, dòng JSON thật (rút gọn đường dẫn về dạng tương đối, **không** để lộ tên thư mục riêng của chủ repo), kết quả từng phép chặn, và kết quả kiểm XML. Ghi rõ một dòng: `Chưa mở Word để xem; phần đánh giá trình bày do chủ repo tự kiểm.` Ghi thêm kết quả Step 6b: mục lục và số hoạt động của giáo án gốc so với bản xuất, dòng JSON thật, chỗ nào chuyển đổi PDF làm mất nội dung — hoặc lý do không chạy được. Không ghi đường dẫn thư mục riêng của chủ repo, chỉ ghi "giáo án Bài 5 thật (PDF) của chủ repo".
 
 - [ ] **Step 8: Chạy cả bộ test lần cuối**
 

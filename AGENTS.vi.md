@@ -15,7 +15,7 @@ File này bổ sung ngữ cảnh Việt Nam cho [AGENTS.md](AGENTS.md). Nó khô
 
 ## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`
 
-"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh".
+"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh", "soạn giáo án", "kế hoạch bài dạy", "KHBD".
 
 Các cụm "tạo nhanh", "làm nhanh", "không cần hỏi lại" là yêu cầu Quick tường minh (với bài tạo mới thông thường là hồ sơ `workflows/profiles/quick-generate.md` của upstream). Việc chọn hồ sơ và các bước thực hiện vẫn theo đúng `SKILL.md`.
 
@@ -63,7 +63,7 @@ Sau khi xuất, cho người dùng biết đường dẫn file PPTX trong thư m
 
 ## 10. Hỗ trợ thầy cô trước khi làm bài
 
-Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 7 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
+Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 8 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
 
 | Loại việc | File hướng dẫn |
 |---|---|
@@ -74,9 +74,10 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 7 lo
 | Tập huấn/workshop | [docs/vi/tro-ly/tap-huan-workshop.md](docs/vi/tro-ly/tap-huan-workshop.md) |
 | Video bài giảng | [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md) |
 | Soạn đề KHTN tiếng Anh | [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) |
+| Soạn giáo án tích hợp năng lực số và AI | [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) |
 
-- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12) — loại việc đó không có bước xác nhận của upstream, xem mục 12. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
-- Yêu cầu không thuộc 7 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
+- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12) hoặc "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13) — hai loại việc đó không có bước xác nhận của upstream, xem mục 12 và mục 13. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- Yêu cầu không thuộc 8 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
 ## 11. Làm video bài giảng
 
@@ -125,3 +126,30 @@ Khi người dùng cần đề kiểm tra KHTN bằng tiếng Anh, đọc [docs/
 | `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
 
 Điều cấm: không tự sửa số liệu hay đáp án của đề gốc; không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`; không commit gì trong `projects/`.
+
+## 13. Soạn giáo án tích hợp năng lực số và năng lực AI
+
+Câu lệnh có chữ "giáo án" thì hỏi đúng một câu trước: "Thầy cô cần file Word kế hoạch bài dạy (giáo án 5512), hay slide trình chiếu cho bài này?". Trả lời Word thì theo mục này; trả lời slide thì theo mục 10. Câu lệnh có "kế hoạch bài dạy", "KHBD", "giáo án Word" hoặc "giáo án 5512" là rõ ràng: đi thẳng vào mục này, không hỏi câu trên.
+
+Đọc [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) và [docs/vi/tro-ly/nang-luc-so-va-ai.md](docs/vi/tro-ly/nang-luc-so-va-ai.md) rồi làm đúng thứ tự dưới. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây, không có thì dùng `python`.
+
+1. Luồng A (nâng cấp giáo án có sẵn): đọc giáo án cũ bằng `python skills/ppt-master/scripts/source_to_md.py <file> -o <thư_mục_tạm>` trước khi hỏi gì. Thầy cô đưa **ảnh** thì nói rõ không đọc được, xin PDF hoặc Word. Luồng B (soạn mới) không có gì để đọc, bỏ qua bước này.
+2. Sau bước 1 (luồng A) hoặc ngay từ đầu (luồng B), hỏi một lượt theo file hướng dẫn, chờ trả lời.
+3. (tuỳ chọn) Có file kế hoạch dạy học hoặc phân phối chương trình thì đọc để lấy tuần, tiết thứ, yêu cầu cần đạt và mã năng lực số đã khai. **Không sửa** file đó.
+4. (tuỳ chọn) Cần nội dung SGK thì chuyển quyển SGK sang Markdown một lần, đặt ở `projects\_giao-an\_sgk\`, rồi cắt: `python tools\vi\giao_an.py trich-sgk projects\_giao-an\_sgk\<file>.md --bai "Bài <số>" --ra projects\_giao-an\<tên_bài>\sgk-trich.md` (ví dụ `--bai "Bài 5"`, không truyền cả tên bài; dùng `--ra` để lần cắt sau không ghi đè lần trước). Không nạp cả quyển.
+5. Tạo `projects/_giao-an/<tên_bài>/` và viết `giao-an.md`.
+6. `python tools\vi\giao_an.py xuat projects\_giao-an\<tên_bài>`; thêm `--plan-only` khi chỉ muốn kiểm.
+7. Đọc dòng JSON. `ready` là `true` thì báo thầy cô đường dẫn hai file, số hoạt động, tổng thời lượng, các mã đã dùng, và đọc nguyên văn `warnings` cùng nội dung `can-soat.md`.
+
+| `error.step` | Xử lý |
+|---|---|
+| `input` | Chưa có `giao-an.md`, viết file rồi chạy lại. |
+| `parse` | Sửa đúng dòng `error.message` nêu rồi chạy lại. |
+| `framework` | Sửa mã theo `error.fix`, **không tự đặt mã mới**. |
+| `docx` | Có `venv\Scripts\python.exe` ở thư mục gốc repo thì chạy `venv\Scripts\python.exe -m pip install -r tools/vi/requirements-vi.txt`; không thì chạy `python -m pip install -r tools/vi/requirements-vi.txt`, rồi chạy lại, tối đa một lần. |
+| `write` | Xin thầy cô đóng file Word đang mở rồi chạy lại. |
+| `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
+
+Với `trich-sgk`: `parse` là không tìm thấy bài (sửa `--bai` theo `error.fix`), `write` là thư mục của `--ra` không ghi được.
+
+Điều cấm: không sửa nội dung chuyên môn của thầy cô; không sửa file phân phối chương trình; không tự đặt mã; không in ghi chú nội bộ vào giáo án; không commit gì trong `projects/`; không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`.

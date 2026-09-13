@@ -31,6 +31,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 - Hiệu ứng chuyển động và thuyết minh bằng giọng tiếng Việt.
 - Làm đẹp lại một file PPTX có sẵn.
 - Soạn **đề kiểm tra** KHTN/Vật lí/Hoá học/Sinh học bằng tiếng Anh, từ đề tiếng Việt có sẵn hoặc từ đầu, xuất ra file Word.
+- Soạn **giáo án** kế hoạch bài dạy theo Công văn 5512, tích hợp năng lực số và năng lực AI, xuất ra file Word.
 
 ## Ba file bấm đúp
 
@@ -50,6 +51,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 | [Xử lý lỗi](docs/vi/xu-ly-loi.md) | Lỗi thường gặp và cách sửa |
 | [Lấy API key](docs/vi/lay-api-key.md) | Bật tạo ảnh bằng AI |
 | [Soạn đề tiếng Anh](docs/vi/soan-de-tieng-anh.md) | Từ đề tiếng Việt hoặc từ đầu, ra ba file Word (hai file nếu không cần bản song ngữ) |
+| [Soạn giáo án](docs/vi/soan-giao-an.md) | Kế hoạch bài dạy 5512 tích hợp năng lực số và AI |
 
 Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 
