@@ -2017,11 +2017,20 @@ class CliTest(unittest.TestCase):
 
     def test_missing_python_docx_reports_docx_step(self):
         self.write_source()
-        with mock.patch.object(giao_an, "load_docx_build", side_effect=ImportError("No module named 'docx'")):
+        with mock.patch.object(giao_an, "load_docx_build",
+                               side_effect=ImportError("No module named 'docx'", name="docx")):
             code, data = self.run_cli("xuat", str(self.folder))
         self.assertEqual(code, 1)
         self.assertEqual(data["error"]["step"], "docx")
         self.assertIn("requirements-vi.txt", data["error"]["fix"])
+
+    def test_unrelated_import_error_reports_internal_step(self):
+        self.write_source()
+        with mock.patch.object(giao_an, "load_docx_build",
+                               side_effect=ImportError("cannot import name 'x'", name="word_parts.base")):
+            code, data = self.run_cli("xuat", str(self.folder))
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "internal")
 
     def test_write_failure_reports_write_step(self):
         self.write_source()
@@ -2201,10 +2210,12 @@ FIX_SOURCE = (
     "Viết file giao-an.md trong thư mục giáo án theo docs/vi/tro-ly/giao-an.md rồi chạy lại."
 )
 FIX_PARSE = "Sửa đúng dòng đó trong giao-an.md theo docs/vi/tro-ly/giao-an.md rồi chạy lại."
-FIX_DOCX = (
-    "Cài thư viện bằng: python -m pip install -r tools/vi/requirements-vi.txt "
-    "(hoặc chạy lại CAI-DAT.bat)"
-)
+def fix_docx() -> str:
+    """Lệnh cài dùng đúng Python đang chạy công cụ (có thể là Python của venv)."""
+    return (
+        f'Cài thư viện bằng: "{sys.executable}" -m pip install -r tools/vi/requirements-vi.txt '
+        "(hoặc chạy lại CAI-DAT.bat)"
+    )
 FIX_WRITE = "Đóng file Word đang mở rồi chạy lại; kiểm tra ổ đĩa còn trống."
 FIX_INTERNAL = "Gửi nguyên dòng error.message cho người bảo trì."
 FIX_ARGS = (
@@ -2332,7 +2343,11 @@ def command_export(args) -> int:
     try:
         docx_build = load_docx_build()
     except ImportError as exc:
-        emit(failure("docx", f"Chưa cài thư viện python-docx ({exc})", FIX_DOCX,
+        if getattr(exc, "name", None) not in ("docx", "lxml"):
+            emit(failure("internal", f"Lỗi ngoài dự kiến khi nạp bộ dựng Word: {exc}", FIX_INTERNAL,
+                         warnings=warnings, **extra))
+            return 1
+        emit(failure("docx", f"Chưa cài thư viện python-docx ({exc})", fix_docx(),
                      warnings=warnings, **extra))
         return 1
 
@@ -2683,7 +2698,7 @@ Tạo file với đúng bảy mục h2 theo thứ tự `LESSON_GUIDE_HEADINGS`. 
 - Bước 4: tạo `projects/_giao-an/<tên_bài>/` và viết `giao-an.md`.
 - Bước 5: `python tools\vi\giao_an.py xuat projects\_giao-an\<tên_bài>`; thêm `--plan-only` khi chỉ muốn kiểm.
 - Bước 6: đọc dòng JSON. `ready` là `true` thì báo thầy cô đường dẫn hai file, số hoạt động, tổng thời lượng, các mã đã dùng, và đọc nguyên văn `warnings` cùng nội dung `can-soat.md`.
-- Bảng xử lý lỗi, mỗi `error.step` một dòng: `input` → chưa có `giao-an.md`; `parse` → sửa đúng dòng `error.message` nêu; `framework` → sửa mã theo `error.fix`, **không tự đặt mã mới**; `docx` → chạy `python -m pip install -r tools/vi/requirements-vi.txt` rồi chạy lại, tối đa một lần; `write` → xin thầy cô đóng file Word rồi chạy lại.
+- Bảng xử lý lỗi, mỗi `error.step` một dòng: `input` → chưa có `giao-an.md`; `parse` → sửa đúng dòng `error.message` nêu; `framework` → sửa mã theo `error.fix`, **không tự đặt mã mới**; `docx` → cài bằng Python của venv nếu có (`venv\Scripts\python.exe -m pip install -r tools/vi/requirements-vi.txt`), không có thì `python -m pip install -r tools/vi/requirements-vi.txt`, rồi chạy lại, tối đa một lần; `write` → xin thầy cô đóng file Word rồi chạy lại.
 - Điều cấm: không sửa nội dung chuyên môn của thầy cô; không sửa file phân phối chương trình; không tự đặt mã; không in ghi chú nội bộ vào giáo án; không commit gì trong `projects/`; không tạo SVG; không chạm `skills/`.
 - Trong thân mục 10, ở gạch đầu dòng nói bước xác nhận của upstream vẫn bắt buộc, thêm ngoại lệ: không áp dụng cho loại việc đề thi (mục 12) và giáo án (mục 13). Không xoá cụm từ nào đang có.
 
