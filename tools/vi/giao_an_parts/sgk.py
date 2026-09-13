@@ -84,17 +84,30 @@ def _adjacent_relevant(lines: list[str], index: int, step: int) -> str | None:
     return None
 
 
-def _in_list(lines: list[str], index: int) -> bool:
-    """Dòng 'Bài <số>' thường có nằm cạnh một dòng 'Bài <số>' khác không (kiểu mục lục)?
+def _neighbor_lesson_number(lines: list[str], index: int, step: int) -> int | None:
+    """Số bài của dòng liền kề (bỏ dòng trống/dòng chương) nếu đó là tiêu đề 'Bài <số>'."""
+    norm = _adjacent_relevant(lines, index, step)
+    if norm is None or _BAI_RE.match(norm) is None:
+        return None
+    match = _LESSON_NUM_RE.search(norm)
+    return int(match.group(1)) if match else None
 
-    Dòng lặp lại đầu trang bên trong nội dung bài được bao quanh bởi nội dung thường,
-    không phải bởi dòng 'Bài <số>' khác — nên không bị coi là mục lục.
+
+def _looks_like_toc_entry(lines: list[str], index: int, number: int | None) -> bool:
+    """Dòng 'Bài <số>' thường có phải một mục mục lục không?
+
+    Chỉ coi là mục lục khi dòng liền kề (bỏ qua dòng trống và dòng chương) là một tiêu đề
+    'Bài <số>' khác mang đúng số liền trước hoặc liền sau số bài này — mục lục liệt kê các
+    bài theo đúng thứ tự liên tiếp. Dòng lặp lại đầu trang bên trong nội dung bài, hay một
+    dòng bài tập đánh số ('Bài 1.', 'Bài 2.'...) đứng cạnh tiêu đề thật, mang số bất kỳ
+    không liền kề, nên không bị nhầm là mục lục.
+    Giới hạn đã biết, chưa xử lý: sách chỉ có một bài với mục lục một dòng duy nhất.
     """
-    prev_norm = _adjacent_relevant(lines, index, -1)
-    next_norm = _adjacent_relevant(lines, index, 1)
-    return (prev_norm is not None and _BAI_RE.match(prev_norm) is not None) or (
-        next_norm is not None and _BAI_RE.match(next_norm) is not None
-    )
+    if number is None:
+        return False
+    prev_number = _neighbor_lesson_number(lines, index, -1)
+    next_number = _neighbor_lesson_number(lines, index, 1)
+    return prev_number in (number - 1, number + 1) or next_number in (number - 1, number + 1)
 
 
 def extract(text: str, query: str) -> tuple[str, str, list[str]]:
@@ -165,12 +178,16 @@ def extract(text: str, query: str) -> tuple[str, str, list[str]]:
         else:
             # Một dòng mục lục "Bài <số>" cuối cùng của sách không có dòng thường nào sau nó
             # mang số bài lớn hơn, nên lát cắt của nó chạy đến hết file — trùm lên cả tiêu đề
-            # bài thật kế tiếp. Dòng lặp lại đầu trang bên trong nội dung bài (PDF→text) trông
-            # giống hệt một tiêu đề "Bài <số>" nhưng nằm giữa nội dung, không cạnh dòng "Bài
-            # <số>" khác — nên chỉ bỏ ứng viên "trong danh sách mục lục" (_in_list), không bỏ
+            # bài thật kế tiếp. Dòng lặp lại đầu trang bên trong nội dung bài (PDF→text), hay
+            # một bài thật mở đầu ngay bằng bài tập đánh số ("Bài 1.", "Bài 2."...), trông
+            # giống hệt một tiêu đề "Bài <số>" nhưng dòng liền kề nó không mang đúng số liền
+            # trước/sau — nên chỉ bỏ ứng viên "là mục lục" (_looks_like_toc_entry), không bỏ
             # theo việc lát cắt của nó trùm lên ứng viên khác. Còn lại rỗng thì quay về cách cũ:
             # lát cắt dài nhất trong mọi ứng viên có nội dung.
-            non_list = [item for item in with_content if not _in_list(lines, item[0])]
+            non_list = [
+                item for item in with_content
+                if not _looks_like_toc_entry(lines, item[0], _lesson_number(item[1]))
+            ]
             pool = non_list if non_list else with_content
             start_index, heading = max(
                 pool,

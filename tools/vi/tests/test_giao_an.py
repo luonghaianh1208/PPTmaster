@@ -817,6 +817,62 @@ class SgkTest(unittest.TestCase):
         self.assertNotIn("Nội dung bài 7.", body)
         self.assertNotIn("Bài 6. Nitric acid 32", body)
 
+    def test_last_lesson_opening_with_exercises_is_not_mistaken_for_the_table_of_contents(self):
+        # Bài 7 (bài cuối) mở đầu ngay bằng các dòng bài tập đánh số ("Bài 1.", "Bài 2."...).
+        # Dòng "Bài 1." đứng cạnh tiêu đề thật mang số 1, không liền kề số 7, nên không được
+        # khiến tiêu đề thật bị coi là mục lục.
+        text = (
+            "Bài 5. Ammonia 25\n"
+            "Bài 6. Nitric acid 32\n"
+            "Bài 7. Hữu cơ 40\n"
+            "\n"
+            "BÀI 5. AMMONIA\n"
+            "Nội dung bài 5.\n"
+            "\n"
+            "BÀI 6. NITRIC ACID\n"
+            "Nội dung bài 6.\n"
+            "\n"
+            "BÀI 7. HỮU CƠ\n"
+            "\n"
+            "Bài 1. Bài tập ôn lại\n"
+            "ĐÁNH DẤU BÀI 7\n"
+            "Bài 2. Tính khối lượng\n"
+            "Nội dung bài tập 2.\n"
+        )
+        heading, body, _ = sgk.extract(text, "Bài 7")
+        self.assertEqual(heading, "BÀI 7. HỮU CƠ")
+        self.assertIn("ĐÁNH DẤU BÀI 7", body)
+        self.assertIn("Bài 2.", body)
+        self.assertNotIn("Nội dung bài 5.", body)
+        self.assertNotIn("Bài 7. Hữu cơ 40", body)
+
+    def test_running_header_next_to_an_exercise_line_does_not_hide_the_real_heading(self):
+        # Dòng lặp lại đầu trang "Bài 6. Nitric acid" đứng ngay cạnh một dòng bài tập đánh số
+        # "Bài 2." (số 2 không liền kề số 6) — tiêu đề thật vẫn phải thắng.
+        text = (
+            "Bài 5. Ammonia 25\n"
+            "Bài 6. Nitric acid 32\n"
+            "Bài 7. Hữu cơ 40\n"
+            "\n"
+            "BÀI 5. AMMONIA\n"
+            "Nội dung bài 5.\n"
+            "\n"
+            "BÀI 6. NITRIC ACID\n"
+            "MỞ ĐẦU BÀI 6\n"
+            "Tính chất vật lí của nitric acid.\n"
+            "Bài 6. Nitric acid\n"
+            "Bài 2. Tính khối lượng mol\n"
+            "KẾT THÚC BÀI 6\n"
+            "\n"
+            "BÀI 7. HỮU CƠ\n"
+            "Nội dung bài 7.\n"
+        )
+        heading, body, _ = sgk.extract(text, "Bài 6")
+        self.assertEqual(heading, "BÀI 6. NITRIC ACID")
+        self.assertIn("MỞ ĐẦU BÀI 6", body)
+        self.assertIn("KẾT THÚC BÀI 6", body)
+        self.assertNotIn("Nội dung bài 7.", body)
+
 
 def document_xml(path: Path) -> str:
     with zipfile.ZipFile(path) as archive:
