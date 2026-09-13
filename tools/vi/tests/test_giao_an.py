@@ -786,6 +786,37 @@ class SgkTest(unittest.TestCase):
         self.assertIn(heading, matched_warning)
         self.assertNotIn("đầu tiên", matched_warning)
 
+    def test_running_page_headers_inside_a_plain_lesson_keep_the_real_heading(self):
+        # Dòng lặp lại đầu trang "Bài 6. Nitric acid" xuất hiện hai lần bên trong chính nội
+        # dung bài 6 (đặc trưng của PDF→text) — không được nhầm với mục lục và không được
+        # làm mất phần thân bài thật.
+        text = (
+            "Bài 5. Ammonia 25\n"
+            "Bài 6. Nitric acid 32\n"
+            "Bài 7. Hữu cơ 40\n"
+            "\n"
+            "BÀI 5. AMMONIA\n"
+            "Nội dung bài 5.\n"
+            "\n"
+            "BÀI 6. NITRIC ACID\n"
+            "MỞ ĐẦU BÀI 6\n"
+            "Tính chất vật lí của nitric acid.\n"
+            "Bài 6. Nitric acid\n"
+            "Tính chất hoá học của nitric acid.\n"
+            "Ứng dụng trong công nghiệp.\n"
+            "Bài 6. Nitric acid\n"
+            "KẾT THÚC BÀI 6\n"
+            "\n"
+            "BÀI 7. HỮU CƠ\n"
+            "Nội dung bài 7.\n"
+        )
+        heading, body, _ = sgk.extract(text, "Bài 6")
+        self.assertEqual(heading, "BÀI 6. NITRIC ACID")
+        self.assertIn("MỞ ĐẦU BÀI 6", body)
+        self.assertIn("KẾT THÚC BÀI 6", body)
+        self.assertNotIn("Nội dung bài 7.", body)
+        self.assertNotIn("Bài 6. Nitric acid 32", body)
+
 
 def document_xml(path: Path) -> str:
     with zipfile.ZipFile(path) as archive:

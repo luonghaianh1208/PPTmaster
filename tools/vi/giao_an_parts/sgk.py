@@ -15,6 +15,7 @@ MAX_KB = 200
 _BAI_RE = re.compile(r"^\**\s*bai\s+\d+\b")
 _LESSON_NUM_RE = re.compile(r"bai\s+(\d+)")
 _PUNCT_RE = re.compile(r"[^0-9a-z\s]")
+_CHUONG_RE = re.compile(r"^chuong(\s|\d)")
 
 
 class SgkError(Exception):
@@ -65,6 +66,35 @@ def _level(line: str) -> int:
     """Số dấu # đầu dòng; dòng 'Bài <số>' thường (không có #) là 0."""
     text = line.strip()
     return len(text) - len(text.lstrip("#"))
+
+
+def _adjacent_relevant(lines: list[str], index: int, step: int) -> str | None:
+    """Tìm dòng liền kề (theo hướng step) không rỗng và không phải dòng chương, đã chuẩn hoá."""
+    i = index + step
+    while 0 <= i < len(lines):
+        text = lines[i].strip()
+        if not text:
+            i += step
+            continue
+        norm = normalise(text)
+        if _CHUONG_RE.match(norm):
+            i += step
+            continue
+        return norm
+    return None
+
+
+def _in_list(lines: list[str], index: int) -> bool:
+    """Dòng 'Bài <số>' thường có nằm cạnh một dòng 'Bài <số>' khác không (kiểu mục lục)?
+
+    Dòng lặp lại đầu trang bên trong nội dung bài được bao quanh bởi nội dung thường,
+    không phải bởi dòng 'Bài <số>' khác — nên không bị coi là mục lục.
+    """
+    prev_norm = _adjacent_relevant(lines, index, -1)
+    next_norm = _adjacent_relevant(lines, index, 1)
+    return (prev_norm is not None and _BAI_RE.match(prev_norm) is not None) or (
+        next_norm is not None and _BAI_RE.match(next_norm) is not None
+    )
 
 
 def extract(text: str, query: str) -> tuple[str, str, list[str]]:
@@ -133,19 +163,15 @@ def extract(text: str, query: str) -> tuple[str, str, list[str]]:
         if md_headings:
             start_index, heading = md_headings[0]
         else:
-            # Một dòng mục lục "Bài <số>" cuối cùng của sách không có dòng thường nào
-            # sau nó mang số bài lớn hơn, nên lát cắt của nó chạy đến hết file và trùm lên
-            # cả tiêu đề bài thật kế tiếp. Bỏ mọi ứng viên trùm lên điểm bắt đầu của ứng viên
-            # khác trước khi chọn lát cắt dài nhất; còn lại rỗng thì quay về cách cũ.
-            non_nested = [
-                item for item in with_content
-                if not any(
-                    other[0] > item[0] and other[0] < end_of(item[0], item[1])
-                    for other in with_content
-                    if other[0] != item[0]
-                )
-            ]
-            pool = non_nested if non_nested else with_content
+            # Một dòng mục lục "Bài <số>" cuối cùng của sách không có dòng thường nào sau nó
+            # mang số bài lớn hơn, nên lát cắt của nó chạy đến hết file — trùm lên cả tiêu đề
+            # bài thật kế tiếp. Dòng lặp lại đầu trang bên trong nội dung bài (PDF→text) trông
+            # giống hệt một tiêu đề "Bài <số>" nhưng nằm giữa nội dung, không cạnh dòng "Bài
+            # <số>" khác — nên chỉ bỏ ứng viên "trong danh sách mục lục" (_in_list), không bỏ
+            # theo việc lát cắt của nó trùm lên ứng viên khác. Còn lại rỗng thì quay về cách cũ:
+            # lát cắt dài nhất trong mọi ứng viên có nội dung.
+            non_list = [item for item in with_content if not _in_list(lines, item[0])]
+            pool = non_list if non_list else with_content
             start_index, heading = max(
                 pool,
                 key=lambda item: len(
