@@ -1,16 +1,22 @@
 """Test cho lớp soạn đề KHTN tiếng Anh của bản Việt."""
 
+import contextlib
+import io
+import json
 import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
 
 from de_thi_parts import docx_build, parse  # noqa: E402
 from word_parts import inline  # noqa: E402
+
+import de_thi  # noqa: E402
 
 
 class InlineTest(unittest.TestCase):
@@ -492,6 +498,150 @@ class DocxBuildTest(unittest.TestCase):
         path = docx_build.build_de(exam, self.folder / "de-en.docx")
         first = self.option_tables(path)[0]
         self.assertEqual((len(first.rows), len(first.columns)), (4, 1))
+
+
+class SelectPartsTest(unittest.TestCase):
+    def test_default_selects_every_part(self):
+        self.assertEqual(de_thi.select_parts("tat-ca"), ["de", "song-ngu", "dap-an"])
+
+    def test_comma_list_keeps_the_given_order(self):
+        self.assertEqual(de_thi.select_parts("dap-an,de"), ["dap-an", "de"])
+
+    def test_duplicates_are_dropped(self):
+        self.assertEqual(de_thi.select_parts("de,de"), ["de"])
+
+    def test_unknown_value_raises(self):
+        with self.assertRaises(ValueError):
+            de_thi.select_parts("dap_an")
+
+    def test_empty_value_raises(self):
+        with self.assertRaises(ValueError):
+            de_thi.select_parts("")
+
+
+class CliTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.folder = Path(self.tmp.name) / "đề thi vật lí 10"
+        self.folder.mkdir(parents=True)
+        self.addCleanup(self.tmp.cleanup)
+
+    def write_source(self, text: str = VALID_SOURCE) -> None:
+        (self.folder / "de.md").write_text(text, encoding="utf-8")
+
+    def run_cli(self, *args: str) -> tuple[int, dict]:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = de_thi.main([str(self.folder), *args])
+        printed = out.getvalue().strip().splitlines()
+        self.assertEqual(len(printed), 1, printed)
+        return code, json.loads(printed[0])
+
+    def test_full_run_writes_three_files(self):
+        self.write_source()
+        code, data = self.run_cli()
+        self.assertEqual(code, 0, data)
+        self.assertTrue(data["ready"])
+        self.assertEqual(len(data["files"]), 3)
+        self.assertEqual(data["questions"], {"part1": 2, "part2": 1, "part3": 1})
+        self.assertIsNone(data["error"])
+
+    def test_run_accepts_a_vietnamese_folder_name(self):
+        self.write_source()
+        code, data = self.run_cli()
+        self.assertEqual(code, 0, data)
+        for name in data["files"]:
+            self.assertTrue(Path(name).is_file(), name)
+
+    def test_subset_writes_only_two_files(self):
+        self.write_source()
+        code, data = self.run_cli("--phan", "de,dap-an")
+        self.assertEqual(code, 0, data)
+        self.assertEqual([Path(name).name for name in data["files"]], ["de-en.docx", "dap-an.docx"])
+
+    def test_plan_only_writes_nothing(self):
+        self.write_source()
+        code, data = self.run_cli("--plan-only")
+        self.assertEqual(code, 0, data)
+        self.assertEqual(data["files"], [])
+        self.assertEqual(list(self.folder.glob("*.docx")), [])
+
+    def test_missing_source_reports_input_step(self):
+        code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+        self.assertIn("de.md", data["error"]["message"])
+
+    def test_broken_source_reports_parse_step_with_the_line(self):
+        self.write_source(VALID_SOURCE.replace("key: B", "key: E", 1))
+        code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "parse")
+        self.assertIn("Dòng", data["error"]["message"])
+
+    def test_unknown_part_value_reports_input_step(self):
+        self.write_source()
+        code, data = self.run_cli("--phan", "dap_an")
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "input")
+
+    def test_missing_python_docx_reports_docx_step_with_the_install_command(self):
+        self.write_source()
+        with mock.patch.object(de_thi, "load_docx_build", side_effect=ImportError("No module named 'docx'")):
+            code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "docx")
+        self.assertIn("requirements-vi.txt", data["error"]["fix"])
+
+    def test_write_failure_reports_write_step(self):
+        self.write_source()
+        with mock.patch.object(de_thi, "load_docx_build") as loader:
+            loader.return_value.FILENAMES = {"de": "de-en.docx", "song-ngu": "de-song-ngu.docx", "dap-an": "dap-an.docx"}
+            loader.return_value.build.side_effect = OSError("file đang mở trong Word")
+            code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "write")
+        self.assertIn("Word", data["error"]["fix"])
+
+    def test_unexpected_failure_still_prints_one_json_line(self):
+        self.write_source()
+        with mock.patch.object(de_thi, "load_docx_build") as loader:
+            loader.return_value.FILENAMES = {"de": "de-en.docx", "song-ngu": "de-song-ngu.docx", "dap-an": "dap-an.docx"}
+            loader.return_value.build.side_effect = ValueError("lỗi ngoài dự kiến")
+            code, data = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "internal")
+
+    def test_missing_vietnamese_line_surfaces_as_a_warning(self):
+        self.write_source(source_without("vi: Một vật khối lượng"))
+        code, data = self.run_cli()
+        self.assertEqual(code, 0, data)
+        self.assertTrue(any("bản tiếng Việt" in warning for warning in data["warnings"]))
+
+    def test_second_run_warns_about_overwriting(self):
+        self.write_source()
+        self.run_cli()
+        code, data = self.run_cli()
+        self.assertEqual(code, 0, data)
+        self.assertTrue(any("Ghi đè" in warning for warning in data["warnings"]))
+
+    def test_emit_falls_back_to_utf8_buffer(self):
+        class LegacyStdout:
+            def __init__(self):
+                self.buffer = io.BytesIO()
+
+            def write(self, text):
+                text.encode("cp1252")
+                return len(text)
+
+            def flush(self):
+                pass
+
+        stream = LegacyStdout()
+        with mock.patch.object(de_thi.sys, "stdout", stream):
+            de_thi.emit({"ready": False, "warnings": ["Thiếu bản tiếng Việt"]})
+        data = json.loads(stream.buffer.getvalue().decode("utf-8").strip())
+        self.assertEqual(data["warnings"], ["Thiếu bản tiếng Việt"])
 
 
 if __name__ == "__main__":
