@@ -15,7 +15,7 @@ File này bổ sung ngữ cảnh Việt Nam cho [AGENTS.md](AGENTS.md). Nó khô
 
 ## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`
 
-"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video".
+"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh".
 
 Các cụm "tạo nhanh", "làm nhanh", "không cần hỏi lại" là yêu cầu Quick tường minh (với bài tạo mới thông thường là hồ sơ `workflows/profiles/quick-generate.md` của upstream). Việc chọn hồ sơ và các bước thực hiện vẫn theo đúng `SKILL.md`.
 
@@ -61,9 +61,9 @@ Sau khi xuất, cho người dùng biết đường dẫn file PPTX trong thư m
 - Cần FFmpeg (thuyết minh, video) hoặc Pandoc (tài liệu định dạng cũ như `.doc`, `.odt`, `.rtf`) mà máy chưa có: làm theo mục "Công cụ tuỳ chọn" của file đó.
 - Người dùng gặp lỗi môi trường: đề nghị chạy `KIEM-TRA.bat` (Windows) hoặc `python tools/vi/doctor.py`, rồi đối chiếu với [docs/vi/xu-ly-loi.md](docs/vi/xu-ly-loi.md).
 
-## 10. Hỗ trợ thầy cô trước khi tạo PPTX
+## 10. Hỗ trợ thầy cô trước khi làm bài
 
-Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 6 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
+Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 7 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
 
 | Loại việc | File hướng dẫn |
 |---|---|
@@ -73,9 +73,10 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 6 lo
 | Poster/ấn phẩm Zalo – Facebook | [docs/vi/tro-ly/poster-mang-xa-hoi.md](docs/vi/tro-ly/poster-mang-xa-hoi.md) |
 | Tập huấn/workshop | [docs/vi/tro-ly/tap-huan-workshop.md](docs/vi/tro-ly/tap-huan-workshop.md) |
 | Video bài giảng | [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md) |
+| Soạn đề KHTN tiếng Anh | [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) |
 
 - `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3). Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
-- Yêu cầu không thuộc 6 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
+- Yêu cầu không thuộc 7 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
 ## 11. Làm video bài giảng
 
@@ -104,3 +105,22 @@ Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọ
 - Cách dựng `powerpoint` sẽ mở **cửa sổ PowerPoint** và chiếm máy vài phút; báo trước cho thầy cô một dòng.
 - Đường FFmpeg ghép từ ảnh chụp slide nên độ phân giải cao nhất bằng khổ slide, tức 1280×720 với `ppt169`; chọn 1080 ở đường này cũng không nét hơn.
 - Không tự cài phần mềm nào khác, không tự chạy FFmpeg theo cách riêng.
+
+## 12. Soạn đề KHTN bằng tiếng Anh
+
+Khi người dùng cần đề kiểm tra KHTN bằng tiếng Anh, đọc [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) và [docs/vi/tro-ly/tieng-anh-khoa-hoc.md](docs/vi/tro-ly/tieng-anh-khoa-hoc.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự dưới. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây.
+
+1. Chỉ luồng A (đã có đề tiếng Việt): đọc đề thầy cô đưa bằng `python skills/ppt-master/scripts/source_to_md.py <file> -o <thư_mục_tạm>`. Thầy cô đưa **ảnh** thì nói rõ không đọc được ảnh, xin bản PDF hoặc Word.
+2. Tạo `projects/_de-thi/<tên_đề>/` và viết `de.md` theo đúng ngữ pháp trong file hướng dẫn.
+3. Chạy `python tools\vi\de_thi.py projects\_de-thi\<tên_đề>`; thêm `--phan de,dap-an` khi thầy cô không cần bản song ngữ; thêm `--plan-only` khi chỉ muốn kiểm cú pháp.
+4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn ba file, số câu mỗi phần, tổng điểm, và đọc nguyên văn các dòng `warnings`.
+
+| `error.step` | Xử lý |
+|---|---|
+| `input` | Chưa có `de.md`, viết file rồi chạy lại. |
+| `parse` | Sửa đúng dòng `error.message` nêu rồi chạy lại. |
+| `docx` | Chạy `python -m pip install -r tools/vi/requirements-vi.txt` rồi chạy lại, tối đa một lần. |
+| `write` | Xin thầy cô đóng file Word đang mở rồi chạy lại. |
+| `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
+
+Điều cấm: không tự sửa số liệu hay đáp án của đề gốc; không chạy `project_manager.py init`; không commit gì trong `projects/`.

@@ -1,4 +1,4 @@
-# Quy trình hỏi thầy cô trước khi tạo PPTX
+# Quy trình hỏi thầy cô trước khi làm bài
 
 File dành cho AI. Nó bổ sung ngữ cảnh cho quy trình tạo PPTX trong `skills/ppt-master/SKILL.md` và không thay thế bước nào của quy trình đó.
 
@@ -7,7 +7,7 @@ File dành cho AI. Nó bổ sung ngữ cảnh cho quy trình tạo PPTX trong `s
 Áp dụng khi cả ba điều kiện đều đúng:
 
 1. Người dùng viết tiếng Việt.
-2. Yêu cầu thuộc một trong 6 loại việc dưới đây: câu lệnh có dấu hiệu trong bảng hoặc nói rõ loại việc.
+2. Yêu cầu thuộc một trong 7 loại việc dưới đây: câu lệnh có dấu hiệu trong bảng hoặc nói rõ loại việc.
 3. Bối cảnh là trường học hoặc Đoàn (ví dụ lớp, môn học, tổ chuyên môn, học sinh, phụ huynh, giáo viên, đoàn viên).
 
 | Loại việc | Dấu hiệu nhận biết | File hướng dẫn |
@@ -18,8 +18,10 @@ File dành cho AI. Nó bổ sung ngữ cảnh cho quy trình tạo PPTX trong `s
 | Poster/ấn phẩm Zalo – Facebook | "poster", "ảnh đăng Zalo", "bài đăng Facebook", "story", "TikTok" | [poster-mang-xa-hoi.md](poster-mang-xa-hoi.md) |
 | Tập huấn/workshop | "tập huấn", "bồi dưỡng", "sinh hoạt chuyên môn", "workshop", "chia sẻ chuyên đề" | [tap-huan-workshop.md](tap-huan-workshop.md) |
 | Video bài giảng | "làm video", "xuất video", "lồng tiếng", "video bài giảng" | [video-bai-giang.md](video-bai-giang.md) |
+| Soạn đề KHTN tiếng Anh | "soạn đề", "đề kiểm tra", "đề tiếng Anh", "đề KHTN", "chuyển đề sang tiếng Anh" | [de-khtn-tieng-anh.md](de-khtn-tieng-anh.md) |
 
 - Chỉ xếp vào một loại khi câu lệnh có dấu hiệu trong bảng hoặc nói rõ loại việc. Bối cảnh trường học hay Đoàn một mình không đủ để xếp loại (ví dụ giới thiệu trường, giới thiệu một phòng chức năng): coi là yêu cầu không thuộc loại nào. Chữ "Đoàn" hay "chi đoàn" chỉ là dấu hiệu khi đi kèm một hoạt động (chương trình, cuộc thi, sự kiện, lễ kỷ niệm, trao giải).
+- Loại việc "Soạn đề KHTN tiếng Anh" không tạo PPTX; nó ghi brief như các loại khác nhưng không đi vào quy trình của upstream, xem docs/vi/tro-ly/de-khtn-tieng-anh.md.
 - Yêu cầu không thuộc loại nào, hoặc có từ khoá nhưng không phải bối cảnh trường học hay Đoàn (ví dụ báo cáo doanh thu của công ty, giới thiệu sản phẩm): không dùng phần nào của file này (không tìm hay nhắc tới hồ sơ đơn vị, không viết brief, không dùng dạng câu hỏi kèm "Gợi ý:" hay dòng chốt cách xác nhận), làm theo `SKILL.md` như bình thường.
 - Có dấu hiệu nhưng không rõ thuộc loại nào, hoặc thuộc hai loại: hỏi đúng một câu hỏi chọn loại việc (không phải chọn quy trình của upstream), kèm gợi ý loại gần nhất.
 - Người dùng viết tiếng Anh hoặc ngôn ngữ khác: không dùng bộ câu hỏi này.

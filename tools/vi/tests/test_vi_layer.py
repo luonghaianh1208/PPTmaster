@@ -394,14 +394,15 @@ class TeacherAssistantCommonRulesTest(unittest.TestCase):
             self.assertIn(f"]({name})", text)
 
 
-AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi tạo PPTX"
+AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi làm bài"
 
 
 class TeacherAssistantWiringTest(unittest.TestCase):
-    def test_agents_vi_keeps_assistant_then_video_sections_last(self):
+    def test_agents_vi_keeps_the_three_task_sections_last_in_order(self):
         headings = h2_headings(read("AGENTS.vi.md"))
-        self.assertEqual(headings[-2], AGENTS_VI_ASSISTANT_HEADING)
-        self.assertEqual(headings[-1], AGENTS_VI_VIDEO_HEADING)
+        self.assertEqual(headings[-3], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(headings[-2], AGENTS_VI_VIDEO_HEADING)
+        self.assertEqual(headings[-1], AGENTS_VI_EXAM_HEADING)
 
     def test_assistant_section_links_common_rules_and_all_guides(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
@@ -547,7 +548,7 @@ class SelfInstallGuideTest(unittest.TestCase):
         body = section(text, AGENTS_VI_ENV_HEADING)
         for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
-        self.assertEqual(h2_headings(text)[-2], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(h2_headings(text)[-3], AGENTS_VI_ASSISTANT_HEADING)
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
@@ -667,12 +668,149 @@ class VideoGuideTest(unittest.TestCase):
         self.assertIn("phụ đề", body.lower())
 
     def test_task_type_count_matches_the_table(self):
-        agents_vi_body = section(read("AGENTS.vi.md"), "## 10. Hỗ trợ thầy cô trước khi tạo PPTX")
-        self.assertIn("6 loại", agents_vi_body)
-        self.assertNotIn("5 loại", agents_vi_body)
+        agents_vi_body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
+        self.assertIn("7 loại", agents_vi_body)
+        for stale in ("5 loại", "6 loại"):
+            self.assertNotIn(stale, agents_vi_body)
         quy_trinh_body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
-        self.assertIn("6 loại", quy_trinh_body)
-        self.assertNotIn("5 loại", quy_trinh_body)
+        self.assertIn("7 loại", quy_trinh_body)
+        for stale in ("5 loại", "6 loại"):
+            self.assertNotIn(stale, quy_trinh_body)
+
+
+AGENTS_VI_EXAM_HEADING = "## 12. Soạn đề KHTN bằng tiếng Anh"
+EXAM_GUIDE = "docs/vi/tro-ly/de-khtn-tieng-anh.md"
+ENGLISH_GUIDE = "docs/vi/tro-ly/tieng-anh-khoa-hoc.md"
+EXAM_GUIDE_HEADINGS = (
+    "## Khi nào dùng",
+    "## Câu hỏi bắt buộc",
+    "## Câu hỏi tuỳ chọn",
+    "## Tạo nhanh",
+    "## Cấu trúc đề",
+    "## Đầu ra",
+    "## Ghi vào brief",
+)
+EXAM_COMMAND = r"python tools\vi\de_thi.py"
+
+
+class ExamGuideTest(unittest.TestCase):
+    def test_exam_guide_has_its_own_sections_in_order(self):
+        self.assertEqual(h2_headings(read(EXAM_GUIDE)), list(EXAM_GUIDE_HEADINGS))
+
+    def test_exam_guide_is_not_treated_as_a_slide_guide(self):
+        self.assertNotIn("de-khtn-tieng-anh.md", GUIDE_FILES)
+
+    def test_exam_guide_questions_are_limited_and_have_suggestions(self):
+        items = numbered_items(section(read(EXAM_GUIDE), "## Câu hỏi bắt buộc"))
+        self.assertTrue(1 <= len(items) <= 7, f"{len(items)} câu")
+        for item in items:
+            self.assertIn("Gợi ý:", item)
+
+    def test_exam_guide_quick_mode_asks_two_or_three_questions(self):
+        items = numbered_items(section(read(EXAM_GUIDE), "## Tạo nhanh"))
+        self.assertTrue(2 <= len(items) <= 3, f"{len(items)} câu")
+
+    def test_exam_guide_must_ask_thcs_counts_instead_of_defaulting(self):
+        body = section(read(EXAM_GUIDE), "## Câu hỏi bắt buộc")
+        self.assertIn("18", body)
+        self.assertIn("THCS", body)
+        self.assertIn("phải hỏi", body)
+
+    def test_exam_guide_names_the_output_files(self):
+        body = section(read(EXAM_GUIDE), "## Đầu ra")
+        for name in ("de-en.docx", "de-song-ngu.docx", "dap-an.docx", "projects/_de-thi/"):
+            self.assertIn(name, body)
+
+    def test_exam_guide_points_to_the_english_rules_and_the_source_grammar(self):
+        text = read(EXAM_GUIDE)
+        self.assertIn("tieng-anh-khoa-hoc.md", text)
+        self.assertIn("## CAN SOAT", text)
+        for key in ("en:", "vi:", "key:", "level:", "topic:"):
+            self.assertIn(key, text)
+
+    def test_exam_guide_forbids_changing_the_original_paper(self):
+        text = read(EXAM_GUIDE)
+        for phrase in ("không đổi số liệu", "không tự sửa", "Cần thầy cô soát"):
+            self.assertIn(phrase, text)
+
+    def test_tro_ly_files_have_no_markdown_links(self):
+        for name in ("de-khtn-tieng-anh.md", "tieng-anh-khoa-hoc.md"):
+            with self.subTest(file=name):
+                self.assertEqual(LINK_RE.findall(read(f"docs/vi/tro-ly/{name}")), [])
+
+
+class ScienceEnglishGuideTest(unittest.TestCase):
+    def test_guide_states_every_principle(self):
+        text = read(ENGLISH_GUIDE)
+        for phrase in (
+            "không dịch từng chữ",
+            "uniformly accelerated motion",
+            "kinetic friction",
+            "molar mass",
+            "cellular respiration",
+            "State",
+            "Explain",
+            "Calculate",
+            "sulfuric acid",
+            "aluminium",
+            "25.5",
+            "at 0 °C and 1 atm",
+            "terraced fields",
+            "Cần thầy cô soát",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_guide_covers_all_four_subject_frames(self):
+        text = read(ENGLISH_GUIDE)
+        for subject in ("Vật lí", "Hoá học", "Sinh học", "KHTN"):
+            self.assertIn(subject, text)
+
+    def test_guide_forbids_making_the_english_harder_than_the_science(self):
+        text = read(ENGLISH_GUIDE)
+        self.assertIn("Độ khó nằm ở khoa học", text)
+
+
+class ExamWiringTest(unittest.TestCase):
+    def test_common_rules_table_lists_the_exam_task(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("de-khtn-tieng-anh.md", body)
+        for keyword in ("đề tiếng Anh", "đề KHTN"):
+            self.assertIn(keyword, body)
+
+    def test_agents_vi_exam_section_explains_both_use_cases_and_the_command(self):
+        text = read("AGENTS.vi.md")
+        self.assertIn(AGENTS_VI_EXAM_HEADING, h2_headings(text))
+        body = section(text, AGENTS_VI_EXAM_HEADING)
+        self.assertIn(EXAM_COMMAND, body)
+        for phrase in (
+            "source_to_md.py",
+            "(docs/vi/tro-ly/de-khtn-tieng-anh.md)",
+            "(docs/vi/tro-ly/tieng-anh-khoa-hoc.md)",
+            "projects/_de-thi/",
+            "de.md",
+            "ảnh",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_agents_vi_exam_section_maps_every_error_step(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXAM_HEADING)
+        for step in ("input", "parse", "docx", "write"):
+            self.assertIn(f"`{step}`", body)
+        self.assertIn("requirements-vi.txt", body)
+
+    def test_agents_vi_exam_section_keeps_the_venv_conditional(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXAM_HEADING)
+        self.assertIn("mục 4", body)
+
+    def test_agents_vi_triggers_include_exam_phrases(self):
+        body = section(read("AGENTS.vi.md"), "## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`")
+        for phrase in ("soạn đề", "đề tiếng Anh"):
+            self.assertIn(phrase, body)
+
+    def test_brief_template_lists_the_exam_task(self):
+        self.assertIn("Soạn đề KHTN tiếng Anh", read("docs/vi/tro-ly/mau-brief.md"))
 
 
 if __name__ == "__main__":
