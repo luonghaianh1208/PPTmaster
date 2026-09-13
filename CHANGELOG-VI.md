@@ -1,5 +1,27 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.6 — 2026-09-13
+
+Soạn giáo án tích hợp năng lực số và năng lực AI: từ giáo án cũ (Word hoặc PDF) hoặc chỉ từ tên bài, ra file Word Kế hoạch bài dạy theo Công văn 5512, cho mọi môn.
+
+### Thêm
+- `tools/vi/giao_an.py xuat`: đọc `giao-an.md`, kiểm cấu trúc 5512 và mã năng lực, dựng `giao-an.docx` (A4 dọc, lề 2/2/2,5/2 cm, Times New Roman 14pt, giãn dòng 1,3; phiếu học tập căn trái; rubric dạng bảng) và `can-soat.md` (ghi chú nội bộ, không nằm trong giáo án). `--plan-only` chỉ kiểm. Kết quả trả về dạng JSON cho AI đọc.
+- Công cụ chặn giáo án thiếu mục tiêu, nội dung, sản phẩm hoặc bốn bước tổ chức của một hoạt động; chặn giáo án chỉ nhắc năng lực số hay AI ở mục tiêu mà tiến trình không có; chặn mã năng lực không đúng bảng; chặn rubric thiếu mức. Lỗi cấu trúc nêu đúng dòng cần sửa.
+- `tools/vi/giao_an.py trich-sgk`: cắt đúng phần một bài ra khỏi SGK đã chuyển sang Markdown, để AI không phải nạp cả quyển; không bao giờ ghi đè file SGK nguồn.
+- Khung năng lực số (11 mã của Bộ GD&ĐT) và khung năng lực AI môn Hoá học (lớp 10, 11, 12, hệ chuyên) trong `docs/vi/tro-ly/nang-luc-so-va-ai.md`, do Lương Hải Anh — 2Anh AI Education biên soạn; đây là nguồn mã duy nhất của công cụ. Môn chưa có khung AI thì ô mã ghi "(chưa có khung mã cho môn này)", AI không tự đặt mã.
+- Loại việc thứ 8 cho AI: `docs/vi/tro-ly/giao-an.md`; `AGENTS.vi.md` mục 13. Câu lệnh chỉ nói "giáo án" thì AI hỏi lại cần file Word hay slide; "kế hoạch bài dạy", "KHBD" đi thẳng vào loại việc này. Giáo án cũ được đọc trước khi hỏi, nội dung chuyên môn của thầy cô được giữ nguyên; file phân phối chương trình chỉ được đọc, không sửa.
+- Tài liệu `docs/vi/soan-giao-an.md` và mục "Xuất giáo án thất bại" trong Xử lý lỗi.
+
+### Không thay đổi
+- Lõi PPT Master v6.3.2 của Hugo He giữ nguyên. Soạn giáo án không tạo dự án PPTX và không dùng bước xác nhận của dự án gốc. Dùng lại thư viện `python-docx` và tầng dựng Word của bản 6.3.2-vi.5.
+
+### Rủi ro
+- `trich-sgk` với SGK chuyển ra toàn dòng thường (không có tiêu đề `#`) và có mục lục: cắt bài **cuối cùng** của sách sẽ lấy cả phần từ mục lục tới hết sách (chỉ có cảnh báo lớn hơn 200 KB). Các bài khác và sách có tiêu đề `#` không bị. Sẽ sửa ở bản sau.
+- Khung mã AI mới chỉ có môn Hoá học; khung hệ chuyên có một mã, thiên về hữu cơ và phổ, nên có thể không hợp một số bài vô cơ. Môn khác dùng được nhưng ô mã AI để trống, hồ sơ có thể bị tổ chuyên môn hỏi lại.
+- Công cụ kiểm cấu trúc và mã, không kiểm chất lượng sư phạm. Chưa có khung ký duyệt và quốc hiệu.
+- Chủ repo chưa mở file Word để nghiệm thu bằng mắt. Bằng chứng hiện có: chạy thật trên một giáo án Bài 5 thật (giữ đủ 5 hoạt động, 90 phút), một giáo án tự soạn và một giáo án Ngữ văn, kiểm tra cấu trúc file bằng test.
+- Giáo án có bảng lồng nhau hoặc công thức dạng ảnh có thể mất định dạng khi chuyển sang Markdown; AI phải ghi chỗ không đọc được vào "Cần thầy cô soát".
+
 ## 6.3.2-vi.5 — 2026-09-13
 
 Soạn đề kiểm tra KHTN bằng tiếng Anh: chuyển đề tiếng Việt có sẵn hoặc soạn đề mới, dùng thuật ngữ khoa học đúng môn thay vì dịch từng chữ, xuất file Word đúng thể thức đề thi.
