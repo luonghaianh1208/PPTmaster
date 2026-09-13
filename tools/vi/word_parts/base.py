@@ -87,13 +87,20 @@ def write(paragraph, text: str, *, italic: bool = False, bold: bool = False, col
 
 
 def _borders(table, value: str, size: str) -> None:
+    tbl_pr = table._tbl.tblPr
+    for existing in tbl_pr.findall(qn("w:tblBorders")):
+        tbl_pr.remove(existing)
     element = OxmlElement("w:tblBorders")
     for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
         edge_element = OxmlElement(f"w:{edge}")
         edge_element.set(qn("w:val"), value)
         edge_element.set(qn("w:sz"), size)
         element.append(edge_element)
-    table._tbl.tblPr.append(element)
+    tbl_pr.insert_element_before(
+        element,
+        "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook",
+        "w:tblCaption", "w:tblDescription", "w:tblPrChange",
+    )
 
 
 def clear_borders(table) -> None:

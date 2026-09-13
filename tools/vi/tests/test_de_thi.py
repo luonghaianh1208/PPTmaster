@@ -499,6 +499,38 @@ class DocxBuildTest(unittest.TestCase):
         first = self.option_tables(path)[0]
         self.assertEqual((len(first.rows), len(first.columns)), (4, 1))
 
+    def test_table_borders_follow_the_schema_order(self):
+        from docx import Document
+        from docx.oxml.ns import qn
+
+        path = docx_build.build_de(self.exam, self.folder / "de-en.docx")
+        for table in Document(str(path)).tables:
+            tags = [child.tag for child in table._tbl.tblPr]
+            self.assertEqual(tags.count(qn("w:tblBorders")), 1, tags)
+            border_index = tags.index(qn("w:tblBorders"))
+            for later in ("w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook"):
+                if qn(later) in tags:
+                    self.assertLess(border_index, tags.index(qn(later)), tags)
+
+    def test_setting_borders_twice_keeps_one_element(self):
+        from docx import Document
+        from docx.oxml.ns import qn
+        from word_parts import base
+
+        table = Document().add_table(rows=1, cols=1)
+        base.clear_borders(table)
+        base.grid_borders(table)
+        borders = table._tbl.tblPr.findall(qn("w:tblBorders"))
+        self.assertEqual(len(borders), 1)
+        self.assertEqual({edge.get(qn("w:val")) for edge in borders[0]}, {"single"})
+
+    def test_review_notes_never_reach_the_student_papers(self):
+        for bilingual, name in ((False, "de-en.docx"), (True, "de-song-ngu.docx")):
+            with self.subTest(paper=name):
+                xml = document_xml(docx_build.build_de(self.exam, self.folder / name, bilingual=bilingual))
+                self.assertNotIn("thầy cô xác nhận giúp em", xml)
+                self.assertNotIn("Cần thầy cô soát", xml)
+
 
 class SelectPartsTest(unittest.TestCase):
     def test_default_selects_every_part(self):
