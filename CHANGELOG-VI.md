@@ -1,5 +1,29 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.5 — 2026-09-13
+
+Soạn đề kiểm tra KHTN bằng tiếng Anh: chuyển đề tiếng Việt có sẵn hoặc soạn đề mới, dùng thuật ngữ khoa học đúng môn thay vì dịch từng chữ, xuất file Word đúng thể thức đề thi.
+
+### Thêm
+- `tools/vi/de_thi.py`: đọc `de.md` rồi dựng ba file Word `de-en.docx` (đề tiếng Anh), `de-song-ngu.docx` (song ngữ Anh – Việt) và `dap-an.docx` (đáp án, thang điểm, ma trận đặc tả, mục "Cần thầy cô soát"). `--phan de,dap-an` bỏ bản song ngữ; `--plan-only` chỉ kiểm cú pháp. Kết quả trả về dạng JSON cho AI đọc.
+- Cấu trúc đề theo định dạng hiện hành: Phần I trắc nghiệm nhiều lựa chọn (0,25 điểm/câu), Phần II đúng/sai (1 điểm/câu), Phần III trả lời ngắn (0,25 điểm/câu); áp dụng cho KHTN THCS 6–9 và Vật lí, Hoá học, Sinh học THPT 10–12. Khổ A4, Times New Roman, đáp án ngắn tự xếp 4 cột, có số trang.
+- Loại việc thứ 7 cho AI: `docs/vi/tro-ly/de-khtn-tieng-anh.md` (ngữ pháp `de.md` và đề mẫu) và `docs/vi/tro-ly/tieng-anh-khoa-hoc.md` (quy ước thuật ngữ, đơn vị, ký hiệu, cách gọi tên chất); `AGENTS.vi.md` mục 12 nêu thứ tự làm cho hai luồng.
+- Thư viện `python-docx` (`tools/vi/requirements-vi.txt`) được cài cùng bộ công cụ ở mức khuyến nghị: cài hỏng thì chỉ cảnh báo, máy vẫn làm PPTX bình thường. `doctor.py` có thêm mục "Thư viện lớp Việt".
+- Tài liệu `docs/vi/soan-de-tieng-anh.md` và mục "Xuất đề Word thất bại" trong Xử lý lỗi.
+
+### Sửa
+- `tools/vi/video.py` ghi JSON bằng UTF-8 khi console Windows dùng bảng mã cũ (commit sau tag 6.3.2-vi.4, nay mới vào bản phát hành).
+
+### Không thay đổi
+- Lõi PPT Master v6.3.2 của Hugo He giữ nguyên. Soạn đề không tạo dự án PPTX và không dùng bước xác nhận của dự án gốc.
+
+### Rủi ro
+- Chủ repo chưa mở các file Word mẫu để nghiệm thu bằng mắt (viền bảng, số trang). Bằng chứng hiện có là hai lần dựng thật (Vật lí 10, KHTN 8) và kiểm tra cấu trúc file bằng test.
+- Đáp án Phần III chỉ nhận số (ví dụ `36`, `12,5`, `-0.25`); câu cần đáp án bằng chữ phải chuyển sang Phần I hoặc II.
+- Chất lượng tiếng Anh phụ thuộc AI; công cụ không có từ điển hay bộ kiểm thuật ngữ. Thầy cô cần đọc lại đề, nhất là các mục trong "Cần thầy cô soát".
+- Máy cài hỏng `python-docx` sẽ báo sẵn sàng kèm cảnh báo; lần soạn đề đầu tiên báo lỗi `docx` kèm lệnh cài. Chế độ `-Auto` của bộ cài sẽ thử cài lại thư viện này mỗi lần chạy.
+- `video.py` vẫn có thể in hai dòng JSON trong trường hợp hiếm stdout bị lỗi khi đang ghi.
+
 ## 6.3.2-vi.4 — 2026-09-12
 
 Làm video bài giảng: bài giảng đã có thành video MP4 có lời giảng tiếng Việt và phụ đề, chạy được cả khi máy không có PowerPoint.
