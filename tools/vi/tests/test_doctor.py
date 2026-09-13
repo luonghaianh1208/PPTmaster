@@ -124,6 +124,46 @@ class CheckPackagesTest(unittest.TestCase):
         self.assertEqual(result.level, doctor.REQUIRED)
 
 
+VI_REQUIREMENTS = Path(doctor.__file__).resolve().parent / "requirements-vi.txt"
+
+
+class ViPackagesTest(unittest.TestCase):
+    def test_vi_requirements_file_declares_python_docx(self):
+        text = VI_REQUIREMENTS.read_text(encoding="utf-8")
+        self.assertIn("python-docx", doctor.parse_requirement_names(text))
+
+    def test_check_packages_uses_the_given_name_and_level(self):
+        result = doctor.check_packages(
+            VI_REQUIREMENTS,
+            find_dist=lambda name: object(),
+            name="Thư viện lớp Việt",
+            level=doctor.RECOMMENDED,
+        )
+        self.assertEqual(result.name, "Thư viện lớp Việt")
+        self.assertEqual(result.level, doctor.RECOMMENDED)
+        self.assertTrue(result.ok)
+
+    def test_missing_vi_package_is_a_warning_not_a_blocking_error(self):
+        def missing(name):
+            raise doctor.importlib.metadata.PackageNotFoundError(name)
+
+        result = doctor.check_packages(
+            VI_REQUIREMENTS,
+            find_dist=missing,
+            name="Thư viện lớp Việt",
+            level=doctor.RECOMMENDED,
+            fix="Chạy: python -m pip install -r tools/vi/requirements-vi.txt",
+        )
+        self.assertFalse(result.ok)
+        self.assertIn("python-docx", result.detail)
+        self.assertIn("requirements-vi.txt", result.fix)
+        self.assertEqual(doctor.exit_code([result]), 0)
+
+    def test_collect_reports_the_vi_layer_packages(self):
+        results = doctor.collect(no_smoke=True)
+        self.assertIn("Thư viện lớp Việt", [item.name for item in results])
+
+
 class CheckIntegrityTest(unittest.TestCase):
     def test_passes_on_exit_zero_and_runs_guard(self):
         calls = []

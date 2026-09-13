@@ -178,7 +178,9 @@ function Invoke-Setup {
     Write-Step 'Bước 2/4: Cài thư viện Python (lần đầu có thể mất vài phút)'
     & $py.Path -m pip install --upgrade pip | Out-Host
     & $py.Path -m pip install -r (Join-Path $RepoRoot 'requirements.txt') | Out-Host
-    if ($LASTEXITCODE -ne 0) {
+    $pipCode = $LASTEXITCODE
+    & $py.Path -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') | Out-Host
+    if ($pipCode -ne 0 -or $LASTEXITCODE -ne 0) {
         Write-Fail 'Cài thư viện thất bại. Xem thông báo phía trên.'
         Write-Host "Cách xử lý: $FixDoc (mục Cài thư viện thất bại)"
         return 1
@@ -318,10 +320,13 @@ function Test-VenvPython([string[]]$Arguments) {
 
 function Test-PackagesOk($Report) {
     if (-not $Report) { return $false }
+    $upstreamOk = $false
     foreach ($check in $Report.checks) {
-        if ($check.name -eq 'Thư viện Python') { return [bool]$check.ok }
+        if ($check.name -eq 'Thư viện Python') { $upstreamOk = [bool]$check.ok }
+        # Doctor cũ không có mục này thì coi như ổn; có mục mà báo thiếu thì phải cài.
+        if ($check.name -eq 'Thư viện lớp Việt' -and -not [bool]$check.ok) { return $false }
     }
-    return $false
+    return $upstreamOk
 }
 
 function Write-SetupResult([bool]$Ready, $Installed, $Warnings, $Checks) {
@@ -384,6 +389,8 @@ function Invoke-AutoSetup {
             Invoke-Logged { & $VenvPython -m pip install --upgrade pip }
             Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'requirements.txt') }
             $pipCode = $LASTEXITCODE
+            Invoke-Logged { & $VenvPython -m pip install -r (Join-Path $RepoRoot 'tools\vi\requirements-vi.txt') }
+            if ($LASTEXITCODE -ne 0) { $pipCode = $LASTEXITCODE }
         }
         if ($pipCode -ne 0) {
             $packagesFix = 'Xem mục "Máy trường chặn cài đặt" trong docs/vi/xu-ly-loi.md; mạng trường có thể cần mở truy cập pypi.org và files.pythonhosted.org.'

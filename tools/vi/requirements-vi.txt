@@ -1,0 +1,7 @@
+# Thư viện riêng của lớp Việt hoá. File này KHÔNG thuộc dự án gốc;
+# requirements.txt ở gốc repo và skills/ppt-master/requirements.txt là của upstream, không sửa.
+#
+# Cài: python -m pip install -r tools/vi/requirements-vi.txt
+#
+# Dựng file Word cho đề kiểm tra (tools/vi/de_thi.py)
+python-docx>=1.1.0

@@ -15,6 +15,7 @@ if ! "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; t
 fi
 
 "$PY" -m pip install -r "$REPO_ROOT/requirements.txt"
+"$PY" -m pip install -r "$REPO_ROOT/tools/vi/requirements-vi.txt"
 
 if [ ! -f "$REPO_ROOT/.env" ]; then
   cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"

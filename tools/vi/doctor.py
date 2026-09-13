@@ -78,12 +78,18 @@ def check_python(version_info: Sequence[int] = sys.version_info) -> CheckResult:
     return CheckResult("Python", REQUIRED, False, detail + " (cần 3.10 trở lên)", "Cài Python 3.10+ rồi chạy lại CAI-DAT.bat")
 
 
-def check_packages(requirements_path: Path, find_dist: Callable[[str], object] = importlib.metadata.distribution) -> CheckResult:
-    name = "Thư viện Python"
+def check_packages(
+    requirements_path: Path,
+    find_dist: Callable[[str], object] = importlib.metadata.distribution,
+    name: str = "Thư viện Python",
+    level: str = REQUIRED,
+    fix: str = "Chạy CAI-DAT.bat để cài thư viện",
+) -> CheckResult:
     try:
         packages = parse_requirement_names(requirements_path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeDecodeError):
-        return CheckResult(name, REQUIRED, False, f"Không đọc được {requirements_path.name}", "Tải lại bản đầy đủ của bộ công cụ")
+        return CheckResult(name, level, False, f"Không đọc được {requirements_path.name}",
+                           "Tải lại bản đầy đủ của bộ công cụ")
     missing = []
     for package in packages:
         try:
@@ -91,8 +97,8 @@ def check_packages(requirements_path: Path, find_dist: Callable[[str], object] =
         except importlib.metadata.PackageNotFoundError:
             missing.append(package)
     if missing:
-        return CheckResult(name, REQUIRED, False, "Thiếu: " + ", ".join(missing), "Chạy CAI-DAT.bat để cài thư viện")
-    return CheckResult(name, REQUIRED, True, f"Đủ {len(packages)} gói")
+        return CheckResult(name, level, False, "Thiếu: " + ", ".join(missing), fix)
+    return CheckResult(name, level, True, f"Đủ {len(packages)} gói")
 
 
 def check_integrity(run: Callable = subprocess.run, python: str = sys.executable) -> CheckResult:
@@ -321,6 +327,12 @@ def collect(no_smoke: bool) -> list[CheckResult]:
     packages = check_packages(SKILL_DIR / "requirements.txt")
     integrity = check_integrity()
     results += [packages, integrity]
+    results.append(check_packages(
+        REPO_ROOT / "tools" / "vi" / "requirements-vi.txt",
+        name="Thư viện lớp Việt",
+        level=RECOMMENDED,
+        fix="Chạy: python -m pip install -r tools/vi/requirements-vi.txt (hoặc chạy lại CAI-DAT.bat)",
+    ))
     if not no_smoke:
         if packages.ok and integrity.ok:
             results.append(run_smoke())

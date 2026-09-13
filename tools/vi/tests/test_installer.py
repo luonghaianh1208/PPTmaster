@@ -265,6 +265,56 @@ class InstallerPlanTest(unittest.TestCase):
         self.assertIsNone(result["error"])
         self.assertEqual([check["name"] for check in result["checks"]], ["Thư viện Python"])
 
+    def test_auto_setup_installs_when_vi_layer_packages_are_missing(self):
+        """Máy đã cài bản cũ (đủ thư viện upstream, thiếu python-docx) phải vào nhánh cài thư viện."""
+        report = {"ready": True, "python": "x", "checks": [
+            {"name": "Thư viện Python", "level": "required", "ok": True, "detail": "", "fix": ""},
+            {"name": "Thư viện lớp Việt", "level": "recommended", "ok": False,
+             "detail": "Thiếu: python-docx", "fix": ""},
+        ]}
+        payload = json.dumps(report, ensure_ascii=False)
+        (self.repo / "tools" / "vi" / "doctor.py").write_text(
+            f"import sys\nsys.stdout.reconfigure(encoding='utf-8')\nprint({payload!r})\n", encoding="utf-8",
+        )
+        subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(self.repo / "venv")],
+                       check=True, capture_output=True, timeout=120)
+        (self.repo / ".env").write_text("", encoding="utf-8")
+        returncode, result = self.run_launcher("-Action", "setup", "-Auto")
+        # venv được tạo không có pip, nên nhánh cài thư viện dừng ở bước kiểm pip.
+        # Kết quả này chứng tỏ bộ cài đã KHÔNG bỏ qua bước cài như trước.
+        self.assertEqual(returncode, 1, result)
+        self.assertEqual(result["error"]["step"], "venv", result)
+
+
+class ViRequirementsWiringTest(unittest.TestCase):
+    def test_launcher_installs_the_vi_requirements_in_both_paths(self):
+        text = LAUNCHER.read_text(encoding="utf-8-sig")
+        self.assertEqual(text.count("'tools\\vi\\requirements-vi.txt'"), 2, text.count("requirements-vi"))
+
+    def test_upstream_install_code_is_captured_before_the_vi_install(self):
+        """Lệnh cài lớp Việt chạy sau không được che mất lỗi của lệnh cài thư viện upstream."""
+        lines = LAUNCHER.read_text(encoding="utf-8-sig").splitlines()
+        upstream = [i for i, line in enumerate(lines) if "'requirements.txt'" in line and "pip install" in line]
+        vi_layer = [i for i, line in enumerate(lines) if "'tools\\vi\\requirements-vi.txt'" in line]
+        self.assertEqual(len(upstream), 2, upstream)
+        self.assertEqual(len(vi_layer), 2, vi_layer)
+        for upstream_line, vi_line in zip(upstream, vi_layer):
+            between = lines[upstream_line + 1:vi_line]
+            self.assertTrue(
+                any("$pipCode = $LASTEXITCODE" in line for line in between),
+                f"thiếu '$pipCode = $LASTEXITCODE' giữa dòng {upstream_line + 1} và dòng {vi_line + 1}",
+            )
+
+    def test_package_check_also_watches_the_vi_layer_packages(self):
+        text = LAUNCHER.read_text(encoding="utf-8-sig")
+        start = text.index("function Test-PackagesOk")
+        body = text[start:text.index("\n}", start)]
+        self.assertIn("'Thư viện lớp Việt'", body)
+
+    def test_setup_sh_installs_the_vi_requirements(self):
+        text = (REPO_ROOT / "tools" / "vi" / "setup.sh").read_text(encoding="utf-8")
+        self.assertIn("tools/vi/requirements-vi.txt", text)
+
 
 if __name__ == "__main__":
     unittest.main()
