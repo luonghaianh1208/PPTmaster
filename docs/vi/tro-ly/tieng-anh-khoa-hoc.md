@@ -45,13 +45,13 @@ Dạng phủ định phải in đậm chữ `not` bằng `**not**` để học s
 
 ## 4. Chính tả IUPAC / Anh-Anh
 
-Dùng chính tả IUPAC, không dùng chính tả Anh-Mỹ cũ: `sulfur` (IUPAC, **không** viết `sulphur`), `sulfuric acid`, `sulfate`, `aluminium`, `caesium`. Tên hợp chất có số oxi hoá viết theo dạng `iron(III) oxide`, `copper(II) sulfate`. Ký hiệu nguyên tố và phương trình hoá học giữ nguyên, không dịch hay đổi định dạng.
+Dùng chính tả IUPAC — trùng tiếng Anh-Anh hiện hành ở `aluminium`, `caesium`; riêng `sulfur` viết theo IUPAC, không viết `sulphur` (cách viết Anh cũ). Kèm theo: `sulfuric acid`, `sulfate`. Tên hợp chất có số oxi hoá viết theo dạng `iron(III) oxide`, `copper(II) sulfate`. Ký hiệu nguyên tố và phương trình hoá học giữ nguyên, không dịch hay đổi định dạng.
 
 ## 5. Số và đơn vị
 
 - Dấu thập phân: `25,5` (tiếng Việt) viết thành `25.5` (tiếng Anh).
 - Dấu phân cách hàng nghìn: `1.000.000` viết thành `1 000 000`.
-- Luôn có khoảng trắng giữa số và đơn vị: `5 kg`, `25 °C`; riêng góc phẳng thì viết liền, không có khoảng trắng: `30°`. Chỉ nhiệt độ mới có khoảng trắng trước đơn vị.
+- Luôn có khoảng trắng giữa số và đơn vị: `5 kg`, `25 °C`. Trong các đơn vị dùng dấu °, chỉ độ C (nhiệt độ) có khoảng trắng: `25 °C`; góc thì viết liền: `30°`.
 - "Ở đktc" viết rõ thành `at 0 °C and 1 atm`, **không** dịch thành `at STP`.
 - "Ở điều kiện chuẩn" (đkc, 25 °C và 1 bar, thể tích mol 24,79 L/mol) viết thành `at 25 °C and 1 bar`; không gộp với đktc (`at 0 °C and 1 atm`). Đề không nói rõ là điều kiện nào thì ghi vào `## CAN SOAT`, không tự chọn.
 

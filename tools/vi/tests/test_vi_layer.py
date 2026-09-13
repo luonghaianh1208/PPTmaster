@@ -749,6 +749,13 @@ class ExamGuideTest(unittest.TestCase):
             with self.subTest(file=name):
                 self.assertEqual(LINK_RE.findall(read(f"docs/vi/tro-ly/{name}")), [])
 
+    def test_exam_guide_example_prints_vietnamese_with_diacritics(self):
+        body = section(read(EXAM_GUIDE), "## Cấu trúc đề")
+        school = re.search(r"^school:\s*(.+)$", body, re.M)
+        self.assertIsNotNone(school, "file mẫu thiếu dòng school:")
+        value = school.group(1).strip()
+        self.assertNotEqual(value, value.encode("ascii", "ignore").decode(), value)
+
     def test_exam_guide_states_the_full_parser_grammar(self):
         body = section(read(EXAM_GUIDE), "## Cấu trúc đề")
         for token in ("## PART I", "## PART II", "## PART III", "## CAN SOAT",
@@ -814,6 +821,12 @@ class ScienceEnglishGuideTest(unittest.TestCase):
         for phrase in ("30°", "the human body", "at 25 °C and 1 bar", "24,79", "sulfur", "sulphur", "iron(III) oxide"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
+
+    def test_guide_has_no_contradictory_spacing_or_spelling_sentence(self):
+        text = read(ENGLISH_GUIDE)
+        self.assertNotIn("Chỉ nhiệt độ mới có khoảng trắng", text)
+        self.assertNotIn("Anh-Mỹ cũ", text)
+        self.assertIn("5 kg", text)
 
 
 class ExamWiringTest(unittest.TestCase):

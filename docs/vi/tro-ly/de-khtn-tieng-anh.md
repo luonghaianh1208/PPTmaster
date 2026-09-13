@@ -106,8 +106,8 @@ Sau phần cuối, file có thể có mục `## CAN SOAT`, phải là mục cu�
 
 ```
 ---
-school: TRUONG THCS VI DU
-title: KIEM TRA GIUA KY II
+school: TRƯỜNG THCS VÍ DỤ
+title: ĐỀ KIỂM TRA GIỮA HỌC KÌ I
 subject: KHTN — Grade 8
 time: 45
 points: 10
@@ -118,7 +118,7 @@ points: 10
 en: Which of the following is **not** a state of matter?
 vi: Chất nào sau đây không phải là một trạng thái của vật chất?
 level: biet
-topic: Trang thai cua vat chat
+topic: Trạng thái của vật chất
 A: Solid
 B: Liquid
 C: Gas
@@ -131,7 +131,7 @@ key: D
 en: Consider the following statements about density.
 vi: Xét các phát biểu sau về khối lượng riêng.
 level: hieu
-topic: Khoi luong rieng
+topic: Khối lượng riêng
 a: Density is mass divided by volume. | T
 b: Density has the unit of newton. | F
 c: Two objects of the same volume always have the same density. | F
@@ -143,7 +143,7 @@ d: Density can be used to identify a material. | T
 en: A block has a mass of 2 kg and a volume of 0.001 m^3^. Calculate its density.
 vi: Một khối vật chất có khối lượng 2 kg và thể tích 0,001 m^3^. Tính khối lượng riêng của nó.
 level: vandung
-topic: Khoi luong rieng
+topic: Khối lượng riêng
 key: 2000
 unit: kg/m^3^
 
