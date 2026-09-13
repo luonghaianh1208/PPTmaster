@@ -327,9 +327,14 @@ class ViRequirementsWiringTest(unittest.TestCase):
         body = text[start:text.index("\n}", start)]
         self.assertIn("'Thư viện lớp Việt'", body)
 
-    def test_setup_sh_installs_the_vi_requirements(self):
-        text = (REPO_ROOT / "tools" / "vi" / "setup.sh").read_text(encoding="utf-8")
-        self.assertIn("tools/vi/requirements-vi.txt", text)
+    def test_setup_sh_installs_the_vi_requirements_without_aborting(self):
+        lines = (REPO_ROOT / "tools" / "vi" / "setup.sh").read_text(encoding="utf-8").splitlines()
+        vi_lines = [line for line in lines if "tools/vi/requirements-vi.txt" in line and "pip install" in line]
+        self.assertEqual(len(vi_lines), 1, vi_lines)
+        self.assertIn("||", vi_lines[0])
+        upstream = [line for line in lines if '"$REPO_ROOT/requirements.txt"' in line]
+        self.assertEqual(len(upstream), 1, upstream)
+        self.assertNotIn("||", upstream[0])
 
 
 if __name__ == "__main__":
