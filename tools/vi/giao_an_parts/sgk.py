@@ -133,8 +133,21 @@ def extract(text: str, query: str) -> tuple[str, str, list[str]]:
         if md_headings:
             start_index, heading = md_headings[0]
         else:
+            # Một dòng mục lục "Bài <số>" cuối cùng của sách không có dòng thường nào
+            # sau nó mang số bài lớn hơn, nên lát cắt của nó chạy đến hết file và trùm lên
+            # cả tiêu đề bài thật kế tiếp. Bỏ mọi ứng viên trùm lên điểm bắt đầu của ứng viên
+            # khác trước khi chọn lát cắt dài nhất; còn lại rỗng thì quay về cách cũ.
+            non_nested = [
+                item for item in with_content
+                if not any(
+                    other[0] > item[0] and other[0] < end_of(item[0], item[1])
+                    for other in with_content
+                    if other[0] != item[0]
+                )
+            ]
+            pool = non_nested if non_nested else with_content
             start_index, heading = max(
-                with_content,
+                pool,
                 key=lambda item: len(
                     "\n".join(lines[item[0]:end_of(item[0], item[1])]).encode("utf-8")
                 ),
@@ -150,6 +163,6 @@ def extract(text: str, query: str) -> tuple[str, str, list[str]]:
         )
     if len(matches) > 1:
         warnings.append(
-            f"Có {len(matches)} tiêu đề khớp {query!r}; đã lấy tiêu đề đầu tiên: {heading}"
+            f"Có {len(matches)} tiêu đề khớp {query!r}; đã lấy: {heading}"
         )
     return heading, body, warnings

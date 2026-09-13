@@ -733,6 +733,59 @@ class SgkTest(unittest.TestCase):
         self.assertNotIn("trang 25", body)
         self.assertNotIn("nội dung khác", body)
 
+    def test_last_lesson_of_a_plain_book_with_a_table_of_contents(self):
+        text = (
+            "MỤC LỤC\n"
+            "Bài 5. Ammonia 25\n"
+            "Bài 6. Nitric acid 32\n"
+            "Bài 7. Hữu cơ 40\n"
+            "\n"
+            "BÀI 5. AMMONIA\n"
+            "Nội dung lý thuyết bài 5.\n"
+            "Tính chất hoá học của ammonia.\n"
+            "ĐÁNH DẤU BÀI 5\n"
+            "Ứng dụng trong nông nghiệp.\n"
+            "\n"
+            "BÀI 6. NITRIC ACID\n"
+            "Nội dung lý thuyết bài 6.\n"
+            "Tính chất hoá học của nitric acid.\n"
+            "ĐÁNH DẤU BÀI 6\n"
+            "Ứng dụng trong công nghiệp.\n"
+            "\n"
+            "BÀI 7. HỮU CƠ\n"
+            "Nội dung lý thuyết bài 7.\n"
+            "Tính chất hoá học của hợp chất hữu cơ.\n"
+            "ĐÁNH DẤU BÀI 7\n"
+            "Ứng dụng trong đời sống.\n"
+        )
+        heading, body, _ = sgk.extract(text, "Bài 7")
+        self.assertEqual(heading, "BÀI 7. HỮU CƠ")
+        self.assertIn("ĐÁNH DẤU BÀI 7", body)
+        self.assertNotIn("ĐÁNH DẤU BÀI 5", body)
+        self.assertNotIn("Bài 5. Ammonia 25", body)
+        self.assertNotIn("Bài 6. Nitric acid 32", body)
+        self.assertNotIn("Bài 7. Hữu cơ 40", body)
+
+        heading5, body5, _ = sgk.extract(text, "Bài 5")
+        self.assertEqual(heading5, "BÀI 5. AMMONIA")
+        self.assertIn("ĐÁNH DẤU BÀI 5", body5)
+        self.assertNotIn("ĐÁNH DẤU BÀI 6", body5)
+
+        heading6, body6, _ = sgk.extract(text, "Bài 6")
+        self.assertEqual(heading6, "BÀI 6. NITRIC ACID")
+        self.assertIn("ĐÁNH DẤU BÀI 6", body6)
+        self.assertNotIn("ĐÁNH DẤU BÀI 7", body6)
+
+    def test_multi_match_warning_names_the_chosen_heading(self):
+        text = (
+            "MỤC LỤC\nBài 4. Nitrogen 20\nBài 5. Ammonia 25\nBài 6. Nitric acid 30\n\n"
+            "## Bài 5. Ammonia\n\nnội dung thật\n\n## Bài 6. Nitric acid\n\nkhác\n"
+        )
+        heading, _, warnings = sgk.extract(text, "Bài 5")
+        matched_warning = next(warning for warning in warnings if "khớp" in warning)
+        self.assertIn(heading, matched_warning)
+        self.assertNotIn("đầu tiên", matched_warning)
+
 
 def document_xml(path: Path) -> str:
     with zipfile.ZipFile(path) as archive:
