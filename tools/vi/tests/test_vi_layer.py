@@ -141,6 +141,7 @@ REQUIRED_DOCS = (
     "lay-api-key.md",
     "phat-trien/bao-tri.md",
     "lam-video.md",
+    "soan-de-tieng-anh.md",
 )
 
 
@@ -885,6 +886,44 @@ class ExamWiringTest(unittest.TestCase):
         body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
         self.assertNotIn("không viết brief để import vào dự án PPTX", body)
         self.assertIn("đặt tên brief theo dự án PPTX rồi import vào dự án", body)
+
+
+class ExamUserDocsTest(unittest.TestCase):
+    def test_exam_doc_explains_inputs_outputs_and_limits(self):
+        text = read("docs/vi/soan-de-tieng-anh.md")
+        for phrase in ("Word", "PDF", "ảnh", "de-en.docx", "dap-an.docx", "song ngữ", "ma trận", "Cần thầy cô soát"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_quick_start_mentions_the_exam_task(self):
+        text = read("docs/vi/bat-dau-nhanh.md")
+        self.assertNotIn("6 loại", text)
+        headings = h2_headings(text)
+        self.assertIn("## Soạn đề tiếng Anh", headings)
+        self.assertLess(headings.index("## Soạn đề tiếng Anh"), headings.index("## Lấy file kết quả"))
+        self.assertIn("(soan-de-tieng-anh.md)", section(text, "## Soạn đề tiếng Anh"))
+
+    def test_sample_commands_cover_both_use_cases(self):
+        body = section(read("docs/vi/cau-lenh-mau.md"), "## Soạn đề tiếng Anh")
+        self.assertIn("sang tiếng Anh", body)
+        self.assertIn("Soạn đề", body)
+
+    def test_troubleshooting_has_the_exam_export_section(self):
+        text = read("docs/vi/xu-ly-loi.md")
+        headings = h2_headings(text)
+        self.assertIn("## Xuất đề Word thất bại", headings)
+        # Đứng NGAY TRƯỚC mục video: test gói video khoá mục video phải ngay trước "Đường dẫn quá dài".
+        self.assertEqual(
+            headings.index("## Xuất đề Word thất bại"),
+            headings.index("## Dựng video thất bại") - 1,
+        )
+        body = section(text, "## Xuất đề Word thất bại")
+        for phrase in ("requirements-vi.txt", "python-docx", "đang mở trong Word", "Dòng", "de.md"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_readme_mentions_the_exam_feature(self):
+        self.assertIn("đề kiểm tra", section(read("README.md"), "## Làm được gì"))
 
 
 if __name__ == "__main__":

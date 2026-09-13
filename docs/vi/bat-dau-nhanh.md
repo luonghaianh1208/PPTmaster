@@ -44,11 +44,15 @@ Với bài giảng, báo cáo – tổng kết, hoạt động Đoàn – sự k
 - **Sau đó**, AI tóm tắt đề xuất trong khung chat để thầy cô duyệt lần cuối, rồi mới dựng slide.
 - **Việc khác** (ví dụ giới thiệu sản phẩm), AI xác nhận lại đối tượng người xem, số trang, phong cách và mẫu thiết kế như trước.
 
-Với 6 loại việc trên, muốn AI làm luôn, thêm chữ "tạo nhanh" vào câu lệnh: AI chỉ hỏi 2–3 câu thật cần thiết. Không muốn trả lời câu nào, thêm "không cần hỏi lại": AI không hỏi gì, tự đề xuất các phần còn thiếu rồi làm luôn.
+Với 7 loại việc trên, muốn AI làm luôn, thêm chữ "tạo nhanh" vào câu lệnh: AI chỉ hỏi 2–3 câu thật cần thiết. Không muốn trả lời câu nào, thêm "không cần hỏi lại": AI không hỏi gì, tự đề xuất các phần còn thiếu rồi làm luôn.
 
 ## Làm video bài giảng
 
 Có bài giảng rồi, nhắn `Làm video bài giảng này` là AI đọc lời giảng, ghép thành video kèm phụ đề. Chi tiết trong [Làm video bài giảng](lam-video.md).
+
+## Soạn đề tiếng Anh
+
+Cần đề kiểm tra KHTN, Vật lí, Hoá học hay Sinh học bằng tiếng Anh, nhắn `Soạn đề Vật lí 10 tiếng Anh, 45 phút, chương động lực học` (chưa có đề) hoặc `Chuyển đề giữa kì Hoá 11 ở file này sang tiếng Anh` (đã có đề tiếng Việt). Chi tiết trong [Soạn đề tiếng Anh](soan-de-tieng-anh.md).
 
 ## Lấy file kết quả
 

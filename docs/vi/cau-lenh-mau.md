@@ -65,6 +65,20 @@ Làm đẹp file bai-cu.pptx, giữ nguyên nội dung và số trang.
 Thêm thuyết minh giọng nữ tiếng Việt cho file bai-giang.pptx.
 ```
 
+## Soạn đề tiếng Anh
+
+Chuyển đề có sẵn sang tiếng Anh:
+
+```
+Chuyển đề giữa kì Hoá 11 ở file này sang tiếng Anh
+```
+
+Soạn đề mới hoàn toàn bằng tiếng Anh:
+
+```
+Soạn đề Vật lí 10 tiếng Anh, 45 phút, chương động lực học
+```
+
 ## Tạo nhanh
 
 ```

@@ -30,6 +30,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 - Khổ slide 16:9, 4:3, bài đăng Facebook/TikTok 3:4, ảnh vuông Zalo, story 9:16.
 - Hiệu ứng chuyển động và thuyết minh bằng giọng tiếng Việt.
 - Làm đẹp lại một file PPTX có sẵn.
+- Soạn **đề kiểm tra** KHTN/Vật lí/Hoá học/Sinh học bằng tiếng Anh, từ đề tiếng Việt có sẵn hoặc từ đầu, xuất ra file Word.
 
 ## Ba file bấm đúp
 
@@ -48,6 +49,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 | [Câu lệnh mẫu](docs/vi/cau-lenh-mau.md) | Câu lệnh cho bài giảng, báo cáo, poster, thuyết minh |
 | [Xử lý lỗi](docs/vi/xu-ly-loi.md) | Lỗi thường gặp và cách sửa |
 | [Lấy API key](docs/vi/lay-api-key.md) | Bật tạo ảnh bằng AI |
+| [Soạn đề tiếng Anh](docs/vi/soan-de-tieng-anh.md) | Từ đề tiếng Việt hoặc từ đầu, ra ba file Word |
 
 Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 
