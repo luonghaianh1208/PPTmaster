@@ -23,7 +23,7 @@ Ví dụ câu lệnh:
 5. Người đọc là ai, và thầy cô muốn họ làm gì sau khi xem (đăng ký, tham dự, chia sẻ)?
    Gợi ý: cha mẹ học sinh, đến họp đúng giờ.
 6. Có ảnh sẵn không, hay để AI tạo ảnh? Có dùng logo không?
-   Gợi ý: để AI tạo ảnh minh hoạ; dùng logo trong hồ sơ.
+   Gợi ý: để AI tìm ảnh thật hoặc tạo ảnh minh hoạ; dùng logo trong hồ sơ.
 
 ## Câu hỏi tuỳ chọn
 

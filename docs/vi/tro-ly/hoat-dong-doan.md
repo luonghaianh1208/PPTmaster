@@ -23,7 +23,7 @@ Ví dụ câu lệnh:
 5. Dùng nhận diện nào: huy hiệu Đoàn, logo riêng của chương trình, màu riêng?
    Gợi ý: huy hiệu Đoàn và màu chủ đạo trong hồ sơ.
 6. Có ảnh hoạt động sẵn không, hay để AI tạo ảnh minh hoạ?
-   Gợi ý: dùng ảnh thầy cô gửi; thiếu thì để AI tạo ảnh minh hoạ.
+   Gợi ý: dùng ảnh thầy cô gửi; thiếu thì để AI tìm ảnh thật hoặc tạo ảnh minh hoạ.
 
 ## Câu hỏi tuỳ chọn
 

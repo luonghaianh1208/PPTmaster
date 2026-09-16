@@ -77,6 +77,7 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 8 lo
 | Soạn giáo án tích hợp năng lực số và AI | [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) |
 
 - `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12) hoặc "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13) — hai loại việc đó không có bước xác nhận của upstream, xem mục 12 và mục 13. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- Bài mới dạng PPTX (Bài giảng, Báo cáo – tổng kết, Hoạt động Đoàn – sự kiện, Poster/ấn phẩm Zalo – Facebook, Tập huấn/workshop) không làm toàn chữ: chọn nguồn ảnh cho từng trang theo mục "Ảnh minh hoạ" của `docs/vi/tro-ly/quy-trinh-hoi.md`, kể cả khi tạo nhanh.
 - Yêu cầu không thuộc 8 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
 ## 11. Làm video bài giảng

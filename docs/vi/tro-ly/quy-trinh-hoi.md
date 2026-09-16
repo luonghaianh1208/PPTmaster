@@ -63,6 +63,24 @@ File dành cho AI. Nó bổ sung ngữ cảnh cho quy trình tạo PPTX trong `s
 - Thầy cô muốn dùng trang web xác nhận: dùng nhánh trang web mặc định của upstream; brief vẫn được dùng để điền sẵn đề xuất.
 - Thầy cô trả lời thiếu câu hỏi đánh số: dùng gợi ý và ghi kèm "(AI đề xuất, chưa duyệt)" trong brief. Chỉ hỏi lại câu bắt buộc không thể đoán (ví dụ tên bài, loại báo cáo), và hỏi lại tối đa một lần.
 
+## Ảnh minh hoạ
+
+Mục này làm rõ, bằng ví dụ ở trường học, các quy tắc ảnh sẵn có của upstream (`skills/ppt-master/references/plan-core.md` mục 5); upstream vẫn là nơi quyết định.
+
+Áp dụng khi tạo bài mới cho 5 loại việc tạo PPTX: Bài giảng, Báo cáo – tổng kết, Hoạt động Đoàn – sự kiện, Poster/ấn phẩm Zalo – Facebook, Tập huấn/workshop; cả khi tạo nhanh. Không áp dụng cho làm đẹp slide có sẵn (Beautify), sửa PPTX có sẵn, tạo template, dựng lại từ ảnh chụp slide, Soạn đề KHTN tiếng Anh, Soạn giáo án và Video bài giảng.
+
+- Thầy cô không dặn "không dùng ảnh" thì không làm bài toàn chữ; biểu đồ và bảng số liệu cũng tính. Không chèn ảnh trang trí chỉ để trang nào cũng có ảnh.
+- Khi lên danh sách trang, chọn nguồn ảnh cho từng trang:
+  - Sự vật, chất, hiện tượng, dụng cụ và thiết bị thí nghiệm, địa danh, nhân vật, sự kiện lịch sử có thật mà học sinh hay người nghe cần nhận ra: nguồn `web`, tìm bằng `skills/ppt-master/scripts/image_search.py` (Openverse, Wikimedia, không cần khoá API), từ khoá tiếng Anh cụ thể 1–4 từ. Ảnh thầy cô gửi thì dùng ảnh đó trước.
+  - Hoạt động, sự kiện riêng của trường hay chi đoàn: dùng ảnh thầy cô gửi; không có thì dùng ảnh minh hoạ AI hoặc sơ đồ, không lấy ảnh trên mạng thay cho ảnh thật của đơn vị.
+  - Cảnh minh hoạ không có thật, nhân vật hoạt hình, ảnh nền cách điệu: nguồn `ai` bằng `skills/ppt-master/scripts/image_gen.py`, đường `auto`.
+  - Quá trình, cấu tạo, chu trình, sơ đồ thí nghiệm, so sánh: sơ đồ vẽ trực tiếp trên slide.
+- Không mở file cấu hình hay dò xem máy có khoá API: thiếu khoá tạo ảnh không phải lý do bỏ ảnh `web`. Việc tạo ảnh AI thất bại thì xử lý đúng như upstream (thay bằng sơ đồ hoặc ảnh không phải AI đã chuẩn bị, không thêm nguồn mới); vì vậy các trang cần ảnh thật phải được lên kế hoạch nguồn `web` ngay từ đầu.
+- Poster một ảnh: ảnh đó có ảnh thật, ảnh minh hoạ hoặc sơ đồ, không chỉ có chữ trên nền màu.
+- Ảnh cần ghi nguồn thì ghi dòng nguồn nhỏ trên slide theo trường `attribution_text` trong `image_sources.json`.
+- Ghi vào brief, mục "AI đề xuất": nguồn ảnh dự kiến, kèm "(AI đề xuất, chưa duyệt)" khi thầy cô chưa nêu.
+- Khi báo kết quả, nêu số trang có ảnh hoặc sơ đồ, và nhắc thầy cô soát ảnh tìm trên mạng trước khi dùng.
+
 ## Ghi brief và đưa vào dự án
 
 1. Tạo hoặc cập nhật `projects/_ho-so-don-vi.md`.

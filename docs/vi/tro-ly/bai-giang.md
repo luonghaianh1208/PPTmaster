@@ -25,7 +25,7 @@ Ví dụ câu lệnh:
 6. Học sinh của lớp có đặc điểm gì, và phòng học dùng thiết bị gì (máy chiếu 16:9, máy chiếu 4:3, TV)?
    Gợi ý: lớp có trình độ trung bình, dùng máy chiếu 16:9.
 7. Thầy cô có tài liệu sẵn không (giáo án Word, ảnh trong sách giáo khoa, đề bài)?
-   Gợi ý: không có; AI soạn từ nội dung bài học.
+   Gợi ý: không có; AI soạn từ nội dung bài học, tìm ảnh thật và vẽ sơ đồ minh hoạ.
 
 ## Câu hỏi tuỳ chọn
 

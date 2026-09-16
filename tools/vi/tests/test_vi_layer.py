@@ -87,6 +87,26 @@ def format_map_keys() -> list:
     return re.findall(r"`([a-z0-9_]+)`\s*\|\s*$", block.group(1), re.M)
 
 
+ANTIGRAVITY_RULE_LIMIT = 12000
+TASK_TABLE_HEADER = "| Loại việc | Dấu hiệu nhận biết | File hướng dẫn |"
+TASK_ROW_RE = re.compile(r"^\| ([^|]+?) \| ([^|]+?) \| [^|]*?([a-z0-9-]+\.md)[^|]*\|\s*$")
+
+
+def task_table_rows(text: str) -> list:
+    """Các dòng (loại việc, dấu hiệu, tên file) của bảng loại việc đầu tiên, bỏ phần đường dẫn."""
+    lines = text.splitlines()
+    start = next((index for index, line in enumerate(lines) if line.strip() == TASK_TABLE_HEADER), None)
+    if start is None:
+        raise AssertionError(f"Thiếu bảng loại việc: {TASK_TABLE_HEADER}")
+    rows = []
+    for line in lines[start + 2:]:
+        match = TASK_ROW_RE.match(line.strip())
+        if match is None:
+            break
+        rows.append(match.groups())
+    return rows
+
+
 class EditorWiringTest(unittest.TestCase):
     def test_claude_md_imports_upstream_and_vietnamese_rules(self):
         lines = [line.strip() for line in read("CLAUDE.md").splitlines()]
@@ -109,6 +129,37 @@ class EditorWiringTest(unittest.TestCase):
         self.assertIn("trigger: always_on", rule)
         self.assertIn("@../../AGENTS.md", rule)
         self.assertIn("@../../AGENTS.vi.md", rule)
+
+    def test_antigravity_rule_fits_the_character_limit(self):
+        # Antigravity giới hạn mỗi file luật 12.000 ký tự.
+        self.assertLessEqual(len(read(".agents/rules/ppt-master-vi.md")), ANTIGRAVITY_RULE_LIMIT)
+
+    def test_antigravity_rule_inlines_the_intake_gate(self):
+        # Antigravity không chép nội dung file nhắc bằng @ vào luật, nên cổng hỏi phải nằm ngay trong luật.
+        rule = read(".agents/rules/ppt-master-vi.md")
+        for phrase in (
+            "docs/vi/tro-ly/quy-trinh-hoi.md",
+            "một tin nhắn",
+            "Dừng và chờ thầy cô trả lời",
+            "project_manager.py init",
+            "Turbo Mode",
+            "tạo nhanh",
+            "không cần hỏi lại",
+            "không hỏi câu nào",
+            "vẫn hỏi các câu còn thiếu",
+            "doctor.py",
+            "SKILL.md",
+            "image_search.py",
+            "## Ảnh minh hoạ",
+            "5 loại việc tạo PPTX",
+            "không chèn ảnh trang trí",
+        ):
+            self.assertIn(phrase, rule)
+
+    def test_antigravity_rule_task_table_matches_common_rules(self):
+        common = task_table_rows(read("docs/vi/tro-ly/quy-trinh-hoi.md"))
+        self.assertEqual(len(common), 8)
+        self.assertEqual(task_table_rows(read(".agents/rules/ppt-master-vi.md")), common)
 
     def test_rule_files_tracked_by_git(self):
         if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
@@ -316,6 +367,7 @@ COMMON_HEADINGS = (
     "## Thứ tự ưu tiên",
     "## Hồ sơ đơn vị",
     "## Cách hỏi",
+    "## Ảnh minh hoạ",
     "## Ghi brief và đưa vào dự án",
     "## Tạo nhanh",
     "## Đổi ý giữa chừng",
@@ -379,6 +431,24 @@ class TeacherAssistantCommonRulesTest(unittest.TestCase):
         ):
             self.assertIn(phrase, body)
 
+    def test_image_section_forbids_text_only_decks(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Ảnh minh hoạ")
+        for phrase in (
+            "plan-core.md",
+            "5 loại việc tạo PPTX",
+            "Beautify",
+            "không làm bài toàn chữ",
+            "Không chèn ảnh trang trí",
+            "image_search.py",
+            "không cần khoá",
+            "image_gen.py",
+            "sơ đồ",
+            "không phải lý do bỏ ảnh",
+            "không thêm nguồn mới",
+            "attribution_text",
+        ):
+            self.assertIn(phrase, body)
+
     def test_brief_section_keeps_import_and_provenance_rules(self):
         body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Ghi brief và đưa vào dự án")
         for phrase in ("không thêm `--copy`", "import-sources", "(thầy cô đồng ý)", "(AI đề xuất, chưa duyệt)"):
@@ -434,6 +504,9 @@ class TeacherAssistantWiringTest(unittest.TestCase):
         self.assertIn("vẫn đọc", body)
         self.assertIn("quy-trinh-hoi.md", body)
         self.assertIn("một mình không đủ", body)
+
+    def test_assistant_section_points_to_image_rule(self):
+        self.assertIn("Ảnh minh hoạ", section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING))
 
 
 class TeacherAssistantUserDocsTest(unittest.TestCase):
