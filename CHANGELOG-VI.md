@@ -1,5 +1,31 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.7 — 2026-09-17
+
+Sửa phản ánh của thầy cô: AI không hỏi trước khi làm, slide toàn chữ, ít hiệu ứng, không có hình ảnh.
+
+### Sửa
+- AI trong Antigravity không hỏi thầy cô trước khi làm. Nguyên nhân: Antigravity không chép nội dung file nhắc bằng `@` vào luật, nên quy tắc hỏi trong `AGENTS.vi.md` chưa từng tới được AI. File luật `.agents/rules/ppt-master-vi.md` giờ ghi thẳng bước hỏi (đọc hướng dẫn → gửi một tin nhắn hỏi → dừng chờ trả lời), bảng 8 loại việc, quy tắc ảnh và quy tắc hiệu ứng, dưới giới hạn 12.000 ký tự của Antigravity. Turbo Mode hay Always Proceed không còn bị hiểu là "tạo nhanh".
+- Slide toàn chữ: mục mới "Ảnh minh hoạ" trong `docs/vi/tro-ly/quy-trinh-hoi.md`. Sự vật, chất, dụng cụ thí nghiệm, địa danh có thật được lên kế hoạch tìm ảnh thật ngay từ đầu bằng `image_search.py` (Openverse, Wikimedia, không cần khoá API); quá trình, cấu tạo, sơ đồ thí nghiệm được vẽ thành sơ đồ; sự kiện riêng của trường dùng ảnh thầy cô gửi. Thiếu khoá tạo ảnh AI không còn là lý do bỏ ảnh.
+- `trich-sgk` cắt bài cuối cùng của SGK không có tiêu đề `#` nhưng có mục lục: không còn lấy cả phần từ mục lục tới hết sách.
+
+### Thêm
+- Câu hỏi mức hiệu ứng (không, vừa, nhiều) trong bài giảng, báo cáo, hoạt động Đoàn và tập huấn; tạo nhanh mặc định mức vừa. Video bài giảng hỏi giữ hay bỏ hiệu ứng của bài.
+- `docs/vi/tro-ly/hieu-ung-lop-hoc.md`: định nghĩa ba mức và cách làm bốn kiểu hiệu ứng bằng cơ chế sẵn có của dự án gốc: hiện từng ý khi bấm, bấm để hiện đáp án, Morph cho diễn biến thí nghiệm, chuyển trang nổi bật giữa các hoạt động.
+- `tools/vi/kiem_hieu_ung.py`: đọc file PPTX đã xuất, đếm trang có hiệu ứng, bước bấm, trang Morph, ô bấm hiện đáp án và kiểu chuyển trang; chặn bài không đạt mức đã chọn (mức vừa từ 30% trang nội dung, mức nhiều từ 50%), cảnh báo câu trắc nghiệm chưa có cách hiện đáp án. `--video` chặn hiệu ứng chờ bấm trong bản có thuyết minh.
+- Làm video từ bài có hiệu ứng bấm: AI tạo bản `animations_video.json` đổi hiệu ứng sang tự chạy, xuất bản thuyết minh bằng bản đó và kiểm trước khi dựng; bản trình chiếu trên lớp vẫn giữ hiệu ứng bấm.
+- Mục "Kiểm hiệu ứng không đạt" trong Xử lý lỗi.
+
+### Không thay đổi
+- Lõi PPT Master v6.3.2 của Hugo He giữ nguyên. Hiệu ứng vẫn do `animations.json` và bước `customize-animations` của dự án gốc tạo ra; lớp Việt chỉ quyết định mức và kiểm kết quả.
+
+### Rủi ro
+- Chưa chạy thử trong Antigravity sau khi sửa: bằng chứng hiện có là nhật ký phiên cũ (luật tiếng Việt không được nạp) và test khoá nội dung file luật. Cần mở cuộc trò chuyện mới trong Antigravity để xác nhận AI hỏi trước.
+- Luật cho Cursor (`.cursor/rules/`) vẫn chỉ trỏ tới `AGENTS.vi.md`; chưa kiểm được Cursor có chép nội dung file đó vào hay không.
+- Công thức thẻ lật của dự án gốc đặt mặt trước và mặt sau chồng nhau, nhưng bộ kiểm SVG của dự án gốc chặn hai nhóm chồng nhau. Bản Việt dùng nút và ô đáp án đặt cạnh nhau.
+- Bài có sẵn mà các hình nằm rời, không gom nhóm (ví dụ bài Sulfur mẫu), phải gom nhóm lại trước khi làm hiện từng ý.
+- Tỉ lệ 30% và 50% là mức sàn để bắt lỗi quên làm hiệu ứng; AI được dặn không thêm chuyển động chỉ để đủ tỉ lệ, nhưng model yếu vẫn có thể làm vậy.
+
 ## 6.3.2-vi.6 — 2026-09-13
 
 Soạn giáo án tích hợp năng lực số và năng lực AI: từ giáo án cũ (Word hoặc PDF) hoặc chỉ từ tên bài, ra file Word Kế hoạch bài dạy theo Công văn 5512, cho mọi môn.
