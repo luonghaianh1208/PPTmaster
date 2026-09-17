@@ -4,11 +4,13 @@ import fnmatch
 import re
 import shutil
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILL_DIR = REPO_ROOT / "skills" / "ppt-master"
+sys.path.insert(0, str(REPO_ROOT / "tools" / "vi"))
 
 ALLOWED_CHANGES = (
     "README.md",
@@ -1235,6 +1237,97 @@ class LessonUserDocsTest(unittest.TestCase):
 
     def test_readme_mentions_the_lesson_plan_feature(self):
         self.assertIn("giáo án", section(read("README.md"), "## Làm được gì"))
+
+
+EFFECTS_GUIDE = "docs/vi/tro-ly/hieu-ung-lop-hoc.md"
+EFFECT_QUESTION_GUIDES = (
+    "bai-giang.md",
+    "bao-cao-tong-ket.md",
+    "hoat-dong-doan.md",
+    "tap-huan-workshop.md",
+)
+CHECK_COMMAND = "kiem_hieu_ung.py"
+
+
+class EffectsGuideTest(unittest.TestCase):
+    def test_guide_has_levels_patterns_video_and_check_sections(self):
+        self.assertEqual(
+            h2_headings(read(EFFECTS_GUIDE)),
+            ["## Khi nào áp dụng", "## Ba mức", "## Bốn kiểu hiệu ứng", "## Video", "## Kiểm sau khi xuất"],
+        )
+
+    def test_guide_thresholds_match_the_checker(self):
+        import kiem_hieu_ung
+
+        body = section(read(EFFECTS_GUIDE), "## Ba mức") + section(read(EFFECTS_GUIDE), "## Bốn kiểu hiệu ứng")
+        for level, share in kiem_hieu_ung.MIN_SHARE.items():
+            self.assertIn(f"{round(share * 100)}%", body, level)
+        self.assertIn(f"không quá {kiem_hieu_ung.MAX_CLICKS['vua']} bước bấm ở mức vừa", body)
+        self.assertIn(f"{kiem_hieu_ung.MAX_CLICKS['nhieu']} bước ở mức nhiều", body)
+
+    def test_guide_maps_patterns_to_upstream_mechanisms(self):
+        body = section(read(EFFECTS_GUIDE), "## Bốn kiểu hiệu ứng")
+        for phrase in ("on-click", "trigger_shape", "không chồng lên nhau", "morph", "pairs", "customize-animations.md"):
+            self.assertIn(phrase, body)
+
+    def test_video_section_forbids_clicks(self):
+        body = section(read(EFFECTS_GUIDE), "## Video")
+        for phrase in ("on-click", "trigger_shape", "after-previous", "with-previous", "animations_video.json",
+                       "--animation-config animations_video.json", "Không sửa `animations.json`",
+                       "Thầy cô chọn bỏ hiệu ứng: xuất bản thuyết minh với `--no-animations`"):
+            self.assertIn(phrase, body)
+
+    def test_check_section_covers_every_error_step(self):
+        body = section(read(EFFECTS_GUIDE), "## Kiểm sau khi xuất")
+        for phrase in (CHECK_COMMAND, "--video", "_narrated.pptx", "đúng một lần"):
+            self.assertIn(phrase, body)
+        for step in ("muc", "video", "input", "parse", "internal"):
+            self.assertIn(f"`error.step` là `{step}`", body)
+
+    def test_four_guides_ask_the_effect_level_and_record_it(self):
+        for name in EFFECT_QUESTION_GUIDES:
+            with self.subTest(guide=name):
+                text = read(f"docs/vi/tro-ly/{name}")
+                items = numbered_items(section(text, "## Câu hỏi bắt buộc"))
+                self.assertEqual(sum("không, vừa, hay nhiều" in item for item in items), 1)
+                self.assertIn("Mức hiệu ứng:", section(text, "## Ghi vào brief"))
+
+    def test_video_guide_asks_keep_or_drop_effects(self):
+        text = read("docs/vi/tro-ly/video-bai-giang.md")
+        items = numbered_items(section(text, "## Câu hỏi bắt buộc"))
+        self.assertEqual(sum("giữ hiệu ứng" in item for item in items), 1)
+        self.assertNotIn("không, vừa, hay nhiều", text)
+        self.assertIn("Hiệu ứng video:", section(text, "## Ghi vào brief"))
+
+    def test_poster_guide_has_no_effect_question(self):
+        self.assertNotIn("Mức hiệu ứng", read("docs/vi/tro-ly/poster-mang-xa-hoi.md"))
+
+    def test_quick_mode_defaults_to_medium_level(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Tạo nhanh")
+        self.assertIn("Mức hiệu ứng: vừa (AI đề xuất, chưa duyệt)", body)
+
+    def test_agents_vi_wires_the_check_for_slides_and_video(self):
+        text = read("AGENTS.vi.md")
+        assistant = section(text, AGENTS_VI_ASSISTANT_HEADING)
+        self.assertIn(CHECK_COMMAND, assistant)
+        self.assertIn(f"({EFFECTS_GUIDE})", assistant)
+        video = section(text, AGENTS_VI_VIDEO_HEADING)
+        self.assertIn("--video", video)
+        self.assertIn("--animation-config animations_video.json", video)
+        self.assertIn("thầy cô bỏ hiệu ứng thì thêm `--no-animations`", video)
+        self.assertLess(video.index(CHECK_COMMAND), video.index(VIDEO_COMMAND))
+        self.assertLess(video.index("--animation-config animations_video.json"), video.index(CHECK_COMMAND))
+
+    def test_antigravity_rule_carries_the_effect_rules(self):
+        rule = read(".agents/rules/ppt-master-vi.md")
+        for phrase in ("## Hiệu ứng", EFFECTS_GUIDE, CHECK_COMMAND, "--video", "customize-animations", "on-click",
+                       "animations_video.json", "Không áp dụng cho làm đẹp"):
+            self.assertIn(phrase, rule)
+
+    def test_troubleshooting_explains_the_check(self):
+        body = section(read("docs/vi/xu-ly-loi.md"), "## Kiểm hiệu ứng không đạt")
+        for step in ("`muc`", "`video`", "`parse`", "`input`", "`internal`"):
+            self.assertIn(step, body)
 
 
 if __name__ == "__main__":

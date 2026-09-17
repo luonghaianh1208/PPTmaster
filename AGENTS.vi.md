@@ -77,6 +77,7 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 8 lo
 | Soạn giáo án tích hợp năng lực số và AI | [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) |
 
 - `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12) hoặc "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13) — hai loại việc đó không có bước xác nhận của upstream, xem mục 12 và mục 13. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- Hiệu ứng: làm theo mức trong brief và [docs/vi/tro-ly/hieu-ung-lop-hoc.md](docs/vi/tro-ly/hieu-ung-lop-hoc.md). Bài giảng, báo cáo, hoạt động Đoàn, tập huấn: sau khi xuất PPTX, chạy `tools\vi\kiem_hieu_ung.py <file.pptx> --muc <mức>`, sửa tối đa một lần rồi báo kết quả cho thầy cô.
 - Bài mới dạng PPTX (Bài giảng, Báo cáo – tổng kết, Hoạt động Đoàn – sự kiện, Poster/ấn phẩm Zalo – Facebook, Tập huấn/workshop) không làm toàn chữ: chọn nguồn ảnh cho từng trang theo mục "Ảnh minh hoạ" của `docs/vi/tro-ly/quy-trinh-hoi.md`, kể cả khi tạo nhanh.
 - Yêu cầu không thuộc 8 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
@@ -86,8 +87,9 @@ Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọ
 
 1. Chưa có `notes/*.md`: viết ghi chú lời giảng cho từng slide theo quy trình của upstream.
 2. Chưa có `audio/*.mp3`: chạy `skills/ppt-master/scripts/notes_to_audio.py <đường_dẫn_dự_án> --voice vi-VN-HoaiMyNeural` (hoặc `vi-VN-NamMinhNeural`). Tốc độ đọc: chậm → thêm `--rate -10%`; vừa → không thêm cờ nào; nhanh → thêm `--rate +15%`.
-3. Chưa có `exports/*_narrated.pptx`: xuất bản PPTX đã gắn tiếng bằng `skills/ppt-master/scripts/svg_to_pptx.py <đường_dẫn_dự_án> --recorded-narration audio`; dự án tạo nhanh (không có `spec_lock.md`) thì thêm `--quick-generate --with-notes`. Bỏ bước này thì đường PowerPoint không chạy được, AI buộc phải ghép bằng FFmpeg và phải tải Chromium. Chi tiết ở [docs/audio-narration.md](docs/audio-narration.md).
-4. Dựng video: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án>` kèm các cờ chọn theo đúng câu trả lời của thầy cô.
+3. Chưa có `exports/*_narrated.pptx`, hoặc dự án có `animations.json`: xuất bản PPTX đã gắn tiếng bằng `skills/ppt-master/scripts/svg_to_pptx.py <đường_dẫn_dự_án> --recorded-narration audio`; dự án tạo nhanh (không có `spec_lock.md`) thì thêm `--quick-generate --with-notes`. Dự án có `animations.json` mà thầy cô giữ hiệu ứng: trước đó tạo `animations_video.json` theo mục "Video" của [docs/vi/tro-ly/hieu-ung-lop-hoc.md](docs/vi/tro-ly/hieu-ung-lop-hoc.md) và thêm `--animation-config animations_video.json`; thầy cô bỏ hiệu ứng thì thêm `--no-animations`. Bỏ bước này thì đường PowerPoint không chạy được, AI buộc phải ghép bằng FFmpeg và phải tải Chromium. Chi tiết ở [docs/audio-narration.md](docs/audio-narration.md).
+4. Kiểm hiệu ứng trước khi dựng: `venv\Scripts\python.exe tools\vi\kiem_hieu_ung.py <đường_dẫn_dự_án>\exports\<file>_narrated.pptx --video`. `error` khác `null` thì sửa và kiểm lại đúng một lần theo mục "Kiểm sau khi xuất" của file hướng dẫn hiệu ứng; vẫn không đạt thì dừng, không dựng video, báo thầy cô.
+5. Dựng video: `venv\Scripts\python.exe tools\vi\video.py <đường_dẫn_dự_án>` kèm các cờ chọn theo đúng câu trả lời của thầy cô.
 
 | Thầy cô trả lời | Cờ thêm vào |
 |---|---|
@@ -100,7 +102,7 @@ Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọ
 | Không muốn mở PowerPoint | `--cach ffmpeg` |
 | Không nêu cách dựng | `--cach auto` |
 
-5. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn video, thời lượng, dung lượng và nơi để phụ đề; `error` khác `null` thì làm theo `error.fix`, tối đa một lần, rồi báo thầy cô.
+6. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn video, thời lượng, dung lượng và nơi để phụ đề; `error` khác `null` thì làm theo `error.fix`, tối đa một lần, rồi báo thầy cô.
 
 - `error.step` là `chromium`: hỏi thầy cô trước rồi chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium`, vì bước này tải khoảng 150–300 MB.
 - `error.step` là `audio`: quay lại bước 1 nếu dự án chưa có `notes/*.md`, quay lại bước 2 nếu đã có ghi chú.

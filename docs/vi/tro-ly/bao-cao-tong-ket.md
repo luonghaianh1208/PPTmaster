@@ -24,6 +24,8 @@ Ví dụ câu lệnh:
    Gợi ý: dùng file thầy cô gửi; vẽ biểu đồ cho tỉ lệ xếp loại và kết quả thi.
 6. Nội dung nào cần nhấn mạnh: thành tích nổi bật, hạn chế cần nói thẳng?
    Gợi ý: 3 thành tích nổi bật và 2 hạn chế chính.
+7. Slide cần hiệu ứng ở mức nào: không, vừa, hay nhiều?
+   Gợi ý: vừa — hiện từng ý khi bấm, chuyển trang nổi bật khi sang phần mới.
 
 ## Câu hỏi tuỳ chọn
 
@@ -55,4 +57,5 @@ Ví dụ câu lệnh:
 - Thầy cô yêu cầu: loại báo cáo, kỳ báo cáo, bộ phận báo cáo, người nghe, thời lượng, nguồn số liệu, nội dung cần nhấn mạnh — ghi đúng lời thầy cô.
 - AI đề xuất (thầy cô đã đồng ý): số slide, các biểu đồ đề xuất và các gợi ý thầy cô chấp nhận.
 - Cấu trúc gợi ý, Phong cách gợi ý, Khổ slide: theo các mục tương ứng của file này.
+- Mức hiệu ứng: không, vừa hoặc nhiều, theo `docs/vi/tro-ly/hieu-ung-lop-hoc.md`; kèm "(AI đề xuất, chưa duyệt)" khi thầy cô chưa chọn.
 - Viết theo mẫu `docs/vi/tro-ly/mau-brief.md`.

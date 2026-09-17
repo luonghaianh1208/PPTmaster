@@ -24,6 +24,8 @@ Ví dụ câu lệnh:
    Gợi ý: có hướng dẫn từng bước; dùng ảnh chụp màn hình thầy cô gửi.
 6. Có những hoạt động tương tác nào: câu hỏi thảo luận, bài tập thực hành, phiếu khảo sát?
    Gợi ý: một bài tập thực hành sau mỗi phần và một câu hỏi thảo luận cuối buổi.
+7. Slide cần hiệu ứng ở mức nào: không, vừa, hay nhiều?
+   Gợi ý: vừa — hiện từng bước thao tác khi bấm, chuyển trang nổi bật khi sang phần mới.
 
 ## Câu hỏi tuỳ chọn
 
@@ -54,4 +56,5 @@ Ví dụ câu lệnh:
 - Thầy cô yêu cầu: chủ đề, hình thức, đối tượng, mức độ đã biết, thời lượng, tỉ lệ thực hành, kết quả mong muốn, phần thao tác, hoạt động tương tác — ghi đúng lời thầy cô.
 - AI đề xuất (thầy cô đã đồng ý): kết quả sau buổi và các gợi ý thầy cô chấp nhận.
 - Cấu trúc gợi ý, Phong cách gợi ý, Khổ slide: theo các mục tương ứng của file này.
+- Mức hiệu ứng: không, vừa hoặc nhiều, theo `docs/vi/tro-ly/hieu-ung-lop-hoc.md`; kèm "(AI đề xuất, chưa duyệt)" khi thầy cô chưa chọn.
 - Viết theo mẫu `docs/vi/tro-ly/mau-brief.md`.

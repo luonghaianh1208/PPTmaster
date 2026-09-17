@@ -108,7 +108,7 @@ Mục này làm rõ, bằng ví dụ ở trường học, các quy tắc ảnh s
 - Không hỏi hồ sơ đơn vị. Nếu đã có `projects/_ho-so-don-vi.md` thì dùng; nếu chưa có thì ghi "(chưa có hồ sơ đơn vị)" dưới mục Đơn vị của brief.
 - Câu lệnh có "không cần hỏi lại" hoặc "không hỏi gì" (kể cả khi có thêm "tạo nhanh"): không hỏi câu nào, kể cả khi còn thiếu thông tin, rồi viết brief và chạy chế độ tạo nhanh. Tin nhắn gửi thầy cô trong lượt này vẫn xưng "em", gọi "thầy cô".
 - Câu lệnh chỉ có "tạo nhanh" hoặc "làm nhanh": hỏi đủ các câu còn thiếu trong mục "Tạo nhanh" của file loại việc, đánh số như mục "Cách hỏi", trong một tin nhắn. Nếu câu lệnh đã có đủ các thông tin đó thì không hỏi; không tự bỏ bớt câu vì nghĩ có thể đoán mặc định. Các câu này là điều kiện của lớp Việt, được hỏi trước khi chế độ tạo nhanh của upstream bắt đầu; chúng không phải điểm dừng trong lượt chạy tạo nhanh.
-- Viết brief như mục trên; mọi mục thầy cô chưa nêu trong câu lệnh hoặc câu trả lời ghi kèm "(AI đề xuất, chưa duyệt)".
+- Viết brief như mục trên; mọi mục thầy cô chưa nêu trong câu lệnh hoặc câu trả lời ghi kèm "(AI đề xuất, chưa duyệt)". Loại việc có dòng "Mức hiệu ứng" mà thầy cô chưa chọn thì ghi "Mức hiệu ứng: vừa (AI đề xuất, chưa duyệt)" và vẫn làm hiệu ứng theo `hieu-ung-lop-hoc.md`.
 - Chạy chế độ tạo nhanh của upstream theo `skills/ppt-master/workflows/profiles/quick-generate.md`, không có bước xác nhận.
 
 ## Đổi ý giữa chừng

@@ -85,6 +85,19 @@ Bộ công cụ bị sửa đổi hoặc thiếu file bản quyền (`LICENSE`, 
 - Nếu thông báo có `FileNotFoundError` kèm một đường dẫn rất dài, xem mục **Đường dẫn quá dài** ngay bên dưới.
 - Nếu vẫn lỗi, khi hỏi hỗ trợ hãy chụp toàn bộ màn hình kết quả `KIEM-TRA.bat` để gửi kèm.
 
+## Kiểm hiệu ứng không đạt
+
+Sau khi xuất slide, AI chạy `tools\vi\kiem_hieu_ung.py` để so hiệu ứng với mức thầy cô chọn (không, vừa, nhiều). Xem dòng kết quả AI đọc được, phần `error`:
+
+- `muc`: bài có ít hiệu ứng hơn mức đã chọn (ví dụ mức vừa cần ít nhất 30% trang nội dung có hiệu ứng), hoặc mức "không" mà vẫn còn hiệu ứng. AI tự sửa một lần; vẫn không đạt thì thầy cô có thể chọn mức thấp hơn hoặc nhờ AI thêm hiệu ứng ở những trang cụ thể.
+- `video`: bài dùng làm video còn hiệu ứng **bấm mới hiện** hoặc ô bấm hiện đáp án. Video không có ai bấm nên hình sẽ đứng; AI đổi các hiệu ứng đó sang tự chạy trong bản riêng cho video (`animations_video.json`) rồi xuất lại. Bản trình chiếu trên lớp vẫn giữ hiệu ứng bấm.
+- Bước xuất bản thuyết minh báo "cannot be used with on-click object animations": cùng nguyên nhân với `video`, AI làm như trên.
+- `parse`: file PPTX hỏng hoặc không phải file PPTX. Nhờ AI xuất lại bài.
+- `input`: lệnh thiếu mức hoặc sai đường dẫn file. Nhờ AI chạy lại đúng lệnh.
+- `internal`: lỗi ngoài dự kiến. Dán nguyên dòng `error.message` gửi người bảo trì.
+
+Các dòng `warnings` không chặn bài, chỉ gợi ý: trang có quá nhiều bước bấm, câu trắc nghiệm chưa có cách hiện đáp án, hiệu ứng dài quá 2 giây.
+
 ## Xuất giáo án thất bại
 
 Xem dòng kết quả AI đọc được, phần `error`:

@@ -20,6 +20,8 @@ Ví dụ câu lệnh:
    Gợi ý: file riêng, vì YouTube nhận file phụ đề và học sinh bật tắt được.
 4. Độ phân giải video: 1080 cho máy chiếu và YouTube, hay 720 cho file nhẹ?
    Gợi ý: 1080; cách ghép ảnh slide chỉ cho tối đa 1280×720 nên lúc đó video giữ 720 dòng.
+5. Video giữ hiệu ứng của bài giảng hay bỏ hết hiệu ứng?
+   Gợi ý: giữ, và đổi các hiệu ứng bấm mới hiện sang tự chạy theo lời giảng, vì video không có ai bấm chuột.
 
 ## Câu hỏi tuỳ chọn
 
@@ -48,5 +50,6 @@ Ví dụ câu lệnh:
 
 - Loại việc: Video bài giảng.
 - Thầy cô yêu cầu: giọng đọc, tốc độ, phụ đề, độ phân giải, cách dựng nếu thầy cô có ý riêng.
+- Hiệu ứng video: giữ hoặc bỏ, theo mục "Video" của `docs/vi/tro-ly/hieu-ung-lop-hoc.md`; kèm "(AI đề xuất, chưa duyệt)" khi thầy cô chưa chọn.
 - AI đề xuất (thầy cô đã đồng ý): các gợi ý thầy cô chấp nhận.
 - Viết theo mẫu `docs/vi/tro-ly/mau-brief.md`.

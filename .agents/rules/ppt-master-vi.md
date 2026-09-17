@@ -42,6 +42,15 @@ Với bài mới thuộc 5 loại việc tạo PPTX ở bảng trên (không áp
 - Thiếu khoá API tạo ảnh không phải lý do bỏ ảnh `web`; không mở file cấu hình để dò khoá.
 - Chi tiết: mục "Ảnh minh hoạ" của `docs/vi/tro-ly/quy-trinh-hoi.md`.
 
+## Hiệu ứng
+
+Bài mới thuộc Bài giảng, Báo cáo – tổng kết, Hoạt động Đoàn – sự kiện, Tập huấn/workshop có câu hỏi mức hiệu ứng (không, vừa, nhiều); thầy cô chưa chọn thì dùng mức vừa. Không áp dụng cho làm đẹp hay sửa PPTX có sẵn.
+
+- Đọc `docs/vi/tro-ly/hieu-ung-lop-hoc.md` trước khi lên danh sách trang: Morph cần vẽ sẵn hai trang, hiện từng ý cần mỗi ý một nhóm `<g id>`.
+- Mức vừa hoặc nhiều: chạy bước `customize-animations` của upstream, kể cả khi tạo nhanh. Không thêm chuyển động chỉ để đủ tỉ lệ.
+- Sau khi xuất PPTX, chạy `tools\vi\kiem_hieu_ung.py <file.pptx> --muc khong|vua|nhieu`. Không đạt thì sửa và kiểm lại đúng một lần.
+- Video bài giảng: bản thuyết minh không dùng `on-click` hay `trigger_shape`. Chép `animations.json` thành `animations_video.json`, đổi sang tự chạy, xuất với `--animation-config animations_video.json`, rồi kiểm file `_narrated.pptx` bằng `--video` trước khi dựng video.
+
 ## Các việc khác
 
 Chạy lệnh trên Windows, kiểm tra môi trường trước lệnh Python đầu tiên, làm video, soạn đề, soạn giáo án: đọc `AGENTS.vi.md` trước khi làm.

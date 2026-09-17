@@ -28,7 +28,8 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 - Tạo PPTX từ PDF, Word, trang web, Markdown hoặc chỉ từ một chủ đề.
 - Chữ, hình và biểu đồ là đối tượng PowerPoint thật, sửa trực tiếp được.
 - Khổ slide 16:9, 4:3, bài đăng Facebook/TikTok 3:4, ảnh vuông Zalo, story 9:16.
-- Hiệu ứng chuyển động và thuyết minh bằng giọng tiếng Việt.
+- Hiệu ứng theo mức thầy cô chọn (không, vừa, nhiều): hiện từng ý khi bấm, bấm để hiện đáp án, Morph cho diễn biến thí nghiệm, chuyển trang giữa các hoạt động; bài có ảnh thật và sơ đồ thay vì toàn chữ.
+- Thuyết minh bằng giọng tiếng Việt.
 - Làm đẹp lại một file PPTX có sẵn.
 - Soạn **đề kiểm tra** KHTN/Vật lí/Hoá học/Sinh học bằng tiếng Anh, từ đề tiếng Việt có sẵn hoặc từ đầu, xuất ra file Word.
 - Soạn **giáo án** kế hoạch bài dạy theo Công văn 5512, tích hợp năng lực số và năng lực AI, xuất ra file Word.
