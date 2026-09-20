@@ -1,5 +1,28 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.8 — 2026-09-21
+
+Thêm thí nghiệm ảo cho Toán, Vật lí, Hoá học: một file HTML tương tác chạy không cần mạng, kèm phiếu học tập Word, dựng từ 8 mô hình đã kiểm bằng số.
+
+### Thêm
+- `tools/vi/thi_nghiem.py`: đọc `thi-nghiem.md`, kiểm với khai báo mô hình, ghép ra `thi-nghiem.html`, `phieu-hoc-tap.docx` và `can-soat.md`. Đúng một dòng JSON ở stdout, `error.step` là `input`, `parse`, `model`, `check`, `docx`, `write` hoặc `internal`.
+- 8 mô hình trong thư viện: ném xiên, con lắc đơn, đoạn mạch nối tiếp – song song (Vật lí); chuẩn độ acid – base, cân bằng N₂O₄ ⇌ 2NO₂, tốc độ phản ứng (Hoá học); khảo sát hàm số, xác suất thực nghiệm (Toán). Mỗi mô hình được kiểm ba lớp: bản tính lại độc lập bằng Python trong repo, kiểm số qua Node trên máy thầy cô nếu có, và tự kiểm ngay trong trang mỗi lần mở (hiện dải đỏ nếu trượt).
+- Khung Dự đoán – Quan sát – Giải thích: học sinh phải chốt dự đoán mới thao tác được, ghi đủ số lần đo mới mở mục Giải thích; có bảng số liệu, đồ thị vẽ từ chính số liệu kèm đường khớp tuyến tính, nút chép số liệu sang Excel, và công tắc bật sai số đo để tập xử lí số liệu. Nút "Chế độ giáo viên" bỏ mọi khoá.
+- Phiếu học tập Word: trang học sinh (câu dự đoán, bảng trống, lưới vẽ đồ thị) và trang giáo viên riêng (đáp án, bảng số liệu lí tưởng, công thức, điều kiện áp dụng).
+- Mô hình ngoài danh mục do AI viết (`mau: moi`): bắt buộc có công thức, điều kiện áp dụng và bảng số kiểm; `can-soat.md` luôn nhắc thầy cô soát công thức và tính lại bằng máy tính cầm tay trước khi dùng trên lớp.
+- Loại việc thứ 9 cho AI: `docs/vi/tro-ly/thi-nghiem-ao.md` (câu hỏi, ngữ pháp `thi-nghiem.md`) và `docs/vi/tro-ly/mo-hinh-thi-nghiem.md` (danh mục mẫu, khuôn mô hình mới); `AGENTS.vi.md` mục 14; nội dung được ghi thẳng vào `.agents/rules/ppt-master-vi.md` để Antigravity nhận được (bài học từ vi.7: Antigravity không chép nội dung file nhắc bằng `@`).
+- Tài liệu `docs/vi/thi-nghiem-ao.md` cho thầy cô và mục "Tạo thí nghiệm ảo thất bại" trong Xử lý lỗi.
+
+### Không thay đổi
+- Lõi PPT Master v6.3.2 của Hugo He giữ nguyên. Không thêm thư viện Python hay JavaScript nào ngoài `python-docx` đã dùng từ trước; khung chạy và mô hình là JavaScript thuần. Node chỉ cần cho lớp kiểm số thứ hai, không bắt buộc để dùng file HTML.
+
+### Rủi ro
+- Thí nghiệm ảo là mô hình lí tưởng hoá, không thay thí nghiệm thật; mỗi trang luôn ghi rõ điều kiện lí tưởng hoá.
+- Mô hình do AI viết mới chỉ được bảo vệ bằng bảng số kiểm do chính AI tự tính; bảng đó chỉ bắt được lỗi lập trình, không bắt được lỗi hiểu sai kiến thức, nên lời nhắc thầy cô soát là bắt buộc, không tắt được.
+- Học sinh dùng điện thoại không mở được file từ USB; thầy cô cần đưa file lên một trang web tĩnh trước.
+- Máy thầy cô không có Node thì bỏ qua lớp kiểm số thứ hai, chỉ còn lớp tự kiểm ngay trong trang.
+- Chủ repo đã soát và xác nhận ba mẫu Hoá học (hằng số, nguồn) trước khi phát hành; chưa tự mở phiếu Word bằng giao diện Word thật, thay bằng kiểm cấu trúc file bằng `python-docx` trong buổi kiểm thử.
+
 ## 6.3.2-vi.7 — 2026-09-17
 
 Sửa phản ánh của thầy cô: AI không hỏi trước khi làm, slide toàn chữ, ít hiệu ứng, không có hình ảnh.
