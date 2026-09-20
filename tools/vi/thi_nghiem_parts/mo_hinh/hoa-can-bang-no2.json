@@ -1,0 +1,137 @@
+{
+  "ma": "hoa-can-bang-no2",
+  "ten": "Cân bằng N₂O₄ ⇌ 2NO₂",
+  "mon": "Hoá học",
+  "hoatHinh": "khong",
+  "thamSo": [
+    {
+      "ma": "nhiet-do",
+      "ten": "Nhiệt độ",
+      "kieu": "so",
+      "donVi": "°C",
+      "min": 0,
+      "max": 100,
+      "buoc": 5,
+      "macDinh": 25
+    },
+    {
+      "ma": "ap-suat",
+      "ten": "Áp suất chung",
+      "kieu": "so",
+      "donVi": "bar",
+      "min": 0.5,
+      "max": 5,
+      "buoc": 0.1,
+      "macDinh": 1
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "phan-mol-no2",
+      "ten": "Phần mol NO~2~",
+      "donVi": "",
+      "saiSo": 0.005,
+      "chuSo": 3
+    },
+    {
+      "ma": "do-phan-li",
+      "ten": "Độ phân li của N~2~O~4~",
+      "donVi": "",
+      "saiSo": 0.005,
+      "chuSo": 3
+    },
+    {
+      "ma": "nong-do-no2",
+      "ten": "Nồng độ NO~2~ (độ đậm màu nâu)",
+      "donVi": "mol/L",
+      "saiSo": 0.0005,
+      "chuSo": 4
+    },
+    {
+      "ma": "kp",
+      "ten": "Hằng số cân bằng K~p~",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 3
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "N~2~O~4~(g) ⇌ 2NO~2~(g), Δ~r~H° = +57,2 kJ; K~p~ = exp(−(Δ~r~H° − TΔ~r~S°)/RT); K~p~ = x^2^P/(1 − x) với x là phần mol NO~2~.",
+    "dieuKien": "Hỗn hợp khí lí tưởng đã đạt cân bằng; coi Δ~r~H° và Δ~r~S° không đổi trong khoảng 0–100 °C; áp suất tính bằng bar.",
+    "nguon": "Δ~r~H° = 57,20 kJ/mol và Δ~r~S° = 175,83 J/(mol·K), tính từ Δ~f~H° và S° ở 298 K (Atkins, Physical Chemistry, bảng dữ liệu nhiệt động)."
+  },
+  "bangKiem": [
+    {
+      "vao": {},
+      "ra": {
+        "phan-mol-no2": 0.3156788424,
+        "do-phan-li": 0.1874220014,
+        "nong-do-no2": 0.01273434104,
+        "kp": 0.1456233384
+      },
+      "saiSo": 5e-05
+    },
+    {
+      "vao": {
+        "nhiet-do": 0
+      },
+      "ra": {
+        "phan-mol-no2": 0.1242296573,
+        "do-phan-li": 0.06622860724,
+        "nong-do-no2": 0.005470032381,
+        "kp": 0.0176222087
+      },
+      "saiSo": 5e-05
+    },
+    {
+      "vao": {
+        "nhiet-do": 100
+      },
+      "ra": {
+        "phan-mol-no2": 0.9411256005,
+        "do-phan-li": 0.8887981436,
+        "nong-do-no2": 0.03033401913,
+        "kp": 15.04418566
+      },
+      "saiSo": 5e-05
+    },
+    {
+      "vao": {
+        "ap-suat": 5
+      },
+      "ra": {
+        "phan-mol-no2": 0.1567173475,
+        "do-phan-li": 0.08502079012,
+        "nong-do-no2": 0.03160953289,
+        "kp": 0.1456233384
+      },
+      "saiSo": 5e-05
+    },
+    {
+      "vao": {
+        "nhiet-do": 50,
+        "ap-suat": 0.5
+      },
+      "ra": {
+        "phan-mol-no2": 0.7097801717,
+        "do-phan-li": 0.5501234411,
+        "nong-do-no2": 0.01320856148,
+        "kp": 0.8679418892
+      },
+      "saiSo": 5e-05
+    },
+    {
+      "vao": {
+        "nhiet-do": 75,
+        "ap-suat": 2
+      },
+      "ra": {
+        "phan-mol-no2": 0.7321756231,
+        "do-phan-li": 0.5775055571,
+        "nong-do-no2": 0.05058766997,
+        "kp": 4.003228901
+      },
+      "saiSo": 5e-05
+    }
+  ]
+}

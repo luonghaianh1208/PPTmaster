@@ -1,0 +1,176 @@
+{
+  "ma": "hoa-chuan-do",
+  "ten": "Chuẩn độ acid – base bằng dung dịch NaOH",
+  "mon": "Hoá học",
+  "hoatHinh": "khong",
+  "thamSo": [
+    {
+      "ma": "loai-acid",
+      "ten": "Acid cần chuẩn độ",
+      "kieu": "chon",
+      "luaChon": [
+        {
+          "ma": "hcl",
+          "ten": "HCl (acid mạnh)"
+        },
+        {
+          "ma": "ch3cooh",
+          "ten": "CH~3~COOH (acid yếu)"
+        }
+      ],
+      "macDinh": "hcl"
+    },
+    {
+      "ma": "nong-do-acid",
+      "ten": "Nồng độ acid",
+      "kieu": "so",
+      "donVi": "mol/L",
+      "min": 0.01,
+      "max": 0.5,
+      "buoc": 0.01,
+      "macDinh": 0.1
+    },
+    {
+      "ma": "the-tich-acid",
+      "ten": "Thể tích acid",
+      "kieu": "so",
+      "donVi": "mL",
+      "min": 10,
+      "max": 50,
+      "buoc": 5,
+      "macDinh": 20
+    },
+    {
+      "ma": "nong-do-base",
+      "ten": "Nồng độ NaOH",
+      "kieu": "so",
+      "donVi": "mol/L",
+      "min": 0.01,
+      "max": 0.5,
+      "buoc": 0.01,
+      "macDinh": 0.1
+    },
+    {
+      "ma": "the-tich-base",
+      "ten": "Thể tích NaOH đã nhỏ",
+      "kieu": "so",
+      "donVi": "mL",
+      "min": 0,
+      "max": 50,
+      "buoc": 0.1,
+      "macDinh": 0
+    },
+    {
+      "ma": "chi-thi",
+      "ten": "Chất chỉ thị",
+      "kieu": "chon",
+      "luaChon": [
+        {
+          "ma": "phenolphtalein",
+          "ten": "Phenolphtalein"
+        },
+        {
+          "ma": "metyl-da-cam",
+          "ten": "Methyl da cam"
+        },
+        {
+          "ma": "bromothymol",
+          "ten": "Bromothymol xanh"
+        }
+      ],
+      "macDinh": "phenolphtalein"
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "ph",
+      "ten": "pH của dung dịch",
+      "donVi": "",
+      "saiSo": 0.05,
+      "chuSo": 2
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "Bảo toàn điện tích: [H^+^] + [Na^+^] = [OH^−^] + [A^−^]; K~w~ = [H^+^][OH^−^]; với acid yếu [A^−^] = C·K~a~/(K~a~ + [H^+^]).",
+    "dieuKien": "Dung dịch loãng ở 25 °C (K~w~ = 1,0·10^−14^); coi hoạt độ bằng nồng độ; thể tích cộng tính.",
+    "nguon": "K~a~(CH~3~COOH) = 1,75·10^−5^ ở 25 °C (CRC Handbook of Chemistry and Physics)."
+  },
+  "bangKiem": [
+    {
+      "vao": {
+        "the-tich-base": 0
+      },
+      "ra": {
+        "ph": 1.0
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "the-tich-base": 10
+      },
+      "ra": {
+        "ph": 1.477121255
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "the-tich-base": 20
+      },
+      "ra": {
+        "ph": 7.0
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "the-tich-base": 30
+      },
+      "ra": {
+        "ph": 12.30103056
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "loai-acid": "ch3cooh",
+        "the-tich-base": 0
+      },
+      "ra": {
+        "ph": 2.881353541
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "loai-acid": "ch3cooh",
+        "the-tich-base": 10
+      },
+      "ra": {
+        "ph": 4.757417468
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "loai-acid": "ch3cooh",
+        "the-tich-base": 20
+      },
+      "ra": {
+        "ph": 8.728018764
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "loai-acid": "ch3cooh",
+        "the-tich-base": 25
+      },
+      "ra": {
+        "ph": 12.04575758
+      },
+      "saiSo": 0.001
+    }
+  ]
+}

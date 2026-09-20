@@ -1,0 +1,114 @@
+{
+  "ma": "hoa-toc-do",
+  "ten": "Các yếu tố ảnh hưởng đến tốc độ phản ứng",
+  "mon": "Hoá học",
+  "hoatHinh": "mot-lan",
+  "thamSo": [
+    {
+      "ma": "nong-do",
+      "ten": "Nồng độ chất tham gia",
+      "kieu": "so",
+      "donVi": "mol/L",
+      "min": 0.02,
+      "max": 0.5,
+      "buoc": 0.02,
+      "macDinh": 0.1
+    },
+    {
+      "ma": "nhiet-do",
+      "ten": "Nhiệt độ",
+      "kieu": "so",
+      "donVi": "°C",
+      "min": 10,
+      "max": 60,
+      "buoc": 5,
+      "macDinh": 25
+    },
+    {
+      "ma": "xuc-tac",
+      "ten": "Chất xúc tác",
+      "kieu": "chon",
+      "luaChon": [
+        {
+          "ma": "khong",
+          "ten": "Không có"
+        },
+        {
+          "ma": "co",
+          "ten": "Có xúc tác"
+        }
+      ],
+      "macDinh": "khong"
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "thoi-gian",
+      "ten": "Thời gian đến khi vẩn đục che dấu X",
+      "donVi": "s",
+      "saiSo": 0.5,
+      "chuSo": 1
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "v = k·C; k = A·exp(−E~a~/RT); thời gian t = ΔC/v với ΔC = 0,005 mol/L.",
+    "dieuKien": "Phản ứng giả định bậc 1 theo chất tham gia, dùng tốc độ đầu; E~a~ = 50 kJ/mol khi không có xúc tác và 45 kJ/mol khi có; k = 1,25·10^−3^ s^−1^ ở 25 °C. Số liệu minh hoạ quy luật, không phải của một phản ứng cụ thể.",
+    "nguon": ""
+  },
+  "bangKiem": [
+    {
+      "vao": {},
+      "ra": {
+        "thoi-gian": 40.0
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "nong-do": 0.2
+      },
+      "ra": {
+        "thoi-gian": 20.0
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "nhiet-do": 35
+      },
+      "ra": {
+        "thoi-gian": 20.78715968
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "nhiet-do": 45
+      },
+      "ra": {
+        "thoi-gian": 11.25641706
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "xuc-tac": "co"
+      },
+      "ra": {
+        "thoi-gian": 5.322282096
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "nong-do": 0.5,
+        "nhiet-do": 60,
+        "xuc-tac": "co"
+      },
+      "ra": {
+        "thoi-gian": 0.1580840914
+      },
+      "saiSo": 0.001
+    }
+  ]
+}
