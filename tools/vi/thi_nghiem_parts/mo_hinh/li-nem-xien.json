@@ -1,0 +1,153 @@
+{
+  "ma": "li-nem-xien",
+  "ten": "Chuyển động ném xiên",
+  "mon": "Vật lí",
+  "hoatHinh": "mot-lan",
+  "thamSo": [
+    {
+      "ma": "van-toc-dau",
+      "ten": "Vận tốc đầu v~0~",
+      "kieu": "so",
+      "donVi": "m/s",
+      "min": 5,
+      "max": 50,
+      "buoc": 1,
+      "macDinh": 20
+    },
+    {
+      "ma": "goc",
+      "ten": "Góc ném α",
+      "kieu": "so",
+      "donVi": "°",
+      "min": 0,
+      "max": 85,
+      "buoc": 1,
+      "macDinh": 45
+    },
+    {
+      "ma": "do-cao-dau",
+      "ten": "Độ cao ban đầu h",
+      "kieu": "so",
+      "donVi": "m",
+      "min": 0,
+      "max": 50,
+      "buoc": 1,
+      "macDinh": 0
+    },
+    {
+      "ma": "g",
+      "ten": "Gia tốc trọng trường g",
+      "kieu": "so",
+      "donVi": "m/s^2^",
+      "min": 1.6,
+      "max": 24.8,
+      "buoc": 0.1,
+      "macDinh": 9.8
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "tam-xa",
+      "ten": "Tầm xa L",
+      "donVi": "m",
+      "saiSo": 0.2,
+      "chuSo": 2
+    },
+    {
+      "ma": "do-cao-cuc-dai",
+      "ten": "Độ cao cực đại H",
+      "donVi": "m",
+      "saiSo": 0.1,
+      "chuSo": 2
+    },
+    {
+      "ma": "thoi-gian-bay",
+      "ten": "Thời gian bay t",
+      "donVi": "s",
+      "saiSo": 0.02,
+      "chuSo": 2
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "t = (v~0~sinα + √(v~0~^2^sin^2^α + 2gh))/g; L = v~0~cosα·t; H = h + v~0~^2^sin^2^α/(2g)",
+    "dieuKien": "Bỏ qua sức cản không khí; g không đổi; vật coi là chất điểm.",
+    "nguon": ""
+  },
+  "bangKiem": [
+    {
+      "vao": {
+        "van-toc-dau": 20,
+        "goc": 45
+      },
+      "ra": {
+        "tam-xa": 40.81632653,
+        "do-cao-cuc-dai": 10.20408163,
+        "thoi-gian-bay": 2.886150127
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "van-toc-dau": 20,
+        "goc": 30
+      },
+      "ra": {
+        "tam-xa": 35.34797566,
+        "do-cao-cuc-dai": 5.102040816,
+        "thoi-gian-bay": 2.040816327
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "van-toc-dau": 20,
+        "goc": 60
+      },
+      "ra": {
+        "tam-xa": 35.34797566,
+        "do-cao-cuc-dai": 15.30612245,
+        "thoi-gian-bay": 3.534797566
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "van-toc-dau": 10,
+        "goc": 0,
+        "do-cao-dau": 20
+      },
+      "ra": {
+        "tam-xa": 20.20305089,
+        "do-cao-cuc-dai": 20.0,
+        "thoi-gian-bay": 2.020305089
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "van-toc-dau": 30,
+        "goc": 45,
+        "do-cao-dau": 10,
+        "g": 1.6
+      },
+      "ra": {
+        "tam-xa": 572.3282756,
+        "do-cao-cuc-dai": 150.625,
+        "thoi-gian-bay": 26.97981365
+      },
+      "saiSo": 0.001
+    },
+    {
+      "vao": {
+        "van-toc-dau": 15,
+        "goc": 85
+      },
+      "ra": {
+        "tam-xa": 3.986820406,
+        "do-cao-cuc-dai": 11.39239144,
+        "thoi-gian-bay": 3.049575606
+      },
+      "saiSo": 0.001
+    }
+  ]
+}

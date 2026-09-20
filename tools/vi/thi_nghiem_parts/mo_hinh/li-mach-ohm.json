@@ -1,0 +1,181 @@
+{
+  "ma": "li-mach-ohm",
+  "ten": "Đoạn mạch nối tiếp và song song",
+  "mon": "Vật lí",
+  "hoatHinh": "khong",
+  "thamSo": [
+    {
+      "ma": "suat-dien-dong",
+      "ten": "Hiệu điện thế nguồn U",
+      "kieu": "so",
+      "donVi": "V",
+      "min": 1.5,
+      "max": 24,
+      "buoc": 0.5,
+      "macDinh": 12
+    },
+    {
+      "ma": "dien-tro-1",
+      "ten": "Điện trở R~1~",
+      "kieu": "so",
+      "donVi": "Ω",
+      "min": 1,
+      "max": 100,
+      "buoc": 1,
+      "macDinh": 10
+    },
+    {
+      "ma": "dien-tro-2",
+      "ten": "Điện trở R~2~",
+      "kieu": "so",
+      "donVi": "Ω",
+      "min": 1,
+      "max": 100,
+      "buoc": 1,
+      "macDinh": 20
+    },
+    {
+      "ma": "kieu-mac",
+      "ten": "Kiểu mắc",
+      "kieu": "chon",
+      "luaChon": [
+        {
+          "ma": "noi-tiep",
+          "ten": "Nối tiếp"
+        },
+        {
+          "ma": "song-song",
+          "ten": "Song song"
+        }
+      ],
+      "macDinh": "noi-tiep"
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "cuong-do-mach-chinh",
+      "ten": "Cường độ mạch chính I",
+      "donVi": "A",
+      "saiSo": 0.01,
+      "chuSo": 3
+    },
+    {
+      "ma": "cuong-do-1",
+      "ten": "Cường độ qua R~1~",
+      "donVi": "A",
+      "saiSo": 0.01,
+      "chuSo": 3
+    },
+    {
+      "ma": "cuong-do-2",
+      "ten": "Cường độ qua R~2~",
+      "donVi": "A",
+      "saiSo": 0.01,
+      "chuSo": 3
+    },
+    {
+      "ma": "hieu-dien-the-1",
+      "ten": "Hiệu điện thế hai đầu R~1~",
+      "donVi": "V",
+      "saiSo": 0.05,
+      "chuSo": 2
+    },
+    {
+      "ma": "hieu-dien-the-2",
+      "ten": "Hiệu điện thế hai đầu R~2~",
+      "donVi": "V",
+      "saiSo": 0.05,
+      "chuSo": 2
+    },
+    {
+      "ma": "dien-tro-tuong-duong",
+      "ten": "Điện trở tương đương",
+      "donVi": "Ω",
+      "saiSo": 0,
+      "chuSo": 2
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "Nối tiếp: R = R~1~ + R~2~, I = U/R. Song song: 1/R = 1/R~1~ + 1/R~2~, I = I~1~ + I~2~.",
+    "dieuKien": "Nguồn có điện trở trong bằng 0; dây nối và ampe kế có điện trở không đáng kể; vôn kế có điện trở rất lớn.",
+    "nguon": ""
+  },
+  "bangKiem": [
+    {
+      "vao": {},
+      "ra": {
+        "cuong-do-mach-chinh": 0.4,
+        "cuong-do-1": 0.4,
+        "cuong-do-2": 0.4,
+        "hieu-dien-the-1": 4.0,
+        "hieu-dien-the-2": 8.0,
+        "dien-tro-tuong-duong": 30.0
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "kieu-mac": "song-song"
+      },
+      "ra": {
+        "cuong-do-mach-chinh": 1.8,
+        "cuong-do-1": 1.2,
+        "cuong-do-2": 0.6,
+        "hieu-dien-the-1": 12.0,
+        "hieu-dien-the-2": 12.0,
+        "dien-tro-tuong-duong": 6.666666667
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "suat-dien-dong": 6,
+        "dien-tro-1": 5,
+        "dien-tro-2": 5
+      },
+      "ra": {
+        "cuong-do-mach-chinh": 0.6,
+        "cuong-do-1": 0.6,
+        "cuong-do-2": 0.6,
+        "hieu-dien-the-1": 3.0,
+        "hieu-dien-the-2": 3.0,
+        "dien-tro-tuong-duong": 10.0
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "suat-dien-dong": 6,
+        "dien-tro-1": 5,
+        "dien-tro-2": 5,
+        "kieu-mac": "song-song"
+      },
+      "ra": {
+        "cuong-do-mach-chinh": 2.4,
+        "cuong-do-1": 1.2,
+        "cuong-do-2": 1.2,
+        "hieu-dien-the-1": 6.0,
+        "hieu-dien-the-2": 6.0,
+        "dien-tro-tuong-duong": 2.5
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "suat-dien-dong": 24,
+        "dien-tro-1": 100,
+        "dien-tro-2": 1,
+        "kieu-mac": "song-song"
+      },
+      "ra": {
+        "cuong-do-mach-chinh": 24.24,
+        "cuong-do-1": 0.24,
+        "cuong-do-2": 24.0,
+        "hieu-dien-the-1": 24.0,
+        "hieu-dien-the-2": 24.0,
+        "dien-tro-tuong-duong": 0.9900990099
+      },
+      "saiSo": 0.0005
+    }
+  ]
+}
