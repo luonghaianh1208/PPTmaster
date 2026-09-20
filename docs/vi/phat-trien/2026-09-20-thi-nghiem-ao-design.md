@@ -38,7 +38,11 @@ Ngày 2026-09-20. Gói này thêm loại việc thứ 9 cho lớp Việt: từ m
 | Q7 | Máy dựng từ linh kiện: khung chạy chung + file mô hình + `thi-nghiem.md` | AI yếu viết 500 dòng mô phỏng dễ sai ngầm; ghép linh kiện đã kiểm thì không |
 | Q8 | Kiểm số ba lớp: test repo, Node trên máy thầy cô nếu có, tự kiểm trong HTML | Lớp thứ ba không cần cài gì nên máy nào cũng có |
 | Q9 | Không lưu điểm, không gửi dữ liệu | File không có mạng; đây không phải hệ thống chấm điểm |
-| Q10 | Công thức hiển thị bằng HTML thuần, font hệ thống | Không CDN; đủ cho chỉ số, số mũ, phân số, căn |
+| Q10 | Công thức hiển thị bằng HTML thuần và ký hiệu Unicode, font hệ thống | Không CDN; đủ cho chỉ số, số mũ, căn, mũi tên cân bằng |
+| Q11 | Mỗi mô hình là hai file: `<mã>.json` (khai báo) và `<mã>.js` (hàm `tinh`, `ve`) | Python kiểm được khai báo, khoảng tham số và bảng số kiểm mà không cần Node |
+| Q12 | Đại lượng đo không phụ thuộc thời gian; thời gian chỉ dùng cho hình vẽ | Bảng số kiểm, phiếu và đồ thị chỉ cần `tinh(thamSo)`; đơn giản và kiểm được |
+| Q13 | Bản tính lại bằng Python nằm ở `thi_nghiem_parts/tham_chieu.py` | Dùng cho cả test lẫn bảng số liệu lí tưởng của phiếu, nên không thể nằm trong thư mục test |
+| Q14 | `thi-nghiem.md` không được chứa địa chỉ web | Giữ nguyên tắc "không có `http` trong file HTML" mà không phải phân biệt chữ của thầy cô với mã |
 
 ## 4. Kiến trúc và file
 
@@ -47,14 +51,14 @@ tools/vi/thi_nghiem.py                 kiểm → ghép HTML → phiếu Word �
 tools/vi/thi_nghiem_parts/
     parse.py                           đọc thi-nghiem.md, lỗi nêu đúng dòng
     build_html.py                      ghép khung chạy + mô hình + cấu hình thành một file
+    thu_vien.py                        nạp mô hình (thư viện hoặc mới), kiểm khai báo và mã
     kiem_so.py                         chạy bangKiem qua Node nếu máy có
+    tham_chieu.py                      bản tính lại bằng Python của 8 mô hình
     phieu.py                           phiếu học tập .docx (dùng word_parts/)
-    runtime/khung.js, runtime/khung.css
-    mo_hinh/li-nem-xien.js, li-con-lac-don.js, li-mach-ohm.js,
-            hoa-chuan-do.js, hoa-can-bang-no2.js, hoa-toc-do.js,
-            toan-ham-so.js, toan-xac-suat.js
-tools/vi/tests/test_thi_nghiem.py
-tools/vi/tests/thi_nghiem_ref/         bản tính lại bằng Python của 8 mô hình
+    runtime/khung.js, runtime/khung.css, runtime/chay_node.js
+    mo_hinh/<mã>.json + <mã>.js        li-nem-xien, li-con-lac-don, li-mach-ohm, hoa-chuan-do,
+                                       hoa-can-bang-no2, hoa-toc-do, toan-ham-so, toan-xac-suat
+tools/vi/tests/test_thi_nghiem_*.py, tools/vi/tests/thi_nghiem_mau.py, tools/vi/tests/js/test_khung.js
 docs/vi/tro-ly/thi-nghiem-ao.md        câu hỏi cho thầy cô, ngữ pháp thi-nghiem.md, thứ tự làm
 docs/vi/tro-ly/mo-hinh-thi-nghiem.md   khuôn viết mô hình mới, danh mục 8 mẫu và tham số
 docs/vi/thi-nghiem-ao.md               tài liệu cho thầy cô
@@ -62,30 +66,32 @@ docs/vi/thi-nghiem-ao.md               tài liệu cho thầy cô
 
 Sửa: `AGENTS.vi.md` (mục 3 câu lệnh kích hoạt, mục 10 bảng 9 loại, mục 14 mới), `.agents/rules/ppt-master-vi.md`, `docs/vi/tro-ly/quy-trinh-hoi.md`, `docs/vi/xu-ly-loi.md`, `docs/vi/cau-lenh-mau.md`, `README.md`, `CHANGELOG-VI.md`, `tools/vi/tests/test_vi_layer.py`.
 
-Đầu ra ở `projects/_thi-nghiem/<tên>/`: `thi-nghiem.md`, `thi-nghiem.html`, `phieu-hoc-tap.docx`, `can-soat.md`, và `mo-hinh.js` khi là mô hình mới. Không chạy `project_manager.py init`, không tạo SVG.
+Đầu ra ở `projects/_thi-nghiem/<tên>/`: `thi-nghiem.md`, `thi-nghiem.html`, `phieu-hoc-tap.docx`, `can-soat.md`, và `mo-hinh.json` cùng `mo-hinh.js` khi là mô hình mới. Không chạy `project_manager.py init`, không tạo SVG.
 
 Ràng buộc: công cụ Python chỉ dùng thư viện chuẩn cộng `python-docx` (đã có); khung chạy và mô hình là JavaScript thuần, không thư viện ngoài, chạy được cả trong trình duyệt lẫn Node (không dùng DOM trong phần tính).
 
 ## 5. File HTML
 
 - Một file tự chứa: CSS, khung chạy, mô hình, cấu hình (JSON) nằm trong file. `build_html.py` từ chối ghi nếu kết quả chứa chuỗi `http://` hoặc `https://`.
-- Font: `"Segoe UI", Arial, sans-serif`. Công thức: `<sub>`, `<sup>`, phân số và căn bằng CSS.
+- Font: `"Segoe UI", Arial, sans-serif`. Công thức: `<sub>`, `<sup>` và ký hiệu Unicode (√, π, ⇌, Δ) viết trên một dòng.
 - Bố cục co giãn: màn rộng thì khung mô phỏng bên trái, điều khiển và nhiệm vụ bên phải; màn hẹp (khoảng 400px) thì xếp dọc. Chữ đủ lớn cho máy chiếu.
-- Thành phần khung chạy: thanh trượt và ô nhập cho tham số, nút Chạy/Dừng/Đặt lại, khung vẽ `canvas`, đồng hồ, bảng số liệu, đồ thị, công tắc sai số đo, ba bước nhiệm vụ, nút Chế độ giáo viên, dòng chú thích điều kiện lí tưởng hoá, dải tự kiểm.
+- Thành phần khung chạy: thanh trượt hoặc ô chọn cho tham số, danh sách tham số giữ cố định, nút Chạy/Dừng/Đặt lại, khung vẽ `canvas`, ô số đo, bảng số liệu, đồ thị, ba bước nhiệm vụ, nút Chế độ giáo viên, dòng chú thích điều kiện lí tưởng hoá, dòng tự kiểm. Sai số đo bật hay tắt do `thi-nghiem.md` quyết định; trang chỉ ghi chú khi đang bật.
 - Dòng chú thích lấy từ `congThuc.dieuKien` của mô hình, luôn hiện.
 
 ## 6. Khuôn mô hình
 
-Mỗi file mô hình khai đúng sáu thứ:
+Mỗi mô hình khai đúng sáu thứ, chia hai file. File `.json` giữ bốn khai báo dữ liệu, file `.js` giữ hai hàm:
 
-| Khai báo | Nội dung |
-|---|---|
-| `thamSo` | mỗi tham số: mã, tên hiển thị, đơn vị, khoảng cho phép, bước, mặc định |
-| `daiLuongDo` | mỗi đại lượng đo được: mã, tên, đơn vị, độ lớn sai số, số chữ số hiển thị |
-| `tinh(thamSo, t)` | trạng thái và giá trị các đại lượng đo tại thời điểm `t`; hàm thuần, không đụng DOM |
-| `ve(ctx, trangThai, kichThuoc)` | vẽ lên `canvas` |
-| `congThuc` | `bieuThuc` (chữ, theo quy ước `~`, `^`), `dieuKien` (điều kiện áp dụng), `nguon` (nguồn hằng số nếu có) |
-| `bangKiem` | ít nhất 5 dòng: tham số vào → giá trị đúng của đại lượng đo, sai số cho phép |
+| Khai báo | Ở file | Nội dung |
+|---|---|---|
+| `thamSo` | json | mỗi tham số: `ma`, `ten`, `kieu` (`so` hoặc `chon`); loại `so` có `donVi`, `min`, `max`, `buoc`, `macDinh`; loại `chon` có `luaChon` và `macDinh` |
+| `daiLuongDo` | json | mỗi đại lượng đo được: `ma`, `ten`, `donVi`, `saiSo` (độ lệch chuẩn của nhiễu đo), `chuSo` (số chữ số thập phân) |
+| `congThuc` | json | `bieuThuc` (chữ, theo quy ước `~`, `^`), `dieuKien` (điều kiện áp dụng), `nguon` (nguồn hằng số nếu có) |
+| `bangKiem` | json | ít nhất 5 dòng `{vao, ra, saiSo}`: tham số khác mặc định → giá trị đúng của đại lượng đo, sai số tuyệt đối cho phép |
+| `tinh(thamSo)` | js | trả về giá trị mọi đại lượng đo; hàm thuần, không phụ thuộc thời gian, không đụng DOM |
+| `ve(ctx, thamSo, t, kichThuoc, ketQua)` | js | vẽ lên `canvas` tại thời điểm `t`; mô hình `hoatHinh: mot-lan` có thêm `thoiLuong(thamSo, ketQua)` |
+
+File `.json` còn có `ten`, `mon` và `hoatHinh` (`khong`, `mot-lan` hoặc `lap`).
 
 Khoảng cho phép của `thamSo` là ranh giới của điều kiện áp dụng: `thi-nghiem.md` không được vượt (ví dụ góc lệch con lắc tối đa 15°).
 
@@ -96,15 +102,15 @@ Khoảng cho phép của `thamSo` là ranh giới của điều kiện áp dụn
 | `li-nem-xien` | vận tốc đầu, góc, độ cao đầu, g | tầm xa, độ cao cực đại, thời gian bay | bỏ qua sức cản không khí |
 | `li-con-lac-don` | chiều dài, g, góc lệch, khối lượng | chu kì | góc lệch nhỏ, dây không giãn |
 | `li-mach-ohm` | suất điện động, hai điện trở, kiểu mắc | cường độ, hiệu điện thế từng điện trở | nguồn và dây dẫn lí tưởng |
-| `hoa-chuan-do` | loại acid (mạnh/yếu, K~a~), nồng độ, thể tích, nồng độ base, chỉ thị | pH, thể tích base đã nhỏ | dung dịch loãng, 25 °C |
-| `hoa-can-bang-no2` | nhiệt độ, áp suất, lượng ban đầu | phần mol NO~2~, độ đậm màu | khí lí tưởng |
-| `hoa-toc-do` | nồng độ, nhiệt độ, xúc tác | thời gian phản ứng, tốc độ trung bình | bậc phản ứng và năng lượng hoạt hoá khai trong mô hình |
-| `toan-ham-so` | hệ số a, b, c, d (bậc hai, bậc ba), hoành độ tiếp điểm | cực trị, nghiệm, hệ số góc tiếp tuyến | — |
+| `hoa-chuan-do` | acid (HCl hoặc CH~3~COOH), nồng độ và thể tích acid, nồng độ NaOH, thể tích NaOH đã nhỏ, chất chỉ thị | pH | dung dịch loãng, 25 °C |
+| `hoa-can-bang-no2` | nhiệt độ, áp suất chung (bar) | K~p~, phần mol NO~2~, độ phân li, nồng độ NO~2~ (độ đậm màu) | khí lí tưởng; Δ~r~H°, Δ~r~S° không đổi trong 0–100 °C |
+| `hoa-toc-do` | nồng độ, nhiệt độ, xúc tác | thời gian tới khi vẩn đục | phản ứng giả định bậc 1, E~a~ khai trong mô hình |
+| `toan-ham-so` | hệ số a, b, c, d (bậc ba; a = 0 thành bậc hai), hoành độ tiếp điểm | giá trị, hệ số góc tiếp tuyến, hoành độ cực đại và cực tiểu | — |
 | `toan-xac-suat` | loại phép thử (xúc xắc, đồng xu, hai xúc xắc), số lần, biến cố | tần số, tần suất | bộ sinh số ngẫu nhiên có hạt giống |
 
 ## 7. Giữ cho khoa học đúng
 
-1. **Test trong repo.** Mỗi mẫu có bản tính lại độc lập bằng Python trong `thi_nghiem_ref/`. Test chạy `tinh()` qua Node trên lưới vài trăm điểm và so với Python. Thêm test định luật: ném xiên bảo toàn cơ năng; con lắc T² tỉ lệ với l; mạch song song tổng dòng nhánh bằng dòng chính; chuẩn độ acid mạnh – base mạnh có pH 7 tại điểm tương đương và acid yếu có pH = pK~a~ tại nửa điểm tương đương; N~2~O~4~ ⇌ 2NO~2~ tăng nhiệt độ thì phần mol NO~2~ tăng, tăng áp suất thì giảm; tốc độ tăng theo nhiệt độ đúng hệ thức Arrhenius; hàm bậc hai có đỉnh tại −b/2a; tần suất gieo 100.000 lần lệch xác suất dưới 1%. Máy không có Node thì các test này bỏ qua có ghi lý do; máy phát hành phải có Node.
+1. **Test trong repo.** Mỗi mẫu có bản tính lại độc lập bằng Python trong `thi_nghiem_parts/tham_chieu.py`. Test chạy `tinh()` qua Node trên lưới vài trăm điểm và so với Python. Thêm test định luật: ném xiên bảo toàn cơ năng; con lắc T² tỉ lệ với l; mạch song song tổng dòng nhánh bằng dòng chính; chuẩn độ acid mạnh – base mạnh có pH 7 tại điểm tương đương và acid yếu có pH = pK~a~ tại nửa điểm tương đương; N~2~O~4~ ⇌ 2NO~2~ tăng nhiệt độ thì phần mol NO~2~ tăng, tăng áp suất thì giảm; tốc độ tăng theo nhiệt độ đúng hệ thức Arrhenius; hàm bậc hai có đỉnh tại −b/2a; tần suất gieo 100.000 lần lệch xác suất dưới 1%. Máy không có Node thì các test này bỏ qua có ghi lý do; máy phát hành phải có Node.
 2. **Trên máy thầy cô.** `kiem_so.py` chạy `bangKiem` qua Node nếu có. Không có Node: `kiem_so.chay` là `false` và có cảnh báo "chưa chạy kiểm số trên máy này; file sẽ tự kiểm khi mở".
 3. **Trong file HTML.** Mỗi lần mở, file chạy `bangKiem`. Đạt: dòng nhỏ "Tự kiểm: 5/5 đạt". Trượt: dải đỏ "Mô hình không qua tự kiểm — không dùng để dạy", nêu dòng trượt.
 
@@ -162,11 +168,12 @@ goi-y-dap-an: T^2^ tỉ lệ thuận với l; T = 2π√(l/g).
 Chu kì con lắc đơn chỉ phụ thuộc chiều dài dây và g, không phụ thuộc khối lượng.
 ```
 
-- `nguoi-thao-tac`: `giao-vien` (mở sẵn Chế độ giáo viên) hoặc `nhom`. `sai-so`: `bat` hoặc `tat`.
+- `nguoi-thao-tac`: `giao-vien` (mở sẵn Chế độ giáo viên, là mặc định) hoặc `nhom`. `sai-so`: `bat` hoặc `tat` (mặc định).
+- Tham số loại lựa chọn: `<mã>: chon <mã_1>, <mã_2>` (mục đầu là mặc định) hoặc `<mã>: co-dinh <mã_lựa_chọn>`.
 - Dòng tham số có hai dạng: `<mã>: <nhỏ nhất>..<lớn nhất> buoc <bước> mac-dinh <giá trị>` (có thanh trượt), hoặc `<mã>: co-dinh <giá trị>` (ẩn thanh trượt). Tham số không khai trong `## Tham số` thì cố định ở mặc định của mẫu.
 - `do-thi`: `<biểu thức> theo <biểu thức>`; biểu thức là một mã tham số hoặc đại lượng đo, tuỳ chọn kèm đúng một phép biến đổi: `<mã>^2`, `1/<mã>`, `ln(<mã>)`, `sqrt(<mã>)`. Đây là cú pháp tính toán, khác quy ước hiển thị `^2^` dùng trong các dòng chữ (`cau:`, `goi-y-dap-an:`, Kết luận).
 - `## Dự đoán` có thể là trắc nghiệm (`A:`…`dap-an:`) hoặc câu mở (chỉ `cau:`).
-- Lỗi nêu đúng dòng: mẫu không tồn tại; tham số hay đại lượng không có trong mẫu; khoảng vượt khoảng cho phép; bước không dương; mặc định ngoài khoảng; thiếu một trong các mục Tham số, Dự đoán, Quan sát, Giải thích, Kết luận; `dap-an` không nằm trong lựa chọn; `so-lan-do` ngoài 3–20; `mau: moi` mà không có `mo-hinh.js`.
+- Lỗi nêu đúng dòng: mẫu không tồn tại; tham số hay đại lượng không có trong mẫu; khoảng vượt khoảng cho phép; bước không dương; mặc định ngoài khoảng; thiếu một trong các mục Tham số, Dự đoán, Quan sát, Giải thích, Kết luận; `dap-an` không nằm trong lựa chọn; `so-lan-do` ngoài 3–20; `mau: moi` mà thiếu `mo-hinh.json` hoặc `mo-hinh.js`; trong file có địa chỉ web.
 - File hướng dẫn cho AI phải có một `thi-nghiem.md` mẫu cho mỗi môn, và test chạy các mẫu đó qua parser thật (bài học vi.5).
 
 ## 9. Khung Dự đoán – Quan sát – Giải thích
@@ -178,7 +185,7 @@ Chu kì con lắc đơn chỉ phụ thuộc chiều dài dây và g, không ph�
 
 ## 10. Phiếu học tập Word
 
-A4 dọc, thể thức như đề thi vi.5. Trang học sinh: tiêu đề, họ tên – nhóm – lớp, câu dự đoán, bảng trống đúng cột và số lần đo, khung kẻ ô vẽ đồ thị có tên trục và đơn vị, câu giải thích, kết luận để trống. Trang giáo viên (trang riêng cuối): đáp án, bảng số liệu lí tưởng tính từ mô hình tại các giá trị tham số đều trong khoảng, công thức và điều kiện. Bảng lí tưởng được tính bằng bản Python tham chiếu cho 8 mẫu; mô hình mới thì tính qua Node nếu có, không thì bỏ bảng và ghi cảnh báo.
+A4 dọc, thể thức như đề thi vi.5. Trang học sinh: tiêu đề, họ tên – nhóm – lớp, câu dự đoán, bảng trống đúng cột và số lần đo, khung kẻ ô vẽ đồ thị có tên trục và đơn vị, câu giải thích, kết luận để trống. Trang giáo viên (trang riêng cuối): đáp án, bảng số liệu lí tưởng tính từ mô hình tại các giá trị tham số đều trong khoảng, công thức và điều kiện. Bảng lí tưởng được tính bằng `tham_chieu.py` cho 8 mẫu; mô hình mới thì tính qua Node nếu có, không thì bỏ bảng và ghi cảnh báo.
 
 ## 11. Công cụ
 
