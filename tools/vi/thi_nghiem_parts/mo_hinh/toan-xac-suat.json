@@ -1,0 +1,158 @@
+{
+  "ma": "toan-xac-suat",
+  "ten": "Xác suất thực nghiệm",
+  "mon": "Toán",
+  "hoatHinh": "khong",
+  "thamSo": [
+    {
+      "ma": "phep-thu",
+      "ten": "Phép thử và biến cố",
+      "kieu": "chon",
+      "luaChon": [
+        {
+          "ma": "dong-xu-ngua",
+          "ten": "Tung đồng xu: mặt ngửa"
+        },
+        {
+          "ma": "xuc-xac-mat-6",
+          "ten": "Gieo xúc xắc: mặt 6 chấm"
+        },
+        {
+          "ma": "xuc-xac-chan",
+          "ten": "Gieo xúc xắc: số chấm chẵn"
+        },
+        {
+          "ma": "hai-xuc-xac-tong-7",
+          "ten": "Gieo hai xúc xắc: tổng bằng 7"
+        },
+        {
+          "ma": "hai-xuc-xac-tong-12",
+          "ten": "Gieo hai xúc xắc: tổng bằng 12"
+        }
+      ],
+      "macDinh": "dong-xu-ngua"
+    },
+    {
+      "ma": "so-lan",
+      "ten": "Số lần thử n",
+      "kieu": "so",
+      "donVi": "lần",
+      "min": 10,
+      "max": 10000,
+      "buoc": 10,
+      "macDinh": 100
+    },
+    {
+      "ma": "hat-giong",
+      "ten": "Lượt gieo số",
+      "kieu": "so",
+      "donVi": "",
+      "min": 1,
+      "max": 999,
+      "buoc": 1,
+      "macDinh": 1
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "tan-so",
+      "ten": "Số lần biến cố xảy ra",
+      "donVi": "lần",
+      "saiSo": 0,
+      "chuSo": 0
+    },
+    {
+      "ma": "tan-suat",
+      "ten": "Tần suất",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 4
+    },
+    {
+      "ma": "xac-suat-li-thuyet",
+      "ten": "Xác suất lí thuyết",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 4
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "Tần suất f = (số lần biến cố xảy ra)/n; khi n lớn, f tiến gần xác suất P.",
+    "dieuKien": "Đồng xu và xúc xắc cân đối, các lần thử độc lập; số ngẫu nhiên sinh bằng thuật toán có hạt giống nên cùng một lượt gieo cho cùng kết quả.",
+    "nguon": ""
+  },
+  "bangKiem": [
+    {
+      "vao": {},
+      "ra": {
+        "tan-so": 53.0,
+        "tan-suat": 0.53,
+        "xac-suat-li-thuyet": 0.5
+      },
+      "saiSo": 1e-07
+    },
+    {
+      "vao": {
+        "so-lan": 1000
+      },
+      "ra": {
+        "tan-so": 505.0,
+        "tan-suat": 0.505,
+        "xac-suat-li-thuyet": 0.5
+      },
+      "saiSo": 1e-07
+    },
+    {
+      "vao": {
+        "phep-thu": "xuc-xac-mat-6",
+        "so-lan": 600,
+        "hat-giong": 7
+      },
+      "ra": {
+        "tan-so": 95.0,
+        "tan-suat": 0.1583333333,
+        "xac-suat-li-thuyet": 0.1666666667
+      },
+      "saiSo": 1e-07
+    },
+    {
+      "vao": {
+        "phep-thu": "xuc-xac-chan",
+        "so-lan": 10,
+        "hat-giong": 2
+      },
+      "ra": {
+        "tan-so": 5.0,
+        "tan-suat": 0.5,
+        "xac-suat-li-thuyet": 0.5
+      },
+      "saiSo": 1e-07
+    },
+    {
+      "vao": {
+        "phep-thu": "hai-xuc-xac-tong-7",
+        "so-lan": 3600,
+        "hat-giong": 5
+      },
+      "ra": {
+        "tan-so": 580.0,
+        "tan-suat": 0.1611111111,
+        "xac-suat-li-thuyet": 0.1666666667
+      },
+      "saiSo": 1e-07
+    },
+    {
+      "vao": {
+        "phep-thu": "hai-xuc-xac-tong-12",
+        "so-lan": 10000,
+        "hat-giong": 999
+      },
+      "ra": {
+        "tan-so": 289.0,
+        "tan-suat": 0.0289,
+        "xac-suat-li-thuyet": 0.02777777778
+      },
+      "saiSo": 1e-07
+    }
+  ]
+}

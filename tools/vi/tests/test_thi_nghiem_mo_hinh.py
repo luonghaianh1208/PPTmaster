@@ -16,7 +16,10 @@ from thi_nghiem_parts import kiem_so, tham_chieu, thu_vien  # noqa: E402
 
 HAS_NODE = kiem_so.find_node() is not None
 NEED_NODE = "máy không có Node nên không chạy được JavaScript"
-MODELS = ("hoa-can-bang-no2", "hoa-chuan-do", "hoa-toc-do", "li-con-lac-don", "li-mach-ohm", "li-nem-xien")
+MODELS = (
+    "hoa-can-bang-no2", "hoa-chuan-do", "hoa-toc-do", "li-con-lac-don",
+    "li-mach-ohm", "li-nem-xien", "toan-ham-so", "toan-xac-suat",
+)
 
 
 class ModelLibraryTest(unittest.TestCase):

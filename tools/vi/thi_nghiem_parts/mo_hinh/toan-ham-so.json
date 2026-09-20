@@ -1,0 +1,181 @@
+{
+  "ma": "toan-ham-so",
+  "ten": "Khảo sát hàm số y = ax³ + bx² + cx + d",
+  "mon": "Toán",
+  "hoatHinh": "khong",
+  "thamSo": [
+    {
+      "ma": "a",
+      "ten": "Hệ số a",
+      "kieu": "so",
+      "donVi": "",
+      "min": -5,
+      "max": 5,
+      "buoc": 0.5,
+      "macDinh": 1
+    },
+    {
+      "ma": "b",
+      "ten": "Hệ số b",
+      "kieu": "so",
+      "donVi": "",
+      "min": -5,
+      "max": 5,
+      "buoc": 0.5,
+      "macDinh": 0
+    },
+    {
+      "ma": "c",
+      "ten": "Hệ số c",
+      "kieu": "so",
+      "donVi": "",
+      "min": -5,
+      "max": 5,
+      "buoc": 0.5,
+      "macDinh": -3
+    },
+    {
+      "ma": "d",
+      "ten": "Hệ số d",
+      "kieu": "so",
+      "donVi": "",
+      "min": -5,
+      "max": 5,
+      "buoc": 0.5,
+      "macDinh": 0
+    },
+    {
+      "ma": "x0",
+      "ten": "Hoành độ tiếp điểm x~0~",
+      "kieu": "so",
+      "donVi": "",
+      "min": -5,
+      "max": 5,
+      "buoc": 0.1,
+      "macDinh": 1
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "gia-tri",
+      "ten": "Giá trị y(x~0~)",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 3
+    },
+    {
+      "ma": "he-so-goc",
+      "ten": "Hệ số góc tiếp tuyến y'(x~0~)",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 3
+    },
+    {
+      "ma": "hoanh-do-cuc-dai",
+      "ten": "Hoành độ điểm cực đại",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 3
+    },
+    {
+      "ma": "hoanh-do-cuc-tieu",
+      "ten": "Hoành độ điểm cực tiểu",
+      "donVi": "",
+      "saiSo": 0,
+      "chuSo": 3
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "y' = 3ax^2^ + 2bx + c; cực trị tại nghiệm của y' = 0 nơi y' đổi dấu; a = 0 thì là hàm bậc hai, đỉnh tại x = −c/(2b).",
+    "dieuKien": "Hệ số thực; a = 0 và b = 0 thì hàm bậc nhất hoặc hằng, không có cực trị.",
+    "nguon": ""
+  },
+  "bangKiem": [
+    {
+      "vao": {},
+      "ra": {
+        "gia-tri": -2.0,
+        "he-so-goc": 0.0,
+        "hoanh-do-cuc-dai": -1.0,
+        "hoanh-do-cuc-tieu": 1.0
+      },
+      "saiSo": 1e-06
+    },
+    {
+      "vao": {
+        "x0": -1
+      },
+      "ra": {
+        "gia-tri": 2.0,
+        "he-so-goc": 0.0,
+        "hoanh-do-cuc-dai": -1.0,
+        "hoanh-do-cuc-tieu": 1.0
+      },
+      "saiSo": 1e-06
+    },
+    {
+      "vao": {
+        "a": -1,
+        "b": 3,
+        "c": 0,
+        "d": 1,
+        "x0": 2
+      },
+      "ra": {
+        "gia-tri": 5.0,
+        "he-so-goc": 0.0,
+        "hoanh-do-cuc-dai": 2.0,
+        "hoanh-do-cuc-tieu": 0.0
+      },
+      "saiSo": 1e-06
+    },
+    {
+      "vao": {
+        "a": 0,
+        "b": 2,
+        "c": -4,
+        "d": 1,
+        "x0": 0
+      },
+      "ra": {
+        "gia-tri": 1.0,
+        "he-so-goc": -4.0,
+        "hoanh-do-cuc-dai": null,
+        "hoanh-do-cuc-tieu": 1.0
+      },
+      "saiSo": 1e-06
+    },
+    {
+      "vao": {
+        "a": 1,
+        "b": 0,
+        "c": 3,
+        "d": 0,
+        "x0": 0.5
+      },
+      "ra": {
+        "gia-tri": 1.625,
+        "he-so-goc": 3.75,
+        "hoanh-do-cuc-dai": null,
+        "hoanh-do-cuc-tieu": null
+      },
+      "saiSo": 1e-06
+    },
+    {
+      "vao": {
+        "a": 0,
+        "b": 0,
+        "c": 2,
+        "d": -1,
+        "x0": 3
+      },
+      "ra": {
+        "gia-tri": 5.0,
+        "he-so-goc": 2.0,
+        "hoanh-do-cuc-dai": null,
+        "hoanh-do-cuc-tieu": null
+      },
+      "saiSo": 1e-06
+    }
+  ]
+}
