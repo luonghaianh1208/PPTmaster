@@ -1,0 +1,134 @@
+{
+  "ma": "li-con-lac-don",
+  "ten": "Con lắc đơn",
+  "mon": "Vật lí",
+  "hoatHinh": "lap",
+  "thamSo": [
+    {
+      "ma": "chieu-dai",
+      "ten": "Chiều dài dây l",
+      "kieu": "so",
+      "donVi": "m",
+      "min": 0.2,
+      "max": 2.0,
+      "buoc": 0.05,
+      "macDinh": 1.0
+    },
+    {
+      "ma": "g",
+      "ten": "Gia tốc trọng trường g",
+      "kieu": "so",
+      "donVi": "m/s^2^",
+      "min": 1.6,
+      "max": 24.8,
+      "buoc": 0.1,
+      "macDinh": 9.8
+    },
+    {
+      "ma": "goc-lech",
+      "ten": "Góc lệch ban đầu",
+      "kieu": "so",
+      "donVi": "°",
+      "min": 2,
+      "max": 15,
+      "buoc": 1,
+      "macDinh": 8
+    },
+    {
+      "ma": "khoi-luong",
+      "ten": "Khối lượng quả nặng m",
+      "kieu": "so",
+      "donVi": "kg",
+      "min": 0.05,
+      "max": 1.0,
+      "buoc": 0.05,
+      "macDinh": 0.2
+    }
+  ],
+  "daiLuongDo": [
+    {
+      "ma": "chu-ki",
+      "ten": "Chu kì T",
+      "donVi": "s",
+      "saiSo": 0.02,
+      "chuSo": 3
+    },
+    {
+      "ma": "thoi-gian-10-dao-dong",
+      "ten": "Thời gian 10 dao động",
+      "donVi": "s",
+      "saiSo": 0.1,
+      "chuSo": 2
+    }
+  ],
+  "congThuc": {
+    "bieuThuc": "T = 2π√(l/g)",
+    "dieuKien": "Góc lệch nhỏ (không quá 15°); dây không giãn, khối lượng dây không đáng kể; bỏ qua sức cản.",
+    "nguon": ""
+  },
+  "bangKiem": [
+    {
+      "vao": {
+        "chieu-dai": 1.0
+      },
+      "ra": {
+        "chu-ki": 2.007089923,
+        "thoi-gian-10-dao-dong": 20.07089923
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "chieu-dai": 0.25
+      },
+      "ra": {
+        "chu-ki": 1.003544962,
+        "thoi-gian-10-dao-dong": 10.03544962
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "chieu-dai": 2.0
+      },
+      "ra": {
+        "chu-ki": 2.83845379,
+        "thoi-gian-10-dao-dong": 28.3845379
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "chieu-dai": 1.0,
+        "g": 1.6
+      },
+      "ra": {
+        "chu-ki": 4.967294133,
+        "thoi-gian-10-dao-dong": 49.67294133
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "chieu-dai": 0.5,
+        "khoi-luong": 1.0
+      },
+      "ra": {
+        "chu-ki": 1.419226895,
+        "thoi-gian-10-dao-dong": 14.19226895
+      },
+      "saiSo": 0.0005
+    },
+    {
+      "vao": {
+        "chieu-dai": 0.5,
+        "khoi-luong": 0.05
+      },
+      "ra": {
+        "chu-ki": 1.419226895,
+        "thoi-gian-10-dao-dong": 14.19226895
+      },
+      "saiSo": 0.0005
+    }
+  ]
+}
