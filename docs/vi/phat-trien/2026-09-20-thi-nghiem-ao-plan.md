@@ -21,7 +21,7 @@
 - Tài liệu trong `docs/vi/` và chuỗi hiển thị viết tiếng Việt; tên hàm Python tiếng Anh, tên trong JavaScript và khoá JSON tiếng Việt không dấu theo đúng mã trong plan. File trong `docs/vi/tro-ly/` không có link Markdown.
 - Chạy lệnh từ thư mục gốc repo bằng `venv\Scripts\python.exe`. Test JavaScript cần Node; máy không có Node thì các test đó tự bỏ qua, nhưng máy thi công plan này **phải có Node** (`node --version` ≥ 18).
 - Mã trong plan đã được dựng thử và chạy qua test trước khi viết plan. Chép nguyên văn; nếu một test trượt, tìm lỗi chép trước khi sửa mã.
-- Commit theo Conventional Commits, tiếng Anh, kết thúc bằng dòng `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Commit theo Conventional Commits, tiếng Anh, kết thúc bằng dòng `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 - `gh` luôn kèm `--repo luonghaianh1208/PPTmaster`.
 
 ## File Structure
