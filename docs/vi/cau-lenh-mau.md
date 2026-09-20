@@ -93,6 +93,20 @@ Soạn giáo án mới hoàn toàn:
 Soạn kế hoạch bài dạy Hoá 11 Bài 5 Ammonia, 2 tiết, có tích hợp năng lực số và năng lực AI
 ```
 
+## Thí nghiệm ảo
+
+Thí nghiệm có sẵn trong danh mục:
+
+```
+Làm thí nghiệm ảo con lắc đơn cho Vật lí 11, học sinh làm theo nhóm, có phiếu học tập
+```
+
+Thí nghiệm cho giáo viên trình diễn trên máy chiếu:
+
+```
+Làm thí nghiệm ảo chuyển dịch cân bằng N2O4 ⇌ 2NO2 cho Hoá 11, giáo viên trình diễn, không cần phiếu học tập
+```
+
 ## Tạo nhanh
 
 ```

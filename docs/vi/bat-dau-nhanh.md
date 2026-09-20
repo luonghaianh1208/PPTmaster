@@ -44,7 +44,7 @@ Với bài giảng, báo cáo – tổng kết, hoạt động Đoàn – sự k
 - **Sau đó**, AI tóm tắt đề xuất trong khung chat để thầy cô duyệt lần cuối, rồi mới dựng slide.
 - **Việc khác** (ví dụ giới thiệu sản phẩm), AI xác nhận lại đối tượng người xem, số trang, phong cách và mẫu thiết kế như trước.
 
-Với 8 loại việc trên, muốn AI làm luôn, thêm chữ "tạo nhanh" vào câu lệnh: AI chỉ hỏi 2–3 câu thật cần thiết. Không muốn trả lời câu nào, thêm "không cần hỏi lại": AI không hỏi gì, tự đề xuất các phần còn thiếu rồi làm luôn.
+Với 9 loại việc trên, muốn AI làm luôn, thêm chữ "tạo nhanh" vào câu lệnh: AI chỉ hỏi 2–3 câu thật cần thiết. Không muốn trả lời câu nào, thêm "không cần hỏi lại": AI không hỏi gì, tự đề xuất các phần còn thiếu rồi làm luôn.
 
 ## Làm video bài giảng
 
@@ -57,6 +57,10 @@ Cần đề kiểm tra KHTN, Vật lí, Hoá học hay Sinh học bằng tiếng
 ## Soạn giáo án
 
 Cần kế hoạch bài dạy (giáo án 5512) có tích hợp năng lực số và năng lực AI, nhắn `Soạn kế hoạch bài dạy Hoá 11 Bài 5 Ammonia, 2 tiết, có tích hợp năng lực số và năng lực AI` (soạn mới) hoặc `Nâng cấp giáo án Bài 5 Ammonia này thành kế hoạch bài dạy có tích hợp năng lực số và năng lực AI` (đã có giáo án cũ). Nói "giáo án" thì AI hỏi lại Word hay slide trước khi làm. Chi tiết trong [Soạn giáo án](soan-giao-an.md).
+
+## Làm thí nghiệm ảo
+
+Cần một mô phỏng để học sinh đổi tham số, đo và vẽ đồ thị, nhắn `Làm thí nghiệm ảo con lắc đơn cho Vật lí 11, có phiếu học tập`. AI tạo một file HTML mở bằng trình duyệt là chạy, không cần mạng, kèm phiếu học tập Word. Chi tiết trong [Làm thí nghiệm ảo](thi-nghiem-ao.md).
 
 ## Lấy file kết quả
 

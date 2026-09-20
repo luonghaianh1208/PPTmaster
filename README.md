@@ -33,6 +33,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 - Làm đẹp lại một file PPTX có sẵn.
 - Soạn **đề kiểm tra** KHTN/Vật lí/Hoá học/Sinh học bằng tiếng Anh, từ đề tiếng Việt có sẵn hoặc từ đầu, xuất ra file Word.
 - Soạn **giáo án** kế hoạch bài dạy theo Công văn 5512, tích hợp năng lực số và năng lực AI, xuất ra file Word.
+- Tạo **thí nghiệm ảo** Toán, Vật lí, Hoá học: một file HTML chạy không cần mạng, có bảng số liệu, đồ thị và phiếu học tập Word; 8 mô hình đã kiểm bằng số.
 
 ## Ba file bấm đúp
 
@@ -53,6 +54,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 | [Lấy API key](docs/vi/lay-api-key.md) | Bật tạo ảnh bằng AI |
 | [Soạn đề tiếng Anh](docs/vi/soan-de-tieng-anh.md) | Từ đề tiếng Việt hoặc từ đầu, ra ba file Word (hai file nếu không cần bản song ngữ) |
 | [Soạn giáo án](docs/vi/soan-giao-an.md) | Kế hoạch bài dạy 5512 tích hợp năng lực số và AI |
+| [Làm thí nghiệm ảo](docs/vi/thi-nghiem-ao.md) | File HTML tương tác chạy không cần mạng, kèm phiếu học tập |
 
 Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 

@@ -197,6 +197,7 @@ REQUIRED_DOCS = (
     "lam-video.md",
     "soan-de-tieng-anh.md",
     "soan-giao-an.md",
+    "thi-nghiem-ao.md",
 )
 
 
@@ -1481,6 +1482,50 @@ class ExperimentWiringTest(unittest.TestCase):
 
     def test_brief_template_lists_the_experiment_task(self):
         self.assertIn("Thí nghiệm ảo", read("docs/vi/tro-ly/mau-brief.md"))
+
+
+class ExperimentUserDocsTest(unittest.TestCase):
+    def test_doc_explains_use_limits_and_review(self):
+        text = read("docs/vi/thi-nghiem-ao.md")
+        for phrase in ("thi-nghiem.html", "phieu-hoc-tap.docx", "can-soat.md", "không cần mạng", "USB", "Netlify",
+                       "điện thoại", "Chế độ giáo viên", "Ghi lần đo", "Chép số liệu", "sai số đo", "Tự kiểm",
+                       "mô hình lí tưởng", "soát công thức", "Node"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_doc_lists_the_eight_models(self):
+        text = read("docs/vi/thi-nghiem-ao.md")
+        for name in ("Ném xiên", "Con lắc đơn", "nối tiếp và song song", "Chuẩn độ", "N₂O₄ ⇌ 2NO₂", "Tốc độ phản ứng",
+                     "Khảo sát hàm số", "Xác suất thực nghiệm"):
+            self.assertIn(name, text)
+
+    def test_quick_start_mentions_the_experiment_task(self):
+        text = read("docs/vi/bat-dau-nhanh.md")
+        self.assertNotIn("8 loại", text)
+        headings = h2_headings(text)
+        self.assertIn("## Làm thí nghiệm ảo", headings)
+        self.assertLess(headings.index("## Làm thí nghiệm ảo"), headings.index("## Lấy file kết quả"))
+        self.assertIn("(thi-nghiem-ao.md)", section(text, "## Làm thí nghiệm ảo"))
+
+    def test_sample_commands_have_an_experiment_section(self):
+        body = section(read("docs/vi/cau-lenh-mau.md"), "## Thí nghiệm ảo")
+        self.assertIn("thí nghiệm ảo", body)
+        self.assertIn("phiếu học tập", body)
+
+    def test_troubleshooting_has_the_experiment_section(self):
+        text = read("docs/vi/xu-ly-loi.md")
+        headings = h2_headings(text)
+        self.assertEqual(headings.index("## Tạo thí nghiệm ảo thất bại"), headings.index("## Kiểm hiệu ứng không đạt") - 1)
+        body = section(text, "## Tạo thí nghiệm ảo thất bại")
+        for phrase in ("`input`", "`parse`", "`model`", "`check`", "`docx`", "`write`", "`internal`", "Dòng",
+                       "requirements-vi.txt", "dải đỏ", "Node"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_readme_mentions_the_experiment_feature(self):
+        readme = read("README.md")
+        self.assertIn("thí nghiệm ảo", section(readme, "## Làm được gì"))
+        self.assertIn("(docs/vi/thi-nghiem-ao.md)", section(readme, "## Tài liệu"))
 
 
 if __name__ == "__main__":

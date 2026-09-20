@@ -85,6 +85,20 @@ Bộ công cụ bị sửa đổi hoặc thiếu file bản quyền (`LICENSE`, 
 - Nếu thông báo có `FileNotFoundError` kèm một đường dẫn rất dài, xem mục **Đường dẫn quá dài** ngay bên dưới.
 - Nếu vẫn lỗi, khi hỏi hỗ trợ hãy chụp toàn bộ màn hình kết quả `KIEM-TRA.bat` để gửi kèm.
 
+## Tạo thí nghiệm ảo thất bại
+
+Xem dòng kết quả AI đọc được, phần `error`:
+
+- `input`: chưa có thư mục thí nghiệm hoặc file `thi-nghiem.md`. Nhờ AI viết file theo docs/vi/tro-ly/thi-nghiem-ao.md rồi chạy lại.
+- `parse`: `error.message` nêu đúng số **Dòng** trong `thi-nghiem.md` cần sửa. Hay gặp nhất: khoảng tham số vượt khoảng của mẫu (ví dụ góc lệch con lắc trên 15°), vì ngoài khoảng đó công thức không còn đúng.
+- `model`: mã mẫu không có trong danh mục, hoặc mô hình AI tự viết thiếu công thức, điều kiện áp dụng hay bảng số kiểm. AI sửa theo khuôn; không bỏ các phần đó.
+- `check`: mô hình AI tự viết cho kết quả lệch bảng số kiểm. AI sửa mô hình; nếu AI sửa bảng số kiểm thì phải nói rõ với thầy cô dòng nào đã sửa.
+- `docx`: máy chưa có thư viện `python-docx`. Có `venv\Scripts\python.exe` ở thư mục gốc repo thì chạy `venv\Scripts\python.exe -m pip install -r tools/vi/requirements-vi.txt`; không thì chạy `python -m pip install -r tools/vi/requirements-vi.txt`, hoặc bấm đúp `CAI-DAT.bat`.
+- `write`: phiếu học tập đang mở trong Word, hoặc ổ đĩa hết dung lượng, hoặc đường dẫn quá 200 ký tự (xem mục **Đường dẫn quá dài**).
+- `internal`: lỗi ngoài dự kiến. Dán nguyên dòng `error.message` gửi người bảo trì.
+
+Cảnh báo "chưa chạy kiểm số vì không có Node" không phải lỗi: trang HTML tự kiểm mỗi lần mở. Trang hiện **dải đỏ** "Mô hình không qua tự kiểm" thì không dùng để dạy; nhờ AI tạo lại.
+
 ## Kiểm hiệu ứng không đạt
 
 Sau khi xuất slide, AI chạy `tools\vi\kiem_hieu_ung.py` để so hiệu ứng với mức thầy cô chọn (không, vừa, nhiều). Xem dòng kết quả AI đọc được, phần `error`:
