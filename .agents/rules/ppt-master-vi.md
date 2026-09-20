@@ -10,7 +10,7 @@ Antigravity không chép nội dung các file nhắc bằng `@` vào luật, nê
 
 ## Hỏi thầy cô trước khi làm
 
-Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đoàn, và yêu cầu thuộc một trong 8 loại việc ở bảng dưới: trước mọi lệnh của quy trình tạo bài, làm đúng ba bước.
+Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đoàn, và yêu cầu thuộc một trong 9 loại việc ở bảng dưới: trước mọi lệnh của quy trình tạo bài, làm đúng ba bước.
 
 1. Đọc `docs/vi/tro-ly/quy-trinh-hoi.md`, rồi đọc file hướng dẫn của loại việc.
 2. Gửi thầy cô một tin nhắn hỏi theo hai file đó.
@@ -33,6 +33,7 @@ Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đ
 | Video bài giảng | "làm video", "xuất video", "lồng tiếng", "video bài giảng" | `docs/vi/tro-ly/video-bai-giang.md` |
 | Soạn đề KHTN tiếng Anh | "soạn đề", "đề kiểm tra", "đề tiếng Anh", "đề KHTN", "chuyển đề sang tiếng Anh" | `docs/vi/tro-ly/de-khtn-tieng-anh.md` |
 | Soạn giáo án tích hợp năng lực số và AI | "kế hoạch bài dạy", "KHBD", "giáo án Word", "giáo án 5512" | `docs/vi/tro-ly/giao-an.md` |
+| Thí nghiệm ảo | "thí nghiệm ảo", "mô phỏng thí nghiệm", "mô phỏng tương tác" | `docs/vi/tro-ly/thi-nghiem-ao.md` |
 
 ## Ảnh minh hoạ
 
@@ -50,6 +51,14 @@ Bài mới thuộc Bài giảng, Báo cáo – tổng kết, Hoạt động Đo�
 - Mức vừa hoặc nhiều: chạy bước `customize-animations` của upstream, kể cả khi tạo nhanh. Không thêm chuyển động chỉ để đủ tỉ lệ.
 - Sau khi xuất PPTX, chạy `tools\vi\kiem_hieu_ung.py <file.pptx> --muc khong|vua|nhieu`. Không đạt thì sửa và kiểm lại đúng một lần.
 - Video bài giảng: bản thuyết minh không dùng `on-click` hay `trigger_shape`. Chép `animations.json` thành `animations_video.json`, đổi sang tự chạy, xuất với `--animation-config animations_video.json`, rồi kiểm file `_narrated.pptx` bằng `--video` trước khi dựng video.
+
+## Thí nghiệm ảo
+
+Đầu ra là file HTML chạy không cần mạng và phiếu học tập Word, không phải PPTX.
+
+- Đọc `docs/vi/tro-ly/thi-nghiem-ao.md` và `docs/vi/tro-ly/mo-hinh-thi-nghiem.md`, hỏi một lượt, viết `thi-nghiem.md` trong `projects/_thi-nghiem/<tên>/`, rồi chạy `tools\vi\thi_nghiem.py <thư_mục>`.
+- Không viết file HTML bằng tay, không chèn thư viện hay địa chỉ web. Thí nghiệm ngoài danh mục thì viết mô hình mới theo khuôn, có công thức, điều kiện áp dụng và bảng số kiểm.
+- Đọc nguyên văn `can-soat.md` cho thầy cô; mô hình do AI viết thì thầy cô phải soát công thức trước khi dùng.
 
 ## Các việc khác
 

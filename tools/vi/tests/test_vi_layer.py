@@ -1,6 +1,7 @@
 """Kiểm tra tính nhất quán của lớp Việt hoá với upstream."""
 
 import fnmatch
+import json
 import re
 import shutil
 import subprocess
@@ -160,7 +161,7 @@ class EditorWiringTest(unittest.TestCase):
 
     def test_antigravity_rule_task_table_matches_common_rules(self):
         common = task_table_rows(read("docs/vi/tro-ly/quy-trinh-hoi.md"))
-        self.assertEqual(len(common), 8)
+        self.assertEqual(len(common), 9)
         self.assertEqual(task_table_rows(read(".agents/rules/ppt-master-vi.md")), common)
 
     def test_rule_files_tracked_by_git(self):
@@ -483,12 +484,13 @@ AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi làm b�
 
 
 class TeacherAssistantWiringTest(unittest.TestCase):
-    def test_agents_vi_keeps_the_four_task_sections_last_in_order(self):
+    def test_agents_vi_keeps_the_five_task_sections_last_in_order(self):
         headings = h2_headings(read("AGENTS.vi.md"))
-        self.assertEqual(headings[-4], AGENTS_VI_ASSISTANT_HEADING)
-        self.assertEqual(headings[-3], AGENTS_VI_VIDEO_HEADING)
-        self.assertEqual(headings[-2], AGENTS_VI_EXAM_HEADING)
-        self.assertEqual(headings[-1], AGENTS_VI_LESSON_HEADING)
+        self.assertEqual(headings[-5], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(headings[-4], AGENTS_VI_VIDEO_HEADING)
+        self.assertEqual(headings[-3], AGENTS_VI_EXAM_HEADING)
+        self.assertEqual(headings[-2], AGENTS_VI_LESSON_HEADING)
+        self.assertEqual(headings[-1], AGENTS_VI_EXPERIMENT_HEADING)
 
     def test_assistant_section_links_common_rules_and_all_guides(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
@@ -637,7 +639,7 @@ class SelfInstallGuideTest(unittest.TestCase):
         body = section(text, AGENTS_VI_ENV_HEADING)
         for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
-        self.assertEqual(h2_headings(text)[-4], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(h2_headings(text)[-5], AGENTS_VI_ASSISTANT_HEADING)
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
@@ -758,12 +760,12 @@ class VideoGuideTest(unittest.TestCase):
 
     def test_task_type_count_matches_the_table(self):
         agents_vi_body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
-        self.assertIn("8 loại", agents_vi_body)
-        for stale in ("5 loại", "6 loại", "7 loại"):
+        self.assertIn("9 loại", agents_vi_body)
+        for stale in ("5 loại", "6 loại", "7 loại", "8 loại"):
             self.assertNotIn(stale, agents_vi_body)
         quy_trinh_body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
-        self.assertIn("8 loại", quy_trinh_body)
-        for stale in ("5 loại", "6 loại", "7 loại"):
+        self.assertIn("9 loại", quy_trinh_body)
+        for stale in ("5 loại", "6 loại", "7 loại", "8 loại"):
             self.assertNotIn(stale, quy_trinh_body)
 
 
@@ -1328,6 +1330,157 @@ class EffectsGuideTest(unittest.TestCase):
         body = section(read("docs/vi/xu-ly-loi.md"), "## Kiểm hiệu ứng không đạt")
         for step in ("`muc`", "`video`", "`parse`", "`input`", "`internal`"):
             self.assertIn(step, body)
+
+
+AGENTS_VI_EXPERIMENT_HEADING = "## 14. Làm thí nghiệm ảo"
+EXPERIMENT_GUIDE = "docs/vi/tro-ly/thi-nghiem-ao.md"
+MODEL_GUIDE = "docs/vi/tro-ly/mo-hinh-thi-nghiem.md"
+EXPERIMENT_COMMAND = r"python tools\vi\thi_nghiem.py"
+EXPERIMENT_GUIDE_HEADINGS = (
+    "## Khi nào dùng",
+    "## Câu hỏi bắt buộc",
+    "## Câu hỏi tuỳ chọn",
+    "## Tạo nhanh",
+    "## Cấu trúc thi-nghiem.md",
+    "## Đầu ra",
+    "## Nối vào bài giảng",
+    "## Ghi vào brief",
+)
+
+
+class ExperimentGuideTest(unittest.TestCase):
+    def test_guide_has_its_own_sections_in_order(self):
+        self.assertEqual(h2_headings(read(EXPERIMENT_GUIDE)), list(EXPERIMENT_GUIDE_HEADINGS))
+
+    def test_guide_questions_are_limited_and_have_suggestions(self):
+        items = numbered_items(section(read(EXPERIMENT_GUIDE), "## Câu hỏi bắt buộc"))
+        self.assertTrue(1 <= len(items) <= 7, f"{len(items)} câu")
+        for item in items:
+            self.assertIn("Gợi ý:", item)
+        quick = numbered_items(section(read(EXPERIMENT_GUIDE), "## Tạo nhanh"))
+        self.assertTrue(2 <= len(quick) <= 3, f"{len(quick)} câu")
+
+    def test_guide_examples_parse_against_the_real_models(self):
+        """Bài học từ gói đề thi: ngữ pháp trong hướng dẫn phải khớp parser thật, chứng minh bằng file mẫu."""
+        from thi_nghiem_parts import parse, thu_vien
+
+        body = section(read(EXPERIMENT_GUIDE), "## Cấu trúc thi-nghiem.md")
+        blocks = re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)
+        self.assertEqual(len(blocks), 3, "cần một ví dụ cho mỗi môn")
+        subjects = set()
+        for block in blocks:
+            meta = parse.read_meta(block)
+            model = thu_vien.load(meta["mau"], REPO_ROOT)
+            experiment = parse.parse_experiment(block, model.khai_bao)
+            self.assertEqual(experiment.warnings, [], meta["mau"])
+            subjects.add(model.khai_bao["mon"])
+        self.assertEqual(subjects, {"Toán", "Vật lí", "Hoá học"})
+
+    def test_guide_states_the_grammar_and_the_limits(self):
+        body = section(read(EXPERIMENT_GUIDE), "## Cấu trúc thi-nghiem.md")
+        for phrase in ("tieu-de", "nguoi-thao-tac", "sai-so", "co-dinh", "mac-dinh", "buoc", "chon", "so-lan-do",
+                       "do-thi", "theo", "ln(", "sqrt(", "goi-y-dap-an", "công thức của mẫu không còn đúng",
+                       "Không chèn địa chỉ web"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guide_names_outputs_and_forbids_hand_written_pages(self):
+        body = section(read(EXPERIMENT_GUIDE), "## Đầu ra")
+        for phrase in (EXPERIMENT_COMMAND, "thi-nghiem.html", "phieu-hoc-tap.docx", "can-soat.md", "mo-hinh.json",
+                       "mo-hinh.js", "Không viết file HTML bằng tay", "projects\\_thi-nghiem\\"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guide_skips_the_pptx_only_steps(self):
+        body = section(read(EXPERIMENT_GUIDE), "## Ghi vào brief")
+        for phrase in ("projects/_thi-nghiem/", "brief.md", "import-sources", "dòng chốt"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guides_have_no_markdown_links(self):
+        for name in (EXPERIMENT_GUIDE, MODEL_GUIDE):
+            self.assertEqual(LINK_RE.findall(read(name)), [], name)
+
+    def test_model_guide_lists_every_code_of_every_library_model(self):
+        from thi_nghiem_parts import thu_vien
+
+        text = read(MODEL_GUIDE)
+        self.assertEqual(len(thu_vien.list_models()), 8)
+        for ma in thu_vien.list_models():
+            model = thu_vien.load(ma, REPO_ROOT)
+            self.assertIn(f"### `{ma}`", text)
+            for item in model.khai_bao["thamSo"] + model.khai_bao["daiLuongDo"]:
+                self.assertIn(f"`{item['ma']}`", text, f"{ma}: {item['ma']}")
+            self.assertIn(model.khai_bao["congThuc"]["dieuKien"], text, ma)
+
+    def test_model_guide_example_follows_the_contract(self):
+        from thi_nghiem_parts import thu_vien
+
+        text = section(read(MODEL_GUIDE), "## Khuôn mô hình mới")
+        declaration = json.loads(re.search(r"```json\n(.*?)```", text, re.S).group(1))
+        code = re.search(r"```js\n(.*?)```", text, re.S).group(1)
+        self.assertEqual(thu_vien.check_declaration(declaration), [])
+        self.assertEqual(thu_vien.check_js(code, declaration["hoatHinh"]), [])
+
+    def test_model_guide_keeps_the_teacher_review_rule(self):
+        body = section(read(MODEL_GUIDE), "## Khi mô hình do AI viết")
+        for phrase in ("can-soat.md", "máy tính cầm tay", "không lược bỏ", "`check`", "`model`",
+                       "không bắt được lỗi hiểu sai kiến thức"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+
+class ExperimentWiringTest(unittest.TestCase):
+    def test_common_rules_table_lists_the_experiment_task(self):
+        body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
+        self.assertIn("thi-nghiem-ao.md", body)
+        for keyword in ("thí nghiệm ảo", "mô phỏng thí nghiệm"):
+            self.assertIn(keyword, body)
+        self.assertIn('Loại việc "Thí nghiệm ảo" không tạo PPTX', body)
+
+    def test_image_rule_does_not_apply_to_experiments(self):
+        self.assertIn("Thí nghiệm ảo", section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Ảnh minh hoạ"))
+
+    def test_agents_vi_section_explains_the_order_and_the_command(self):
+        text = read("AGENTS.vi.md")
+        self.assertIn(AGENTS_VI_EXPERIMENT_HEADING, h2_headings(text))
+        body = section(text, AGENTS_VI_EXPERIMENT_HEADING)
+        self.assertIn(EXPERIMENT_COMMAND, body)
+        for phrase in ("(docs/vi/tro-ly/thi-nghiem-ao.md)", "(docs/vi/tro-ly/mo-hinh-thi-nghiem.md)", "projects/_thi-nghiem/",
+                       "thi-nghiem.md", "--plan-only", "can-soat.md", "kiem_so", r"venv\Scripts\python.exe"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_agents_vi_section_maps_every_error_step(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXPERIMENT_HEADING)
+        for step in ("input", "parse", "model", "check", "docx", "write", "internal"):
+            self.assertIn(f"`{step}`", body)
+        self.assertIn("requirements-vi.txt", body)
+
+    def test_agents_vi_section_bans_shortcuts(self):
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXPERIMENT_HEADING)
+        for phrase in ("không viết file HTML bằng tay", "không bỏ bảng số kiểm", "không chèn thư viện", "project_manager.py init",
+                       "không chạm `skills/`", "không commit gì trong `projects/`"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_agents_vi_triggers_and_table_include_the_experiment_task(self):
+        text = read("AGENTS.vi.md")
+        self.assertIn('"thí nghiệm ảo"', section(text, "## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`"))
+        assistant = section(text, AGENTS_VI_ASSISTANT_HEADING)
+        self.assertIn("(docs/vi/tro-ly/thi-nghiem-ao.md)", assistant)
+        self.assertIn("mục 14", assistant)
+
+    def test_antigravity_rule_carries_the_experiment_rules(self):
+        rule = read(".agents/rules/ppt-master-vi.md")
+        for phrase in ("## Thí nghiệm ảo", "docs/vi/tro-ly/thi-nghiem-ao.md", r"tools\vi\thi_nghiem.py", "9 loại việc",
+                       "Không viết file HTML bằng tay", "can-soat.md"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, rule)
+        self.assertLessEqual(len(rule), ANTIGRAVITY_RULE_LIMIT)
+
+    def test_brief_template_lists_the_experiment_task(self):
+        self.assertIn("Thí nghiệm ảo", read("docs/vi/tro-ly/mau-brief.md"))
 
 
 if __name__ == "__main__":

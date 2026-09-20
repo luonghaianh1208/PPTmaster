@@ -15,7 +15,7 @@ File này bổ sung ngữ cảnh Việt Nam cho [AGENTS.md](AGENTS.md). Nó khô
 
 ## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`
 
-"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh", "soạn giáo án", "kế hoạch bài dạy", "KHBD".
+"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh", "soạn giáo án", "kế hoạch bài dạy", "KHBD", "thí nghiệm ảo", "mô phỏng thí nghiệm".
 
 Các cụm "tạo nhanh", "làm nhanh", "không cần hỏi lại" là yêu cầu Quick tường minh (với bài tạo mới thông thường là hồ sơ `workflows/profiles/quick-generate.md` của upstream). Việc chọn hồ sơ và các bước thực hiện vẫn theo đúng `SKILL.md`.
 
@@ -63,7 +63,7 @@ Sau khi xuất, cho người dùng biết đường dẫn file PPTX trong thư m
 
 ## 10. Hỗ trợ thầy cô trước khi làm bài
 
-Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 8 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
+Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 9 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
 
 | Loại việc | File hướng dẫn |
 |---|---|
@@ -75,11 +75,12 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 8 lo
 | Video bài giảng | [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md) |
 | Soạn đề KHTN tiếng Anh | [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) |
 | Soạn giáo án tích hợp năng lực số và AI | [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) |
+| Thí nghiệm ảo | [docs/vi/tro-ly/thi-nghiem-ao.md](docs/vi/tro-ly/thi-nghiem-ao.md) |
 
-- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12) hoặc "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13) — hai loại việc đó không có bước xác nhận của upstream, xem mục 12 và mục 13. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12), "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13) hoặc "Thí nghiệm ảo" (mục 14) — ba loại việc đó không có bước xác nhận của upstream, xem mục 12, mục 13 và mục 14. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
 - Hiệu ứng: làm theo mức trong brief và [docs/vi/tro-ly/hieu-ung-lop-hoc.md](docs/vi/tro-ly/hieu-ung-lop-hoc.md). Bài giảng, báo cáo, hoạt động Đoàn, tập huấn: sau khi xuất PPTX, chạy `tools\vi\kiem_hieu_ung.py <file.pptx> --muc <mức>`, sửa tối đa một lần rồi báo kết quả cho thầy cô.
 - Bài mới dạng PPTX (Bài giảng, Báo cáo – tổng kết, Hoạt động Đoàn – sự kiện, Poster/ấn phẩm Zalo – Facebook, Tập huấn/workshop) không làm toàn chữ: chọn nguồn ảnh cho từng trang theo mục "Ảnh minh hoạ" của `docs/vi/tro-ly/quy-trinh-hoi.md`, kể cả khi tạo nhanh.
-- Yêu cầu không thuộc 8 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
+- Yêu cầu không thuộc 9 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
 ## 11. Làm video bài giảng
 
@@ -156,3 +157,25 @@ Câu lệnh có chữ "giáo án" thì hỏi đúng một câu trước: "Thầy
 Với `trich-sgk`: `parse` là không tìm thấy bài (sửa `--bai` theo `error.fix`), `write` là thư mục của `--ra` không ghi được.
 
 Điều cấm: không sửa nội dung chuyên môn của thầy cô; không sửa file phân phối chương trình; không tự đặt mã; không in ghi chú nội bộ vào giáo án; không commit gì trong `projects/`; không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`.
+
+## 14. Làm thí nghiệm ảo
+
+Khi người dùng cần một thí nghiệm ảo hoặc mô phỏng tương tác cho Toán, Vật lí, Hoá học, đọc [docs/vi/tro-ly/thi-nghiem-ao.md](docs/vi/tro-ly/thi-nghiem-ao.md) và [docs/vi/tro-ly/mo-hinh-thi-nghiem.md](docs/vi/tro-ly/mo-hinh-thi-nghiem.md) rồi làm đúng thứ tự dưới. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây, không có thì dùng `python`.
+
+1. Hỏi một lượt theo file hướng dẫn, chờ trả lời. Chọn mẫu gần nhất trong danh mục; chỉ viết mô hình mới khi không mẫu nào dùng được, và nói trước với thầy cô rằng mô hình mới cần thầy cô soát công thức.
+2. Tạo `projects/_thi-nghiem/<tên_thí_nghiệm>/` và viết `thi-nghiem.md` theo đúng ngữ pháp trong file hướng dẫn. Mô hình mới thì đặt `mau: moi` và viết thêm `mo-hinh.json`, `mo-hinh.js` theo khuôn.
+3. Chạy `python tools\vi\thi_nghiem.py projects\_thi-nghiem\<tên_thí_nghiệm>`; thêm `--plan-only` khi chỉ muốn kiểm; thêm `--phan html` khi thầy cô không cần phiếu học tập.
+4. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn các file, mẫu đã dùng, tham số thay đổi được, số lần đo, kết quả `kiem_so` (đạt bao nhiêu trên bao nhiêu dòng, hoặc chưa chạy vì máy không có Node), đọc nguyên văn `warnings` và nội dung `can-soat.md`. Dặn thầy cô: mở `thi-nghiem.html` bằng trình duyệt là chạy, không cần mạng; muốn học sinh dùng điện thoại thì đưa file lên web.
+5. Thầy cô làm slide cho cùng bài: thêm trang nối sang thí nghiệm theo mục "Nối vào bài giảng" của file hướng dẫn.
+
+| `error.step` | Xử lý |
+|---|---|
+| `input` | Chưa có thư mục hoặc `thi-nghiem.md`, viết file rồi chạy lại. |
+| `parse` | Sửa đúng dòng `error.message` nêu rồi chạy lại. Khoảng tham số vượt khoảng của mẫu thì thu hẹp khoảng, không đổi mẫu. |
+| `model` | Mã mẫu không có, hoặc mô hình mới sai khuôn: sửa theo `error.message` và khuôn trong file hướng dẫn mô hình. |
+| `check` | Bảng số kiểm trượt: sửa hàm `tinh` của mô hình mới cho khớp bảng. Chỉ sửa bảng khi chính bảng sai, và khi đó nói rõ với thầy cô dòng nào đã sửa. |
+| `docx` | Có `venv\Scripts\python.exe` ở thư mục gốc repo thì chạy `venv\Scripts\python.exe -m pip install -r tools/vi/requirements-vi.txt`; không thì chạy `python -m pip install -r tools/vi/requirements-vi.txt`, rồi chạy lại, tối đa một lần. |
+| `write` | Xin thầy cô đóng file Word hoặc tab trình duyệt đang mở file cũ rồi chạy lại. |
+| `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
+
+Điều cấm: không viết file HTML bằng tay; không bỏ bảng số kiểm, công thức hay điều kiện áp dụng để qua được công cụ; không chèn thư viện, font hay địa chỉ web từ Internet; không sửa file trong `tools/vi/thi_nghiem_parts/`; không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`; không commit gì trong `projects/`.
