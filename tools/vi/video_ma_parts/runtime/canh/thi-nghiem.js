@@ -27,6 +27,20 @@
     return { tham: p, dai: root.THI_NGHIEM_MO_HINH.tinh(p) };
   }
 
+  function mocGanNhat(du, t) {
+    var m = du.danDau;
+    Object.keys(du.thamSo).forEach(function (ma) {
+      du.thamSo[ma].forEach(function (x) { if (x[0] <= t && x[0] > m) { m = x[0]; } });
+    });
+    return m;
+  }
+
+  // Mô hình chạy một lần (ném xiên, tốc độ phản ứng) chạy lại từ mốc tham-so gần nhất.
+  function thoiGianMoHinh(du, t) {
+    var goc = du.khaiBao.hoatHinh === 'mot-lan' ? mocGanNhat(du, t) : du.danDau;
+    return Math.max(0, t - goc);
+  }
+
   function soThapPhan(buoc) {
     var s = String(buoc);
     var i = s.indexOf('.');
@@ -37,6 +51,8 @@
   root.THI_CANH['thi-nghiem'] = {
     thamSoTai: thamSoTai,
     giaTri: giaTri,
+    mocGanNhat: mocGanNhat,
+    thoiGianMoHinh: thoiGianMoHinh,
     muc: function (du) {
       var B = V.tao(du);
       var kb = du.khaiBao;
@@ -69,7 +85,7 @@
       var g = giaTri(du, t);
       var ctx = goc.querySelector('#ban-ve').getContext('2d');
       ctx.clearRect(0, 0, RONG, CAO);
-      var tm = Math.max(0, t - du.danDau);
+      var tm = thoiGianMoHinh(du, t);
       if (typeof M.thoiLuong === 'function') { tm = Math.min(tm, M.thoiLuong(g.tham, g.dai)); }
       M.ve(ctx, g.tham, tm, { rong: RONG, cao: CAO }, g.dai);
       Object.keys(du.thamSo).slice(0, 3).forEach(function (ma, k) {

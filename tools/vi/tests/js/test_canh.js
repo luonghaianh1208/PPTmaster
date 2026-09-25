@@ -171,6 +171,22 @@ test('thi nghiem: so do la so cua tinh() cua mo hinh, o moi thoi diem', function
   assert.ok(Math.abs(T.giaTri(d, 3).dai['chu-ki'] - 2.007089923) < 5e-4);
 });
 
+test('thi nghiem: mo hinh mot-lan chay lai tu moc tham-so gan nhat, mo hinh khac tinh tu danDau', function () {
+  var T = C['thi-nghiem'];
+  var d = { danDau: 0.7, khaiBao: { hoatHinh: 'mot-lan' },
+    thamSo: { 'goc-nem': [[0, 30], [8, 60]], 'van-toc': [[12, 15]] } };
+  assert.strictEqual(T.mocGanNhat(d, 5), 0.7);
+  assert.strictEqual(T.mocGanNhat(d, 9), 8);
+  assert.strictEqual(T.mocGanNhat(d, 13), 12);
+  assert.ok(Math.abs(T.thoiGianMoHinh(d, 5) - 4.3) < 1e-9);
+  assert.strictEqual(T.thoiGianMoHinh(d, 8), 0);
+  assert.strictEqual(T.thoiGianMoHinh(d, 10), 2);
+  assert.strictEqual(T.thoiGianMoHinh(d, 14), 2);
+  assert.strictEqual(T.thoiGianMoHinh(d, 0.2), 0);
+  d.khaiBao.hoatHinh = 'lap';
+  assert.ok(Math.abs(T.thoiGianMoHinh(d, 14) - 13.3) < 1e-9);
+});
+
 test('thi nghiem: khong co dong chu nao bat dau tai t=0 ngoai dong so do', function () {
   var muc = C['thi-nghiem'].muc(tatCa(12)['thi-nghiem']);
   var dong = muc.filter(function (m) { return m.dong; });

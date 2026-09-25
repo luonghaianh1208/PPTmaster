@@ -190,6 +190,7 @@ Cách dùng `tham-so: <giây> <mã> <giá trị>`:
 - Trước mốc đầu, tham số giữ giá trị mặc định của mẫu; sau mốc cuối, giữ giá trị của mốc cuối. Tham số không có dòng nào thì giữ mặc định suốt cảnh.
 - Giá trị phải nằm trong khoảng cho phép của mẫu (sai là lỗi `parse` nêu đúng dòng). Chỉ dùng được tham số dạng số; tham số lựa chọn (ví dụ `loai-acid`, `kieu-mac`) giữ mặc định.
 - Mốc giây vượt thời lượng cảnh là lỗi `canh`. Thời lượng cảnh xấp xỉ thời gian đọc lời cộng khoảng 1,3 giây, nên đặt mốc cuối trước khi lời kết thúc.
+- Hai mẫu chạy một lần là `li-nem-xien` và `hoa-toc-do`: mỗi mốc `tham-so` (của bất kỳ tham số nào) làm chuyển động chạy lại từ đầu. Nên đặt mỗi mốc sau khi chuyển động trước đã dừng, để học sinh xem trọn một lần rồi mới thấy lần mới.
 
 Cách hiện: hình vẽ của mẫu chạy trong khung, tham số đổi dần theo các mốc, các đại lượng trong `do` hiện thành số bên cạnh và luôn khớp công thức của mẫu.
 
