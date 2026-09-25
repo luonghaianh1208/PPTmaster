@@ -52,6 +52,21 @@ def _jpeg(path: Path, width: int = 4, height: int = 3) -> None:
     )
 
 
+def _webp_vp8x(path: Path, width: int, height: int) -> None:
+    data = b"\x00\x00\x00\x00" + (width - 1).to_bytes(3, "little") + (height - 1).to_bytes(3, "little")
+    chunk = b"VP8X" + struct.pack("<I", len(data)) + data
+    payload = b"WEBP" + chunk
+    path.write_bytes(b"RIFF" + struct.pack("<I", len(payload)) + payload)
+
+
+def _webp_vp8l(path: Path, width: int, height: int) -> None:
+    bits = (width - 1) | ((height - 1) << 14)
+    data = b"\x2f" + struct.pack("<I", bits)
+    chunk = b"VP8L" + struct.pack("<I", len(data)) + data
+    payload = b"WEBP" + chunk
+    path.write_bytes(b"RIFF" + struct.pack("<I", len(payload)) + payload)
+
+
 class ChuanTenTest(unittest.TestCase):
     def test_strips_prefix_suffix_case_and_spaces(self):
         self.assertEqual(hinh.chuan_ten("  tabler-outline/Flask.svg  "), "flask")
@@ -200,6 +215,91 @@ class AnhDocTest(unittest.TestCase):
         _jpeg(self.thu_muc / "anh" / "x.jpg", 4, 3)
         info = anh.doc(self.thu_muc, "x.jpg", "nguồn")
         self.assertEqual((info["rong"], info["cao"]), (4, 3))
+
+
+class WebpDocTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.thu_muc = Path(self.tmp.name)
+        (self.thu_muc / "anh").mkdir()
+
+    def test_reads_vp8x_dimensions(self):
+        _webp_vp8x(self.thu_muc / "anh" / "x.webp", 5, 7)
+        info = anh.doc(self.thu_muc, "x.webp", "nguồn")
+        self.assertEqual((info["rong"], info["cao"]), (5, 7))
+        self.assertTrue(info["dataUrl"].startswith("data:image/webp;base64,"))
+
+    def test_reads_vp8l_dimensions(self):
+        _webp_vp8l(self.thu_muc / "anh" / "x.webp", 9, 2)
+        info = anh.doc(self.thu_muc, "x.webp", "nguồn")
+        self.assertEqual((info["rong"], info["cao"]), (9, 2))
+
+
+class DiacriticIconNameTest(unittest.TestCase):
+    def test_literal_vietnamese_name_is_a_canh_error_with_suggestions(self):
+        text = doc("## Cảnh 1\nloai: tieu-de\nchu: A\nhinh: bình thí nghiệm\nloi: Xin chào.\n")
+        with self.assertRaises(kiem.CanhError) as caught:
+            kiem.kiem(parse.parse(text), Path("."))
+        self.assertIn(f"dòng {line_of(text, 'bình thí nghiệm')}", str(caught.exception))
+
+    def test_hinh_doc_literal_vietnamese_name_raises_with_suggestions(self):
+        with self.assertRaises(hinh.HinhError) as caught:
+            hinh.doc("bình thí nghiệm")
+        self.assertIn("Có thể bạn muốn", str(caught.exception))
+
+
+class HinhPathEscapeTest(unittest.TestCase):
+    def test_rejects_absolute_windows_path(self):
+        with self.assertRaises(hinh.HinhError):
+            hinh.doc("C:/Windows/win.ini")
+
+    def test_rejects_dot_dot_traversal_reaching_a_real_file(self):
+        secret = hinh.THU_MUC.parent / "secret-icon.svg"
+        secret.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor">'
+            '<path d="M1 1 2 2" /></svg>',
+            encoding="utf-8",
+        )
+        self.addCleanup(secret.unlink)
+        with self.assertRaises(hinh.HinhError):
+            hinh.doc("../secret-icon")
+
+    def test_rejects_backslash_traversal(self):
+        with self.assertRaises(hinh.HinhError):
+            hinh.doc("..\\..\\windows\\win.ini")
+
+    def test_prefixed_svg_name_still_works(self):
+        self.assertEqual(hinh.doc("tabler-outline/flask.svg")["ten"], "flask")
+
+
+class AnhPathEscapeTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.thu_muc = Path(self.tmp.name)
+        (self.thu_muc / "anh").mkdir()
+
+    def test_rejects_absolute_windows_path(self):
+        with self.assertRaises(anh.AnhError):
+            anh.doc(self.thu_muc, "C:/Windows/win.ini", "nguồn")
+
+    def test_rejects_dot_dot_traversal_reaching_a_real_file(self):
+        secret = self.thu_muc / "secret.png"
+        _png(secret)
+        with self.assertRaises(anh.AnhError):
+            anh.doc(self.thu_muc, "../secret.png", "nguồn")
+
+    def test_rejects_backslash_traversal_reaching_a_real_file(self):
+        secret = self.thu_muc / "secret.png"
+        _png(secret)
+        with self.assertRaises(anh.AnhError):
+            anh.doc(self.thu_muc, "..\\secret.png", "nguồn")
+
+    def test_vietnamese_filename_with_spaces_still_works(self):
+        _png(self.thu_muc / "anh" / "ảnh con lắc.png")
+        info = anh.doc(self.thu_muc, "ảnh con lắc.png", "nguồn")
+        self.assertEqual((info["rong"], info["cao"]), (1, 1))
 
 
 class KiemAnhSceneTest(unittest.TestCase):

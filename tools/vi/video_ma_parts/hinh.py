@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -37,6 +38,20 @@ def _danh_sach() -> list:
     return sorted(p.stem for p in THU_MUC.glob("*.svg"))
 
 
+def _bo_dau(s: str) -> str:
+    s = s.replace("đ", "d").replace("Đ", "D")
+    s = unicodedata.normalize("NFD", s)
+    return "".join(c for c in s if unicodedata.category(c) != "Mn")
+
+
+def _hop_le(chuan: str) -> bool:
+    if not chuan or ".." in chuan or "/" in chuan or "\\" in chuan:
+        return False
+    if re.match(r"^[a-zA-Z]:", chuan):
+        return False
+    return True
+
+
 def tach_minh_hoa(value: str) -> tuple:
     if "|" not in value:
         raise HinhError(f"dòng `hinh` phải có dạng `tên | nhãn`; thiếu dấu `|` trong `{value}`")
@@ -52,9 +67,15 @@ def tach_minh_hoa(value: str) -> tuple:
 
 def doc(ten: str) -> dict:
     chuan = chuan_ten(ten)
-    duong_dan = THU_MUC / f"{chuan}.svg"
+    thong_bao_sai = f"`{ten}` không hợp lệ: `hinh` chỉ được là tên biểu tượng tabler-outline, không phải đường dẫn."
+    if not _hop_le(chuan):
+        raise HinhError(thong_bao_sai)
+    goc = THU_MUC.resolve()
+    duong_dan = (THU_MUC / f"{chuan}.svg").resolve()
+    if not duong_dan.is_relative_to(goc):
+        raise HinhError(thong_bao_sai)
     if not duong_dan.is_file():
-        goi_y = difflib.get_close_matches(chuan, _danh_sach(), n=_SO_GOI_Y, cutoff=_NGUONG_GOI_Y)
+        goi_y = difflib.get_close_matches(_bo_dau(chuan), _danh_sach(), n=_SO_GOI_Y, cutoff=_NGUONG_GOI_Y)
         thong_bao = f"không có biểu tượng `{ten}` trong thư viện tabler-outline"
         if goi_y:
             thong_bao += ". Có thể bạn muốn: " + ", ".join(goi_y)

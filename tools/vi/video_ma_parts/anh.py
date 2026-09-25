@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import struct
 from pathlib import Path
 
@@ -15,6 +16,14 @@ _SOF_MARKERS = (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD
 
 class AnhError(Exception):
     """Ảnh trong anh/ không đọc được, sai định dạng, quá lớn, hoặc chưa có nguồn."""
+
+
+def _hop_le(ten_file: str) -> bool:
+    if not ten_file or ".." in ten_file or "/" in ten_file or "\\" in ten_file:
+        return False
+    if re.match(r"^[a-zA-Z]:", ten_file):
+        return False
+    return True
 
 
 def _kich_thuoc_png(du_lieu: bytes) -> tuple:
@@ -91,10 +100,15 @@ def _nguon_tu_manifest(thu_muc_du_an: Path, ten_file: str) -> str:
 
 
 def doc(thu_muc_du_an: Path, ten_file: str, nguon_tay: str | None) -> dict:
+    if not _hop_le(ten_file):
+        raise AnhError(f"`{ten_file}` không hợp lệ: `anh` chỉ được là tên file nằm trong `anh/`, không phải đường dẫn.")
     duoi = Path(ten_file).suffix.lower()
     if duoi not in DINH_DANG:
         raise AnhError(f"`{ten_file}` không phải định dạng ảnh cho phép ({', '.join(DINH_DANG)})")
-    duong_dan = Path(thu_muc_du_an) / "anh" / ten_file
+    thu_muc_anh = (Path(thu_muc_du_an) / "anh").resolve()
+    duong_dan = (thu_muc_anh / ten_file).resolve()
+    if not duong_dan.is_relative_to(thu_muc_anh):
+        raise AnhError(f"`{ten_file}` không hợp lệ: `anh` chỉ được là tên file nằm trong `anh/`, không phải đường dẫn.")
     if not duong_dan.is_file():
         raise AnhError(f"không có file `anh/{ten_file}`")
     kich_thuoc_byte = duong_dan.stat().st_size
