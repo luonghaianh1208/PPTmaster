@@ -94,3 +94,21 @@ Các điểm còn để lại, không chặn phát hành:
 - Máy quay khá năng động: gần như mỗi dòng chữ ngắn đều được phóng tới 1,35 lần.
 - Cảnh thí nghiệm đẩy lên 1,06 lần quanh tâm, khung mô hình sát mép trái khoảng 4 px và mép dưới lấn nhẹ vào vùng phụ đề.
 - Trang cảnh có ảnh lớn nặng hơn (khoảng 3,3 MB với ảnh 2,4 MB) vì ảnh nhúng dạng `data:`.
+
+## 7. Sửa sau review toàn nhánh
+
+Review toàn nhánh vi.10. Mỗi mục sửa hành vi có test trượt trước khi sửa và đạt sau khi sửa; không nới test nào.
+
+- **Dòng nguồn đè chú thích và tiêu đề** (nghiêm trọng): quy tắc "khung hẹp hơn 600 px thì nguồn nằm dưới khung" (`f0af8074`) cũng chạy ở cảnh `anh` (đè ô chú thích y 575–625) và cảnh `tieu-de` (đè tiêu đề hai dòng). Nay bố cục gọi quyết định chỗ: cảnh `anh` trong góc dưới phải khung; cột phải dưới khung, trải trong bề rộng cột (x 900–1220), không lấn sang cột chữ; cảnh `tieu-de` bên phải khung. Test Chromium: 5 bố cục (anh, khai-niem, y-tung-y, cong-thuc, tieu-de) × ảnh 600×1200, 1000×1000, 2000×800 × dòng nguồn 61 ký tự × chữ dài tối đa: hộp `.nguon` không giao ô `.chu` nào, nằm trong 1280×720 và trên y = 620. `kiemTran` báo mục `nguon` khi dòng nguồn ra ngoài khung hoặc xuống dưới 620 (`f4bda329`).
+- **Ảnh JPEG xoay bằng Exif** bị bỏ qua: nay đọc thẻ Orientation (0x0112, cả II và MM) khi duyệt đoạn APP1; 5–8 đổi rộng/cao. Test JPEG dựng bằng byte và test Chromium: JPEG 400×300 kèm Orientation = 6 hiện 300×400, khung đúng tỉ lệ đó (`97bba19c`).
+- **`nguon:` ở bốn loại cảnh cột** (`tieu-de`, `khai-niem`, `cong-thuc`, `y-tung-y`) khi có `anh:`; `nguon:` không có `anh:` là lỗi `parse` đúng dòng (`97bba19c`).
+- `image_sources.json`: bỏ địa chỉ web khỏi dòng nguồn; file là danh sách, phần tử không phải bản ghi, hoặc không phải JSON là lỗi `canh` rõ ràng, không còn `internal`. Tên file NFD trên đĩa tìm được bằng tên NFC. Thêm test đầu WEBP VP8 (lossy) (`97bba19c`).
+- **Gợi ý tên biểu tượng tiếng Việt**: lỗi nói tên biểu tượng là tiếng Anh và chỉ tới "Bảng tra biểu tượng" trong `docs/vi/tro-ly/canh-video.md`; tên (bỏ dấu) được đối chiếu với cột khái niệm của bảng, đọc thẳng từ tài liệu (một nguồn duy nhất, test tài liệu kiểm `hinh.bang_tra()` khớp bảng), rồi mới tới tên tiếng Anh gần đúng; không bao giờ gợi ý `brand-*`. "nam châm" → `magnet`, "đồng hồ" → `clock` (`e8bd00b8`).
+- Chụp song song: dải đầu tiên hỏng thì huỷ các dải chưa chạy, dải đang chạy vẫn được chờ trước khi dọn; mỗi tiến trình chỉ nhận cảnh của dải mình và cảnh ngay trước (số thứ tự khung giữ nguyên); MediaError trong tiến trình con giữ `step` (Chromium không mở được báo `chromium`, không còn `dung`). Độ dài lau bảng lấy từ Python (`du.giayLauBang`), hằng số JS chỉ là mặc định cho test Node, có test nối hai bên. `-r` của FFmpeg theo FPS. Dọn: bỏ `ghi_log` chết và dòng thêm `sys.path` thừa trong `chup_dai` (test spawn vẫn đạt), đổi tên biến `anh` che module trong `video_ma._dung`, fixture JS `danDau` 1,0 (`0369140c`).
+- Tài liệu: hướng ảnh (`landscape` cho cảnh `anh`, `portrait` hoặc `square` cho cột phải) thống nhất giữa `AGENTS.vi.md` mục 15 và `canh-video.md`; luật Antigravity ghi "dựng mất khoảng 1,5 lần thời lượng video" (8.248 ký tự, bảng không đổi); `xu-ly-loi.md` và bảng lỗi mục 15: `dung` lúc chụp nêu cảnh, lúc ghép là thông báo của FFmpeg (`05656230`).
+
+Ba lần chạy test sau khi sửa:
+
+- `venv\Scripts\python.exe -m unittest discover -s tools/vi/tests`: **876 test, OK, bỏ qua 34**.
+- `C:/Users/ADMIN/vmt/v/Scripts/python.exe -m unittest discover -s tools/vi/tests -p "test_video_ma_*.py"`: **225 test, OK, 153,0 giây**.
+- `node --test tools/vi/tests/js/test_canh.js tools/vi/tests/js/test_chuyen_dong.js`: **41 test, pass 41, fail 0**.
