@@ -67,6 +67,28 @@ def _webp_vp8l(path: Path, width: int, height: int) -> None:
     path.write_bytes(b"RIFF" + struct.pack("<I", len(payload)) + payload)
 
 
+def _exif(orientation: int, thu_tu: bytes = b"II") -> bytes:
+    """Đoạn APP1 Exif chỉ có thẻ Orientation (0x0112), thứ tự byte II (little) hoặc MM (big)."""
+    f = "<" if thu_tu == b"II" else ">"
+    tiff = (thu_tu + struct.pack(f + "HI", 42, 8) + struct.pack(f + "H", 1)
+            + struct.pack(f + "HHIHH", 0x0112, 3, 1, orientation, 0) + struct.pack(f + "I", 0))
+    du = b"Exif\x00\x00" + tiff
+    return b"\xff\xe1" + struct.pack(">H", len(du) + 2) + du
+
+
+def _jpeg_byte(width: int, height: int, exif: bytes = b"") -> bytes:
+    """JPEG tự dựng bằng byte: SOI, (APP1 Exif), SOF0, EOI. Đủ để đọc kích thước, không giải mã được."""
+    sof = b"\xff\xc0" + struct.pack(">HBHHB", 11, 8, height, width, 1) + b"\x01\x11\x00"
+    return b"\xff\xd8" + exif + sof + b"\xff\xd9"
+
+
+def _webp_vp8(path: Path, width: int, height: int) -> None:
+    data = b"\x10\x02\x00" + b"\x9d\x01\x2a" + struct.pack("<HH", width, height) + b"\x00" * 4
+    chunk = b"VP8 " + struct.pack("<I", len(data)) + data
+    payload = b"WEBP" + chunk
+    path.write_bytes(b"RIFF" + struct.pack("<I", len(payload)) + payload)
+
+
 class ChuanTenTest(unittest.TestCase):
     def test_strips_prefix_suffix_case_and_spaces(self):
         self.assertEqual(hinh.chuan_ten("  tabler-outline/Flask.svg  "), "flask")
@@ -235,6 +257,100 @@ class WebpDocTest(unittest.TestCase):
         info = anh.doc(self.thu_muc, "x.webp", "nguồn")
         self.assertEqual((info["rong"], info["cao"]), (9, 2))
 
+    def test_reads_vp8_lossy_dimensions(self):
+        _webp_vp8(self.thu_muc / "anh" / "x.webp", 640, 427)
+        info = anh.doc(self.thu_muc, "x.webp", "nguồn")
+        self.assertEqual((info["rong"], info["cao"]), (640, 427))
+
+
+class JpegExifTest(unittest.TestCase):
+    """Ảnh điện thoại lưu điểm ảnh nằm ngang kèm thẻ Orientation; Chromium xoay theo thẻ nên khung phải xoay theo."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.thu_muc = Path(self.tmp.name)
+        (self.thu_muc / "anh").mkdir()
+
+    def kich(self, du_lieu: bytes) -> tuple:
+        (self.thu_muc / "anh" / "x.jpg").write_bytes(du_lieu)
+        info = anh.doc(self.thu_muc, "x.jpg", "nguồn")
+        return info["rong"], info["cao"]
+
+    def test_orientation_6_swaps_width_and_height(self):
+        self.assertEqual(self.kich(_jpeg_byte(400, 300, _exif(6))), (300, 400))
+
+    def test_orientation_5_to_8_swap_in_both_byte_orders(self):
+        for thu_tu in (b"II", b"MM"):
+            for huong in (5, 6, 7, 8):
+                with self.subTest(thu_tu=thu_tu, huong=huong):
+                    self.assertEqual(self.kich(_jpeg_byte(400, 300, _exif(huong, thu_tu))), (300, 400))
+
+    def test_orientation_1_to_4_and_no_exif_keep_the_size(self):
+        self.assertEqual(self.kich(_jpeg_byte(400, 300)), (400, 300))
+        for huong in (1, 2, 3, 4):
+            with self.subTest(huong=huong):
+                self.assertEqual(self.kich(_jpeg_byte(400, 300, _exif(huong, b"MM"))), (400, 300))
+
+    def test_broken_exif_is_ignored(self):
+        hong = b"\xff\xe1" + struct.pack(">H", 10) + b"Exif\x00\x00MM"
+        self.assertEqual(self.kich(_jpeg_byte(400, 300, hong)), (400, 300))
+
+
+class ManifestTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.thu_muc = Path(self.tmp.name)
+        (self.thu_muc / "anh").mkdir()
+        _png(self.thu_muc / "anh" / "x.png")
+        self.manifest = self.thu_muc / "anh" / "image_sources.json"
+
+    def test_web_addresses_are_stripped_from_the_credit(self):
+        self.manifest.write_text(json.dumps({"items": [{
+            "filename": "x.png", "author": "Nguyễn Văn A (https://example.org/u/a)",
+            "license_name": "CC BY 4.0", "provider": "www.flickr.com/photos/x"}]}), encoding="utf-8")
+        self.assertEqual(anh.doc(self.thu_muc, "x.png", None)["nguon"], "Ảnh: Nguyễn Văn A · CC BY 4.0")
+
+    def test_manifest_that_is_a_list_is_an_anh_error(self):
+        self.manifest.write_text(json.dumps([{"filename": "x.png", "author": "A"}]), encoding="utf-8")
+        with self.assertRaises(anh.AnhError) as caught:
+            anh.doc(self.thu_muc, "x.png", None)
+        self.assertIn("image_sources.json", str(caught.exception))
+
+    def test_manifest_with_non_dict_items_is_an_anh_error(self):
+        for items in (["x.png"], "x.png", [None]):
+            with self.subTest(items=items):
+                self.manifest.write_text(json.dumps({"items": items}), encoding="utf-8")
+                with self.assertRaises(anh.AnhError) as caught:
+                    anh.doc(self.thu_muc, "x.png", None)
+                self.assertIn("image_sources.json", str(caught.exception))
+
+    def test_manifest_that_is_not_json_is_an_anh_error(self):
+        self.manifest.write_text("{items: [", encoding="utf-8")
+        with self.assertRaises(anh.AnhError) as caught:
+            anh.doc(self.thu_muc, "x.png", None)
+        self.assertIn("image_sources.json", str(caught.exception))
+
+    def test_malformed_manifest_through_the_tool_is_a_canh_error_not_internal(self):
+        self.manifest.write_text(json.dumps([1, 2]), encoding="utf-8")
+        text = doc("## Cảnh 1\nloai: anh\nanh: x.png\nchu-thich: Chú thích\nloi: Xin chào.\n")
+        with self.assertRaises(kiem.CanhError):
+            kiem.kiem(parse.parse(text), self.thu_muc)
+
+
+class TenFileUnicodeTest(unittest.TestCase):
+    def test_nfd_file_on_disk_is_found_by_its_nfc_name(self):
+        import unicodedata
+
+        with tempfile.TemporaryDirectory() as tmp:
+            thu_muc = Path(tmp)
+            (thu_muc / "anh").mkdir()
+            nfd = unicodedata.normalize("NFD", "đồng hồ quả lắc.png")
+            _png(thu_muc / "anh" / nfd, 3, 2)
+            info = anh.doc(thu_muc, unicodedata.normalize("NFC", "đồng hồ quả lắc.png"), "nguồn")
+            self.assertEqual((info["rong"], info["cao"]), (3, 2))
+
 
 class DiacriticIconNameTest(unittest.TestCase):
     def test_literal_vietnamese_name_is_a_canh_error_with_suggestions(self):
@@ -318,6 +434,25 @@ class KiemAnhSceneTest(unittest.TestCase):
         text = doc("## Cảnh 1\nloai: anh\nanh: x.png\nchu-thich: Chú thích\nloi: Xin chào.\n")
         with self.assertRaises(kiem.CanhError):
             kiem.kiem(parse.parse(text), self.thu_muc)
+
+    def test_column_scenes_accept_a_hand_written_source_with_a_photo(self):
+        dau = {"tieu-de": "chu: A\n", "khai-niem": "thuat-ngu: A\ndinh-nghia: B\n",
+               "cong-thuc": "bieu-thuc: a = b\n", "y-tung-y": "tieu-de: A\ny: B\n"}
+        for loai, truong in dau.items():
+            with self.subTest(loai=loai):
+                text = doc(f"## Cảnh 1\nloai: {loai}\n{truong}anh: x.png\nnguon: Ảnh: cô Lan chụp\nloi: Xin chào.\n")
+                video = parse.parse(text)
+                self.assertEqual(video.canh[0].truong["nguon"], ["Ảnh: cô Lan chụp"])
+                self.assertEqual(kiem.kiem(video, self.thu_muc), [])
+
+    def test_source_without_a_photo_is_a_parse_error_on_its_line(self):
+        for loai, truong in (("tieu-de", "chu: A\n"), ("y-tung-y", "tieu-de: A\ny: B\nhinh: flask\n")):
+            with self.subTest(loai=loai):
+                text = doc(f"## Cảnh 1\nloai: {loai}\n{truong}nguon: Ảnh: cô Lan chụp\nloi: Xin chào.\n")
+                with self.assertRaises(parse.ParseError) as caught:
+                    parse.parse(text)
+                self.assertEqual(caught.exception.line_no, line_of(text, "nguon:"))
+                self.assertIn("`anh`", caught.exception.message)
 
 
 if __name__ == "__main__":

@@ -22,10 +22,10 @@ META_DEFAULTS = {
 
 # loại cảnh -> (trường đơn bắt buộc, trường đơn tuỳ chọn, trường lặp {khoá: (tối thiểu, tối đa)})
 SCENE_SPEC = {
-    "tieu-de": (("chu",), ("phu", "hinh", "anh"), {}),
-    "khai-niem": (("thuat-ngu", "dinh-nghia"), ("hinh", "anh"), {}),
-    "cong-thuc": (("bieu-thuc",), ("hinh", "anh"), {"giai-thich": (0, 4)}),
-    "y-tung-y": (("tieu-de",), ("hinh", "anh"), {"y": (1, 6)}),
+    "tieu-de": (("chu",), ("phu", "hinh", "anh", "nguon"), {}),
+    "khai-niem": (("thuat-ngu", "dinh-nghia"), ("hinh", "anh", "nguon"), {}),
+    "cong-thuc": (("bieu-thuc",), ("hinh", "anh", "nguon"), {"giai-thich": (0, 4)}),
+    "y-tung-y": (("tieu-de",), ("hinh", "anh", "nguon"), {"y": (1, 6)}),
     "quy-trinh": (("tieu-de",), (), {"buoc": (2, 5)}),
     "so-sanh": (("tieu-de", "trai", "phai"), (), {"y-trai": (1, 4), "y-phai": (1, 4)}),
     "do-thi": (("tieu-de", "truc-ngang", "truc-doc"), (), {"diem": (2, 12)}),
@@ -139,6 +139,9 @@ def _finish(so: int, dong0: int, fields: list) -> Scene:
     if "hinh" in truong and "anh" in truong:
         dong_sau = max(dong_truong["hinh"][0], dong_truong["anh"][0])
         raise ParseError(dong_sau, f"Cảnh {so} chỉ được có `hinh` hoặc `anh`, không cả hai.")
+    if "nguon" in truong and "anh" not in truong:
+        raise ParseError(dong_truong["nguon"][0],
+                         f"`nguon` chỉ dùng kèm `anh` (dòng nguồn của ảnh thật); Cảnh {so} chưa có `anh`.")
     for value, no in zip(truong.get("diem", []), dong_truong.get("diem", [])):
         if _POINT_RE.match(value) is None:
             raise ParseError(no, "Điểm đồ thị phải có dạng `x, y` (hai số, dấu thập phân là dấu chấm).")

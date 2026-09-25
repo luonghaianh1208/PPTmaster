@@ -6,12 +6,15 @@ import base64
 import json
 import re
 import struct
+import unicodedata
 from pathlib import Path
 
 DINH_DANG = (".jpg", ".jpeg", ".png", ".webp")
 TOI_DA = 8 * 1024 * 1024
 _MIME = {".jpg": "jpeg", ".jpeg": "jpeg", ".png": "png", ".webp": "webp"}
 _SOF_MARKERS = (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF)
+_URL_RE = re.compile(r"(?:https?://|www\.)[^\s)\]]*", re.IGNORECASE)
+_NGOAC_RONG_RE = re.compile(r"\(\s*\)|\[\s*\]")
 
 
 class AnhError(Exception):
@@ -31,7 +34,30 @@ def _kich_thuoc_png(du_lieu: bytes) -> tuple:
     return rong, cao
 
 
+def _huong_exif(doan: bytes) -> int:
+    """Thẻ Orientation (0x0112) trong IFD0 của một đoạn APP1 Exif; 1 khi không có hoặc hỏng."""
+    if not doan.startswith(b"Exif\x00\x00") or len(doan) < 14:
+        return 1
+    tiff = doan[6:]
+    thu_tu = {b"II": "<", b"MM": ">"}.get(tiff[:2])
+    if thu_tu is None:
+        return 1
+    try:
+        ifd = struct.unpack(thu_tu + "I", tiff[4:8])[0]
+        so_the = struct.unpack(thu_tu + "H", tiff[ifd:ifd + 2])[0]
+        for k in range(so_the):
+            o = ifd + 2 + 12 * k
+            the, kieu = struct.unpack(thu_tu + "HH", tiff[o:o + 4])
+            if the == 0x0112 and kieu == 3:
+                return struct.unpack(thu_tu + "H", tiff[o + 8:o + 10])[0]
+    except struct.error:
+        return 1
+    return 1
+
+
 def _kich_thuoc_jpeg(du_lieu: bytes) -> tuple:
+    """Kích thước hiển thị: đổi rộng/cao khi thẻ Exif Orientation là 5–8 (Chromium xoay ảnh theo thẻ này)."""
+    huong = 1
     i = 2
     n = len(du_lieu)
     while i + 3 < n:
@@ -45,9 +71,11 @@ def _kich_thuoc_jpeg(du_lieu: bytes) -> tuple:
         if marker == 0xD9:
             break
         do_dai = struct.unpack(">H", du_lieu[i + 2:i + 4])[0]
+        if marker == 0xE1 and huong == 1:
+            huong = _huong_exif(du_lieu[i + 4:i + 2 + do_dai])
         if marker in _SOF_MARKERS:
             cao, rong = struct.unpack(">HH", du_lieu[i + 5:i + 9])
-            return rong, cao
+            return (cao, rong) if 5 <= huong <= 8 else (rong, cao)
         i += 2 + do_dai
     raise struct.error("không thấy đoạn SOF")
 
@@ -81,22 +109,46 @@ def _kich_thuoc(duoi: str, du_lieu: bytes, ten_file: str) -> tuple:
         raise AnhError(f"không đọc được kích thước `anh/{ten_file}` (file hỏng?)") from exc
 
 
+def _bo_dia_chi_web(chu) -> str:
+    chu = _NGOAC_RONG_RE.sub("", _URL_RE.sub("", str(chu or "")))
+    return " ".join(chu.split()).strip(" -–·,;:/")
+
+
 def _nguon_tu_manifest(thu_muc_du_an: Path, ten_file: str) -> str:
     manifest = Path(thu_muc_du_an) / "anh" / "image_sources.json"
     if not manifest.is_file():
         return ""
+    sai = '`anh/image_sources.json` sai cấu trúc: cần dạng {"items": [{"filename": ..., "author": ..., ...}]}'
     try:
-        du_lieu = json.loads(manifest.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return ""
-    for muc in du_lieu.get("items", []):
+        du_lieu = json.loads(manifest.read_text(encoding="utf-8-sig"))
+    except OSError as exc:
+        raise AnhError(f"không đọc được `anh/image_sources.json`: {exc}") from exc
+    except ValueError as exc:
+        raise AnhError(f"`anh/image_sources.json` không phải JSON hợp lệ ({exc})") from exc
+    if not isinstance(du_lieu, dict) or not isinstance(du_lieu.get("items", []), list):
+        raise AnhError(sai)
+    cac_muc = du_lieu.get("items", [])
+    if not all(isinstance(muc, dict) for muc in cac_muc):
+        raise AnhError(sai + "; mỗi phần tử của `items` phải là một bản ghi {...}")
+    for muc in cac_muc:
         if muc.get("filename") == ten_file:
-            phan = [muc.get("author") or "", muc.get("license_name") or muc.get("license") or "", muc.get("provider") or ""]
-            phan = [p for p in phan if p]
+            phan = [muc.get("author"), muc.get("license_name") or muc.get("license"), muc.get("provider")]
+            phan = [p for p in (_bo_dia_chi_web(p) for p in phan) if p]
             if not phan:
                 return ""
             return "Ảnh: " + " · ".join(phan)
     return ""
+
+
+def _tim_theo_nfc(thu_muc_anh: Path, ten_file: str):
+    """Tên có dấu có thể được lưu dạng NFD (chép từ máy Mac) trong khi video.md viết dạng NFC, hoặc ngược lại."""
+    muon = unicodedata.normalize("NFC", ten_file)
+    if not thu_muc_anh.is_dir():
+        return None
+    for p in thu_muc_anh.iterdir():
+        if p.is_file() and unicodedata.normalize("NFC", p.name) == muon:
+            return p
+    return None
 
 
 def doc(thu_muc_du_an: Path, ten_file: str, nguon_tay: str | None) -> dict:
@@ -109,6 +161,8 @@ def doc(thu_muc_du_an: Path, ten_file: str, nguon_tay: str | None) -> dict:
     duong_dan = (thu_muc_anh / ten_file).resolve()
     if not duong_dan.is_relative_to(thu_muc_anh):
         raise AnhError(f"`{ten_file}` không hợp lệ: `anh` chỉ được là tên file nằm trong `anh/`, không phải đường dẫn.")
+    if not duong_dan.is_file():
+        duong_dan = _tim_theo_nfc(thu_muc_anh, ten_file) or duong_dan
     if not duong_dan.is_file():
         raise AnhError(f"không có file `anh/{ten_file}`")
     kich_thuoc_byte = duong_dan.stat().st_size

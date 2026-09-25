@@ -437,6 +437,36 @@ class PictureMotionChromiumTest(unittest.TestCase):
                         giao = n["l"] < c["r"] and c["l"] < n["r"] and n["t"] < c["b"] and c["t"] < n["b"]
                         self.assertFalse(giao, f"dòng nguồn đè lên ô chữ `{c['id']}`: {n} / {c}")
 
+    def test_rotated_phone_photo_gets_a_frame_of_its_displayed_shape(self):
+        # JPEG 400×300 điểm ảnh kèm Exif Orientation = 6: Chromium hiện ảnh dọc 300×400, khung phải dọc theo.
+        import base64
+        import struct
+
+        from video_ma_parts import anh
+
+        self.page.set_content("<!doctype html><html><body></body></html>")
+        url = self.page.evaluate("""() => { const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+            const g = c.getContext('2d'); g.fillStyle = '#c85a3c'; g.fillRect(0, 0, 400, 300);
+            g.fillStyle = '#3c78c8'; g.fillRect(0, 0, 400, 100); return c.toDataURL('image/jpeg', 0.9); }""")
+        goc = base64.b64decode(url.split(",", 1)[1])
+        tiff = (b"II" + struct.pack("<HI", 42, 8) + struct.pack("<H", 1)
+                + struct.pack("<HHIHH", 0x0112, 3, 1, 6, 0) + struct.pack("<I", 0))
+        exif = b"\xff\xe1" + struct.pack(">H", len(tiff) + 8) + b"Exif\x00\x00" + tiff
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "anh").mkdir()
+            (Path(tmp) / "anh" / "x.jpg").write_bytes(goc[:2] + exif + goc[2:])
+            info = anh.doc(Path(tmp), "x.jpg", "Ảnh tự chụp")
+        self.assertEqual((info["rong"], info["cao"]), (300, 400))
+        du = du_hinh(f"loai: anh\nanh: x.jpg\nchu-thich: {vi_text(40)}\nnguon: Tôi\n", {"anh": info})
+        du["co"].update(mayQuay=False, banTay=False)
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.page.evaluate("window.datThoiDiem(window.THI_VIDEO.thoiDiemCuoi())")
+        r = self.page.evaluate("""() => { const i = document.querySelector('.anh img');
+            const b = document.querySelector('.anh').getBoundingClientRect();
+            return {nw: i.naturalWidth, nh: i.naturalHeight, w: b.width, h: b.height}; }""")
+        self.assertEqual((r["nw"], r["nh"]), (300, 400), "Chromium hiện ảnh theo thẻ Orientation")
+        self.assertAlmostEqual(r["w"] / r["h"], r["nw"] / r["nh"], delta=0.01)
+
     def test_kiem_tran_reports_a_source_line_below_the_subtitle_line(self):
         du = du_hinh("loai: y-tung-y\ntieu-de: T\ny: Một\nanh: a.png\n",
                      {"anh": {**anh_gia(600, 1200), "nguon": "Ảnh: " + vi_text(400)}})
