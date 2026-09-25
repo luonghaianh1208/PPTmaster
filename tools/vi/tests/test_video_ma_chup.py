@@ -246,6 +246,24 @@ class ChromiumTest(unittest.TestCase):
         cuoi = self.page.evaluate("document.querySelector('[data-id=do-0]').textContent")
         self.assertIn("2,539", cuoi)
 
+    def test_experiment_canvas_writes_vietnamese_in_itim(self):
+        # "Số dao động: 3" vẽ trên canvas của mô hình cũng phải là Itim, không phải Segoe UI.
+        from thi_nghiem_parts import thu_vien
+
+        for mau, ts in (("li-con-lac-don", "chieu-dai 0.4"), ("li-nem-xien", None)):
+            with self.subTest(mau=mau):
+                model = thu_vien.load(mau, Path("."))
+                them = f"tham-so: 0 {ts}\n" if ts else ""
+                text = f"---\n{META}---\n\n## Cảnh 1\nloai: thi-nghiem\nmau: {mau}\n{them}loi: Ok.\n"
+                canh = parse.parse(text).canh[0]
+                giong = lich.GiongInfo(mp3=None, giay=4.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
+                plan, _ = lich.dung_lich([canh], [giong])
+                chup.mo_trang(self.page, trang.dung_trang(lich.du_lieu_canh(canh, plan[0], model), model))
+                self.page.evaluate("window.datThoiDiem(3)")
+                phong = self.page.evaluate("document.getElementById('ban-ve').getContext('2d').font")
+                self.assertIn("Itim", phong)
+                self.assertNotIn("Segoe", phong)
+
     def test_preview_shows_the_scene_at_its_final_parameter_value(self):
         from thi_nghiem_parts import thu_vien
 

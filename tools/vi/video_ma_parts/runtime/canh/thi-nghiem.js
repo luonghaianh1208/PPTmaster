@@ -69,6 +69,8 @@
       return kq;
     },
     dung: function (goc) {
+      // Chữ mô hình vẽ trên canvas (ví dụ "Số dao động") cũng dùng Itim như cả khung hình; chỉ đổi trong trang video.
+      root.THI_NGHIEM_KHUNG.PHONG = "'Itim', sans-serif";
       var c = document.createElement('canvas');
       c.id = 'ban-ve';
       c.width = RONG;
