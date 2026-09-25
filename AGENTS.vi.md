@@ -189,7 +189,7 @@ Khi người dùng cần một video giải thích bài học từ nội dung ch
 
 1. Hỏi một lượt theo file hướng dẫn, chờ trả lời.
 2. Tạo `projects/_video/<tên_video>/` và viết `video.md` theo đúng ngữ pháp trong file hướng dẫn; thầy cô đưa file giọng thu sẵn thì đặt vào `giong/canh-N.mp3` của thư mục đó (đè lên giọng máy cũ cũng được: công cụ vẫn nhận ra file thầy cô dù `giong/canh-N.json` còn đó, và không bao giờ ghi đè nó; xoá file `.json` đó cũng không sao).
-3. Thầy cô đồng ý dùng ảnh thật thì tải từng ảnh trước khi kiểm: `python skills\ppt-master\scripts\image_search.py "<từ khoá tiếng Anh>" --filename <tên>.jpg --orientation landscape -o projects\_video\<tên_video>\anh` (chỉ chạy, không sửa gì trong `skills/`), rồi mở `anh\.review\<tên>.jpg` xem ảnh có đúng nội dung không. Ảnh gốc quá 8 MB thì dùng bản thu nhỏ trong `anh\.review\` theo mục "Ảnh thật" của file danh mục cảnh.
+3. Thầy cô đồng ý dùng ảnh thật thì tải từng ảnh trước khi kiểm: `python skills\ppt-master\scripts\image_search.py "<từ khoá tiếng Anh>" --filename <tên>.jpg --orientation landscape -o projects\_video\<tên_video>\anh` (`landscape` cho cảnh `anh`; ảnh ở cột phải dùng `--orientation portrait` hoặc `square`; chỉ chạy, không sửa gì trong `skills/`), rồi mở `anh\.review\<tên>.jpg` xem ảnh có đúng nội dung không. Ảnh gốc quá 8 MB thì dùng bản thu nhỏ trong `anh\.review\` theo mục "Ảnh thật" của file danh mục cảnh.
 4. Chạy `python tools\vi\video_ma.py projects\_video\<tên_video> --plan-only`, rồi chạy lại với `--xem-truoc` và mở xem ảnh từng cảnh trong `xem-truoc/`; chữ chồng lên nhau hay tràn khung thì sửa nội dung `video.md` và dựng thử lại. Video có ảnh thật thì `--xem-truoc` là bắt buộc: gửi thầy cô xem các cảnh có ảnh thật cùng dòng nguồn, chờ thầy cô đồng ý rồi mới dựng thật.
 5. Báo trước thầy cô một dòng rằng dựng video mất khoảng 1,5 lần thời lượng video (video 5 phút khoảng 7–8 phút trên máy 6 lõi, khoảng 11 phút trên máy 2–3 lõi, chưa kể tạo giọng), rồi chạy `python tools\vi\video_ma.py projects\_video\<tên_video>`.
 6. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn `video.mp4`, thời lượng, nguồn giọng (`giong`), nơi để phụ đề, và đọc nguyên văn `warnings`. `error` khác `null` thì xử lý theo `error.step` ở bảng dưới.
@@ -202,7 +202,7 @@ Khi người dùng cần một video giải thích bài học từ nội dung ch
 | `giong` | Giọng máy edge-tts lỗi, thường do mất mạng: kiểm mạng rồi chạy lại, tối đa một lần; hoặc đặt sẵn `giong/canh-N.mp3` do thầy cô đưa. |
 | `chromium` | Hỏi thầy cô trước rồi chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium`, vì bước này tải khoảng 150–300 MB. |
 | `ffmpeg` | Cài FFmpeg theo mục "Công cụ tuỳ chọn" của [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md) rồi chạy lại. |
-| `dung` | Chụp khung hoặc ghép hỏng: báo nguyên `error.message` cho thầy cô, không tự sửa. |
+| `dung` | Chụp khung hỏng (`error.message` nêu cảnh) hoặc ghép hỏng (`error.message` là thông báo của FFmpeg): báo nguyên `error.message` cho thầy cô, không tự sửa. |
 | `write` | Xin thầy cô đóng `video.md` hoặc `video.mp4` đang mở, kiểm ổ đĩa còn chỗ, rồi chạy lại. |
 | `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
 

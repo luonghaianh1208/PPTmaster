@@ -29,7 +29,7 @@ Dựng thật mất khoảng 1,5 lần thời lượng video trên máy 6 lõi: 
 ## Hình và ảnh
 
 - **Hình vẽ nét** lấy từ bộ biểu tượng có sẵn trong bộ công cụ, không cần mạng. AI tự chọn hình theo nội dung bài.
-- **Ảnh chụp thật** do AI tải từ kho ảnh mở (Openverse, Wikimedia), không cần khoá. Mỗi ảnh luôn có dòng ghi tác giả và giấy phép ở góc. Thầy cô muốn dùng ảnh tự chụp thì gửi file cho AI và cho biết ai chụp.
+- **Ảnh chụp thật** do AI tải từ kho ảnh mở (Openverse, Wikimedia), không cần khoá. Mỗi ảnh luôn có dòng ghi tác giả và giấy phép cạnh ảnh, không đè lên chữ. Thầy cô muốn dùng ảnh tự chụp thì gửi file cho AI và cho biết ai chụp; ảnh điện thoại chụp dọc vẫn hiện đúng chiều.
 - Muốn video bớt chuyển động: nhờ AI tắt bàn tay, tắt máy quay hoặc tắt lau bảng; mỗi thứ tắt riêng được.
 - Chữ trên hình và phụ đề dùng font Itim (giấy phép mở SIL OFL 1.1) đi kèm bộ công cụ, đủ mọi chữ có dấu, máy nào cũng hiện giống nhau; không cần cài font.
 

@@ -8,9 +8,9 @@ Quy ước chung:
 - Trường lặp viết nhiều dòng cùng khoá, theo đúng thứ tự muốn hiện.
 - Cảnh có danh sách: ý thứ k hiện khi câu thứ k của `loi` bắt đầu; lời ít câu hơn số ý thì các ý hiện đều nhau theo thời lượng giọng.
 - Không chèn địa chỉ web vào bất kỳ trường nào.
-- Bốn loại `tieu-de`, `khai-niem`, `cong-thuc`, `y-tung-y` có thêm trường tuỳ chọn `hinh` (tên một biểu tượng `tabler-outline`, ví dụ `hinh: flask`) hoặc `anh` (tên file trong `anh/`, ví dụ `anh: con-lac.jpg`); một cảnh chỉ được có một trong hai, không cả hai (có cả hai là lỗi `parse`).
+- Bốn loại `tieu-de`, `khai-niem`, `cong-thuc`, `y-tung-y` có thêm trường tuỳ chọn `hinh` (tên một biểu tượng `tabler-outline`, ví dụ `hinh: flask`) hoặc `anh` (tên file trong `anh/`, ví dụ `anh: con-lac.jpg`); một cảnh chỉ được có một trong hai, không cả hai (có cả hai là lỗi `parse`). Cảnh có `anh` ghi thêm được `nguon` (dòng nguồn của ảnh); `nguon` mà không có `anh` là lỗi `parse`.
 - Cảnh `tieu-de` có hình: hình 180×180 được vẽ dần ở giữa phía trên, rồi tiêu đề viết bên dưới. Ba loại còn lại: hình hoặc ảnh nằm ở cột phải, chữ thu hẹp về bên trái; giới hạn ký tự giữ nguyên, chữ dài thì cỡ chữ nhỏ lại một chút và công cụ vẫn bắt lỗi tràn khung.
-- Tên biểu tượng là tiếng Anh, không có tiền tố thư viện: tra ở mục "Bảng tra biểu tượng" cuối file. Viết `tabler-outline/flask`, `Flask` hay `flask.svg` vẫn được nhận; tên sai hay tên tiếng Việt là lỗi `canh` kèm tối đa 5 tên gần đúng.
+- Tên biểu tượng là tiếng Anh, không có tiền tố thư viện: tra ở mục "Bảng tra biểu tượng" cuối file. Viết `tabler-outline/flask`, `Flask` hay `flask.svg` vẫn được nhận; tên sai hay tên tiếng Việt là lỗi `canh`: lỗi nhắc tên phải là tiếng Anh, chỉ tới bảng tra, và gợi ý tối đa 5 tên (tên tiếng Việt được đối chiếu với cột khái niệm của bảng tra trước; không bao giờ gợi ý biểu tượng thương hiệu `brand-*`).
 - Ảnh thật do AI tải về `anh/` của thư mục video bằng `image_search.py` trước khi dựng: xem mục "Ảnh thật".
 - Mỗi hình được vẽ dần từng nét như bút vẽ trên bảng; bàn tay cầm bút đi theo nét và chữ đang viết, máy quay phóng vào phần đang nói rồi thu về toàn cảnh trước khi hết cảnh. Tắt được bằng khoá đầu `ban-tay`, `may-quay`, `chuyen-canh` (xem `docs/vi/tro-ly/video-giai-thich.md`).
 
@@ -24,6 +24,7 @@ Mã loại: `tieu-de`.
 | `phu` | không | 90 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline` |
 | `anh` | không | tên file trong `anh/` |
+| `nguon` | không | dòng nguồn của ảnh ở `anh`; chỉ ghi khi cảnh có `anh` |
 
 Cách hiện: chữ lớn được viết ra giữa khung, dòng phụ hiện bên dưới. Dùng cho cảnh mở đầu hoặc mở một phần mới.
 
@@ -45,6 +46,7 @@ Mã loại: `khai-niem`.
 | `dinh-nghia` | có | 220 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline` |
 | `anh` | không | tên file trong `anh/` |
+| `nguon` | không | dòng nguồn của ảnh ở `anh`; chỉ ghi khi cảnh có `anh` |
 
 Cách hiện: khung được vẽ nét, thuật ngữ rồi định nghĩa được viết vào trong khung.
 
@@ -66,6 +68,7 @@ Mã loại: `cong-thuc`.
 | `giai-thich` | lặp 0–4 dòng | mỗi dòng 60 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline` |
 | `anh` | không | tên file trong `anh/` |
+| `nguon` | không | dòng nguồn của ảnh ở `anh`; chỉ ghi khi cảnh có `anh` |
 
 Cách hiện: biểu thức được viết dần, các dòng giải thích hiện lần lượt theo từng câu của lời.
 
@@ -88,6 +91,7 @@ Mã loại: `y-tung-y`.
 | `y` | lặp 1–6 dòng | mỗi ý 60 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline` |
 | `anh` | không | tên file trong `anh/` |
+| `nguon` | không | dòng nguồn của ảnh ở `anh`; chỉ ghi khi cảnh có `anh` |
 
 Cách hiện: tiêu đề viết trước, mỗi ý được viết ra khi lời nói tới.
 
@@ -248,7 +252,7 @@ Mã loại: `anh`.
 | `chu-thich` | có | 90 ký tự |
 | `nguon` | không | dòng ghi nguồn; không ghi thì lấy từ bản ghi cùng tên trong `anh/image_sources.json` (tải bằng `image_search.py`); không có nguồn nào là lỗi `canh` |
 
-Cách hiện: ảnh hiện trong khung vẽ tay, vừa khung và không méo (ảnh dọc hay ngang đều được), phóng hoặc lướt chậm suốt cảnh; dòng nguồn nhỏ ở góc dưới; chú thích được viết dưới ảnh, chữ dài thì cỡ chữ nhỏ lại. Ảnh ở cột phải của bốn loại cảnh trên thì dòng nguồn nằm ngay dưới khung ảnh.
+Cách hiện: ảnh hiện trong khung vẽ tay, vừa khung và không méo (ảnh dọc hay ngang đều được; ảnh điện thoại chụp dọc hiện đúng chiều theo thông tin xoay trong file), phóng hoặc lướt chậm suốt cảnh; dòng nguồn nhỏ ở góc dưới bên phải, trong khung ảnh; chú thích được viết dưới ảnh, chữ dài thì cỡ chữ nhỏ lại. Ảnh ở cột phải của ba loại `khai-niem`, `cong-thuc`, `y-tung-y` thì dòng nguồn nằm ngay dưới khung ảnh, trong bề rộng cột; ảnh ở cảnh `tieu-de` thì dòng nguồn nằm bên phải khung ảnh. Dòng nguồn không bao giờ đè lên chữ và luôn nằm trên vùng phụ đề; dòng nguồn quá dài thì công cụ báo lỗi tràn khung ở mục `nguon`.
 
 ```
 ## Cảnh 10
@@ -258,9 +262,9 @@ chu-thich: Con lắc Foucault ở Paris
 loi: Đây là con lắc Foucault, dài 67 mét, dao động rất chậm.
 ```
 
-Trường `nguon` chỉ có ở loại cảnh `anh`. Ảnh ở trường `anh:` của bốn loại cảnh kia luôn lấy nguồn từ `anh/image_sources.json`.
+Trường `nguon` có ở loại cảnh `anh` và ở bốn loại cảnh kia khi cảnh có `anh:`. Không ghi `nguon:` thì công cụ lấy nguồn từ `anh/image_sources.json` (bỏ mọi địa chỉ web trong bản ghi); file đó sai cấu trúc là lỗi `canh`.
 
-Ảnh thầy cô tự chụp: chép file vào `anh/`. Ở cảnh `anh`, ghi `nguon:` trong cảnh, ví dụ `nguon: Ảnh: cô Lan chụp`. Ở cột phải của bốn loại cảnh kia, thêm vào danh sách `items` của `anh/image_sources.json` (chưa có file thì tạo) một bản ghi dạng `{"filename": "<tên file>", "author": "cô Lan", "license_name": "Ảnh tự chụp", "provider": "Trường THPT ..."}`.
+Ảnh thầy cô tự chụp: chép file vào `anh/`, rồi ghi `nguon:` trong cảnh có ảnh đó, ví dụ `nguon: Ảnh: cô Lan chụp`. Cũng được: thêm vào danh sách `items` của `anh/image_sources.json` (chưa có file thì tạo) một bản ghi dạng `{"filename": "<tên file>", "author": "cô Lan", "license_name": "Ảnh tự chụp", "provider": "Trường THPT ..."}`.
 
 Tải ảnh từ kho ảnh mở (Openverse, Wikimedia, không cần khoá), mỗi ảnh một lệnh, sau khi thầy cô đã duyệt danh sách cảnh:
 
@@ -268,7 +272,7 @@ Tải ảnh từ kho ảnh mở (Openverse, Wikimedia, không cần khoá), mỗ
 python skills\ppt-master\scripts\image_search.py "Foucault pendulum" --filename con-lac-foucault.jpg --orientation landscape -o projects\_video\<tên_video>\anh
 ```
 
-- Từ khoá viết bằng tiếng Anh, cụ thể (tên sự vật, địa danh); `--orientation` là `landscape` cho cảnh `anh`, `portrait` cho ảnh ở cột phải.
+- Từ khoá viết bằng tiếng Anh, cụ thể (tên sự vật, địa danh); `--orientation` là `landscape` cho cảnh `anh`; ảnh ở cột phải dùng `portrait` hoặc `square`.
 - Lệnh ghi ảnh vào `anh/` và thêm bản ghi tác giả, giấy phép vào `anh/image_sources.json`; công cụ dựng lấy dòng nguồn từ đó nên không cần ghi `nguon:`.
 - Lệnh còn ghi một bản thu nhỏ để xem vào `anh/.review/<tên>.jpg` (cạnh dài 1024 px). Mở bản này xem ảnh có đúng nội dung không; sai thì tải lại với từ khoá khác.
 - Ảnh gốc nặng quá 8 MB là lỗi `canh`. Khi đó chép `anh/.review/<tên>.jpg` đè lên file gốc cùng tên (tên gốc có đuôi `.jpg`); tên gốc có đuôi khác thì chép bản thu nhỏ thành `anh/<tên>.jpg`, sửa dòng `anh:` theo tên mới, và thêm vào `items` của `anh/image_sources.json` một bản ghi chép nguyên bản ghi của file gốc, chỉ đổi `filename` thành tên mới. Không có bản `.review` thì chọn ảnh khác.

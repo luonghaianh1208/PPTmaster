@@ -92,14 +92,15 @@ Xem dòng kết quả AI đọc được, phần `error`:
 - `input`: chưa có thư mục video hoặc file `video.md`. Nhờ AI viết file theo docs/vi/tro-ly/video-giai-thich.md rồi chạy lại.
 - `parse`: `error.message` nêu đúng số **Dòng** trong `video.md` cần sửa, ví dụ thiếu `loai:` hay `loi:`, cảnh đánh số không liên tiếp, hoặc có địa chỉ web.
 - `canh`: nội dung một cảnh không vừa khung. `error.message` nêu số cảnh: chữ dài quá giới hạn, **chữ tràn khung** khi dựng thử, mã thí nghiệm không có trong danh mục, hoặc mốc thời gian của thí nghiệm dài hơn lời đọc. AI rút gọn chữ hoặc tách thành hai cảnh; lời giảng và số liệu của thầy cô giữ nguyên. Lỗi `canh` về hình và ảnh:
-  - **tên biểu tượng không có**: lỗi kèm tối đa 5 tên gần đúng; AI chọn một tên trong đó hoặc tra bảng biểu tượng.
+  - **tên biểu tượng không có**: tên biểu tượng phải là tiếng Anh; lỗi chỉ tới bảng tra biểu tượng và gợi ý tối đa 5 tên (tên tiếng Việt được đối chiếu với bảng tra). AI chọn một tên trong đó hoặc tra bảng.
   - **ảnh nặng quá 8 MB**: AI dùng bản thu nhỏ mà lệnh tải ảnh để sẵn trong `anh\.review\`.
   - **ảnh chưa có nguồn**: ảnh thầy cô tự chụp cần ghi ai chụp; ảnh tải về thì AI tải lại để có bản ghi nguồn.
+  - **`anh\image_sources.json` sai cấu trúc** hoặc không phải JSON: AI sửa file theo dạng nêu trong thông báo.
   - **thiếu file ảnh** hoặc sai định dạng: chỉ nhận `.jpg`, `.jpeg`, `.png`, `.webp` đặt trong thư mục `anh\` của video.
 - `giong`: không tạo được giọng đọc. Giọng máy **cần mạng**: kiểm tra mạng rồi nhờ AI chạy lại. Không có mạng thì thu giọng từng cảnh thành `giong\canh-1.mp3`, `giong\canh-2.mp3`… trong thư mục video; cảnh có file sẵn không cần mạng.
 - `chromium`: máy chưa có Chromium để vẽ cảnh. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB, một lần). Bước cài `playwright` báo `FileNotFoundError` hay lỗi đường dẫn thì xem mục **Đường dẫn quá dài**.
 - `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
-- `dung`: chụp khung hoặc ghép video hỏng giữa chừng. `error.message` nêu số cảnh đang chụp khi hỏng. Dán nguyên dòng `error.message` gửi người bảo trì.
+- `dung`: chụp khung hoặc ghép video hỏng giữa chừng. Hỏng lúc chụp khung thì `error.message` nêu cảnh (hoặc dải cảnh) đang chụp; hỏng lúc ghép thì `error.message` là thông báo lỗi của FFmpeg. Dán nguyên dòng `error.message` gửi người bảo trì.
 - `write`: **`video.mp4` đang mở** trong trình phát video — đóng lại rồi chạy lại; hoặc ổ đĩa hết dung lượng (khung hình tạm được ghi ra đĩa trong lúc dựng).
 - `internal`: lỗi ngoài dự kiến. Dán nguyên dòng `error.message` gửi người bảo trì.
 
