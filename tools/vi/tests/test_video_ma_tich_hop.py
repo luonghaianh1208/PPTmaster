@@ -74,7 +74,7 @@ class EndToEndTest(unittest.TestCase):
         return thu_muc, code, json.loads(lines[0])
 
     def test_builds_a_playable_video_in_a_hard_folder_name(self):
-        thu_muc, code, data = self.dung("Bài 5 – Sulfur dioxide (thử)", "hinh")
+        thu_muc, code, data = self.dung("Bài 5 – Sulfur dioxide (thử) 'a' 50%", "hinh")
         self.assertEqual(code, 0, data)
         self.assertTrue(data["ready"], data)
         self.assertEqual(data["giong"], "co-san")
