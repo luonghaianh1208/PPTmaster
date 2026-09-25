@@ -634,9 +634,16 @@ class ParallelCaptureChromiumTest(unittest.TestCase):
         self.assertIn("cảnh 2", caught.exception.message)
 
 
-def _dia_day(cong_viec):
-    """Thay `_chup_dai_con` trong tiến trình con: giả ổ đĩa đầy khi ghi khung."""
+def _chup_canh_day_dia(page, html, so_khung, fps, thu_muc, so_dau, ghi_log=None):
     raise OSError(28, "No space left on device")
+
+
+def _dia_day(cong_viec):
+    """Thay `_chup_dai_con` trong tiến trình con: chạy `chup_dai` thật, trình duyệt giả, ổ đĩa đầy khi ghi khung."""
+    with mock.patch.object(chup, "trinh_duyet", CaptureBookkeepingTest.trinh_duyet_gia), \
+            mock.patch.object(chup, "chup_canh", _chup_canh_day_dia), \
+            mock.patch.object(trang, "dung_trang", lambda du, model=None: "<html></html>"):
+        return chup._chup_dai_con(cong_viec)
 
 
 class CaptureBookkeepingTest(unittest.TestCase):
@@ -679,12 +686,26 @@ class CaptureBookkeepingTest(unittest.TestCase):
     def test_disk_error_while_writing_frames_is_a_write_error(self):
         cac_du, so_khung = ba_canh_ngan()
         with tempfile.TemporaryDirectory() as tmp, \
-                mock.patch.object(chup, "chup_dai", side_effect=OSError(28, "No space left on device")), \
+                mock.patch.object(chup, "trinh_duyet", self.trinh_duyet_gia), \
+                mock.patch.object(chup, "chup_canh", _chup_canh_day_dia), \
+                mock.patch.object(trang, "dung_trang", lambda du, model=None: "<html></html>"), \
+                contextlib.redirect_stderr(io.StringIO()), \
                 self.assertRaises(chup.MediaError) as caught:
             chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 1)
         self.assertEqual(caught.exception.step, "write")
         self.assertIn("ổ đĩa", caught.exception.fix)
         self.assertIn("No space left", caught.exception.message)
+
+    def test_missing_scene_file_is_still_a_dung_error(self):
+        # Đọc file mã cảnh (OSError) không phải lỗi ghi khung: vẫn là `dung`.
+        cac_du, so_khung = ba_canh_ngan()
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(chup, "trinh_duyet", self.trinh_duyet_gia), \
+                mock.patch.object(trang, "dung_trang", side_effect=FileNotFoundError(2, "no such file")), \
+                contextlib.redirect_stderr(io.StringIO()), \
+                self.assertRaises(chup.MediaError) as caught:
+            chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 1)
+        self.assertEqual(caught.exception.step, "dung")
 
     def test_disk_error_in_a_child_process_is_a_write_error(self):
         cac_du, so_khung = ba_canh_ngan()

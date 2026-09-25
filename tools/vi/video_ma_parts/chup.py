@@ -22,6 +22,10 @@ FIX_GHI = "Kiểm tra ổ đĩa còn chỗ trống, đóng các file đang mở 
 VIEWPORT = {"width": 1280, "height": 720}
 
 
+class GhiKhungLoi(Exception):
+    """OSError khi ghi hoặc đọc lại khung PNG (đầy ổ, bị khoá). Qua được pickle từ tiến trình con."""
+
+
 def _mo(p):
     try:
         return p.chromium.launch(args=["--no-sandbox"])
@@ -144,12 +148,16 @@ def chup_dai(cong_viec: dict) -> int:
             cac_du[dau]["nenTruoc"] = _data_url(page.screenshot(type="png"))
         for k in range(dau, cuoi):
             print(f"Chụp cảnh {cac_du[k]['so']} ({so_khung[k]} khung)...", file=sys.stderr, flush=True)
-            chup_canh(page, html(k), so_khung[k], fps, thu_muc, khung_dau[k])
-            da_ghi += so_khung[k]
-            cac_du[k]["nenTruoc"] = None  # nền data: của cảnh đã chụp xong không cần giữ nữa
-            if k + 1 < cuoi and can_nen(k + 1):
-                cuoi_k = thu_muc / f"f{khung_dau[k] + so_khung[k] - 1:06d}.png"
-                cac_du[k + 1]["nenTruoc"] = _data_url(cuoi_k.read_bytes())
+            trang_k = html(k)
+            try:
+                chup_canh(page, trang_k, so_khung[k], fps, thu_muc, khung_dau[k])
+                da_ghi += so_khung[k]
+                cac_du[k]["nenTruoc"] = None  # nền data: của cảnh đã chụp xong không cần giữ nữa
+                if k + 1 < cuoi and can_nen(k + 1):
+                    cuoi_k = thu_muc / f"f{khung_dau[k] + so_khung[k] - 1:06d}.png"
+                    cac_du[k + 1]["nenTruoc"] = _data_url(cuoi_k.read_bytes())
+            except OSError as exc:
+                raise GhiKhungLoi(str(exc)) from None
     return da_ghi
 
 
@@ -164,7 +172,7 @@ def _chup_dai_con(cong_viec: dict) -> int:
 def _loi_dai(cac_du: list, dau: int, cuoi: int, exc: BaseException) -> MediaError:
     a, b = cac_du[dau]["so"], cac_du[cuoi - 1]["so"]
     canh = f"cảnh {a}" if a == b else f"cảnh {a}–{b}"
-    if isinstance(exc, OSError):
+    if isinstance(exc, GhiKhungLoi):
         return MediaError("write", f"Không ghi được khung hình ở {canh}: {exc}", FIX_GHI)
     return MediaError("dung", f"Chụp khung lỗi ở {canh}: {type(exc).__name__}: {exc}", FIX_DUNG)
 
