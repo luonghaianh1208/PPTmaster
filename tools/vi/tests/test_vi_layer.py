@@ -161,7 +161,7 @@ class EditorWiringTest(unittest.TestCase):
 
     def test_antigravity_rule_task_table_matches_common_rules(self):
         common = task_table_rows(read("docs/vi/tro-ly/quy-trinh-hoi.md"))
-        self.assertEqual(len(common), 9)
+        self.assertEqual(len(common), 10)
         self.assertEqual(task_table_rows(read(".agents/rules/ppt-master-vi.md")), common)
 
     def test_rule_files_tracked_by_git(self):
@@ -485,13 +485,14 @@ AGENTS_VI_ASSISTANT_HEADING = "## 10. Hỗ trợ thầy cô trước khi làm b�
 
 
 class TeacherAssistantWiringTest(unittest.TestCase):
-    def test_agents_vi_keeps_the_five_task_sections_last_in_order(self):
+    def test_agents_vi_keeps_the_six_task_sections_last_in_order(self):
         headings = h2_headings(read("AGENTS.vi.md"))
-        self.assertEqual(headings[-5], AGENTS_VI_ASSISTANT_HEADING)
-        self.assertEqual(headings[-4], AGENTS_VI_VIDEO_HEADING)
-        self.assertEqual(headings[-3], AGENTS_VI_EXAM_HEADING)
-        self.assertEqual(headings[-2], AGENTS_VI_LESSON_HEADING)
-        self.assertEqual(headings[-1], AGENTS_VI_EXPERIMENT_HEADING)
+        self.assertEqual(headings[-6], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(headings[-5], AGENTS_VI_VIDEO_HEADING)
+        self.assertEqual(headings[-4], AGENTS_VI_EXAM_HEADING)
+        self.assertEqual(headings[-3], AGENTS_VI_LESSON_HEADING)
+        self.assertEqual(headings[-2], AGENTS_VI_EXPERIMENT_HEADING)
+        self.assertEqual(headings[-1], AGENTS_VI_EXPLAINER_HEADING)
 
     def test_assistant_section_links_common_rules_and_all_guides(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
@@ -640,7 +641,7 @@ class SelfInstallGuideTest(unittest.TestCase):
         body = section(text, AGENTS_VI_ENV_HEADING)
         for phrase in ("(docs/vi/cai-dat-bang-ai.md)", "doctor.py --no-smoke --json", "trước lệnh Python đầu tiên của repo", "KIEM-TRA.bat", "Công cụ tuỳ chọn"):
             self.assertIn(phrase, body)
-        self.assertEqual(h2_headings(text)[-5], AGENTS_VI_ASSISTANT_HEADING)
+        self.assertEqual(h2_headings(text)[-6], AGENTS_VI_ASSISTANT_HEADING)
 
     def test_agents_vi_environment_section_checks_before_intake_and_has_safety_net(self):
         body = section(read("AGENTS.vi.md"), AGENTS_VI_ENV_HEADING)
@@ -761,12 +762,12 @@ class VideoGuideTest(unittest.TestCase):
 
     def test_task_type_count_matches_the_table(self):
         agents_vi_body = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
-        self.assertIn("9 loại", agents_vi_body)
-        for stale in ("5 loại", "6 loại", "7 loại", "8 loại"):
+        self.assertIn("10 loại", agents_vi_body)
+        for stale in ("5 loại", "6 loại", "7 loại", "8 loại", "9 loại"):
             self.assertNotIn(stale, agents_vi_body)
         quy_trinh_body = section(read("docs/vi/tro-ly/quy-trinh-hoi.md"), "## Khi nào áp dụng")
-        self.assertIn("9 loại", quy_trinh_body)
-        for stale in ("5 loại", "6 loại", "7 loại", "8 loại"):
+        self.assertIn("10 loại", quy_trinh_body)
+        for stale in ("5 loại", "6 loại", "7 loại", "8 loại", "9 loại"):
             self.assertNotIn(stale, quy_trinh_body)
 
 
@@ -1474,7 +1475,7 @@ class ExperimentWiringTest(unittest.TestCase):
 
     def test_antigravity_rule_carries_the_experiment_rules(self):
         rule = read(".agents/rules/ppt-master-vi.md")
-        for phrase in ("## Thí nghiệm ảo", "docs/vi/tro-ly/thi-nghiem-ao.md", r"tools\vi\thi_nghiem.py", "9 loại việc",
+        for phrase in ("## Thí nghiệm ảo", "docs/vi/tro-ly/thi-nghiem-ao.md", r"tools\vi\thi_nghiem.py", "10 loại việc",
                        "Không viết file HTML bằng tay", "can-soat.md"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, rule)
@@ -1526,6 +1527,102 @@ class ExperimentUserDocsTest(unittest.TestCase):
         readme = read("README.md")
         self.assertIn("thí nghiệm ảo", section(readme, "## Làm được gì"))
         self.assertIn("(docs/vi/thi-nghiem-ao.md)", section(readme, "## Tài liệu"))
+
+
+AGENTS_VI_EXPLAINER_HEADING = "## 15. Làm video giải thích"
+EXPLAINER_GUIDE = "docs/vi/tro-ly/video-giai-thich.md"
+SCENE_GUIDE = "docs/vi/tro-ly/canh-video.md"
+EXPLAINER_COMMAND = r"python tools\vi\video_ma.py"
+EXPLAINER_GUIDE_HEADINGS = (
+    "## Khi nào dùng",
+    "## Câu hỏi bắt buộc",
+    "## Câu hỏi tuỳ chọn",
+    "## Tạo nhanh",
+    "## Cấu trúc video.md",
+    "## Đầu ra",
+    "## Ghi vào brief",
+)
+
+
+class ExplainerVideoGuideTest(unittest.TestCase):
+    def test_guide_has_its_own_sections_in_order(self):
+        self.assertEqual(h2_headings(read(EXPLAINER_GUIDE)), list(EXPLAINER_GUIDE_HEADINGS))
+
+    def test_guide_questions_are_limited_and_have_suggestions(self):
+        items = numbered_items(section(read(EXPLAINER_GUIDE), "## Câu hỏi bắt buộc"))
+        self.assertTrue(1 <= len(items) <= 7, f"{len(items)} câu")
+        for item in items:
+            self.assertIn("Gợi ý:", item)
+        quick = numbered_items(section(read(EXPLAINER_GUIDE), "## Tạo nhanh"))
+        self.assertTrue(2 <= len(quick) <= 3, f"{len(quick)} câu")
+
+    def test_guide_example_parses_with_the_real_reader(self):
+        from video_ma_parts import kiem, parse
+
+        body = section(read(EXPLAINER_GUIDE), "## Cấu trúc video.md")
+        blocks = re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)
+        self.assertGreaterEqual(len(blocks), 1)
+        for block in blocks:
+            video = parse.parse(block)
+            self.assertEqual(kiem.kiem(video, REPO_ROOT), [])
+
+    def test_scene_guide_lists_every_scene_type_and_field(self):
+        from video_ma_parts import parse
+
+        text = read(SCENE_GUIDE)
+        for loai, (required, optional, repeated) in parse.SCENE_SPEC.items():
+            self.assertIn(f"`{loai}`", text)
+            for key in (*required, *optional, *repeated):
+                with self.subTest(loai=loai, key=key):
+                    self.assertIn(f"`{key}`", text)
+        for phrase in ("li-con-lac-don", "hoa-chuan-do", "toan-ham-so", "tham-so", "Không chèn địa chỉ web"):
+            self.assertIn(phrase, text)
+
+    def test_guide_states_the_grammar_and_limits(self):
+        body = section(read(EXPLAINER_GUIDE), "## Cấu trúc video.md")
+        for phrase in ("tieu-de", "mon", "lop", "phong-cach", "giong", "toc-do", "phu-de", "## Cảnh", "loai:", "loi:",
+                       "canh-1.mp3", "Không chèn địa chỉ web", "H~2~SO~4~"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guide_names_outputs_and_forbids_hand_editing_frames(self):
+        body = section(read(EXPLAINER_GUIDE), "## Đầu ra")
+        for phrase in (EXPLAINER_COMMAND, "video.mp4", "phu-de.srt", "xem-truoc", "--xem-truoc", "--plan-only",
+                       "projects\\_video\\", "Không tự chạy FFmpeg", "Không viết HTML"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guide_skips_the_pptx_only_steps(self):
+        body = section(read(EXPLAINER_GUIDE), "## Ghi vào brief")
+        for phrase in ("projects/_video/", "brief.md", "import-sources", "dòng chốt"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_guides_have_no_markdown_links(self):
+        for name in (EXPLAINER_GUIDE, SCENE_GUIDE):
+            self.assertEqual(LINK_RE.findall(read(name)), [], name)
+
+    def test_agents_vi_section_15_is_last_and_routes_the_word_video(self):
+        headings = h2_headings(read("AGENTS.vi.md"))
+        self.assertEqual(headings[-1], AGENTS_VI_EXPLAINER_HEADING)
+        body = section(read("AGENTS.vi.md"), AGENTS_VI_EXPLAINER_HEADING)
+        for phrase in (f"({EXPLAINER_GUIDE})", f"({SCENE_GUIDE})", EXPLAINER_COMMAND, "--plan-only", "--xem-truoc",
+                       "`ready`", "error.step", "Không chạy `project_manager.py init`", "không tạo SVG", "không chạm `skills/`",
+                       "không commit gì trong `projects/`", "Không tự cài phần mềm", "chromium", "edge-tts"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+        for step in ("input", "parse", "canh", "giong", "chromium", "ffmpeg", "dung", "write", "internal"):
+            self.assertIn(f"| `{step}` |", body)
+        assistant = section(read("AGENTS.vi.md"), AGENTS_VI_ASSISTANT_HEADING)
+        for phrase in ("video giải thích", "video viết tay", "video whiteboard", "Thầy cô muốn làm video từ bài giảng slide đã có"):
+            self.assertIn(phrase, read("AGENTS.vi.md"))
+
+    def test_rule_file_carries_the_gate_inline_and_stays_under_the_cap(self):
+        rule = read(".agents/rules/ppt-master-vi.md")
+        self.assertLess(len(rule), 12000)
+        for phrase in ("10 loại", "Video giải thích", "video_ma.py", "Thầy cô muốn làm video từ bài giảng slide đã có"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, rule)
 
 
 if __name__ == "__main__":

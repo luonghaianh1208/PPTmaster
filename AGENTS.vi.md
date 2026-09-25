@@ -15,7 +15,7 @@ File này bổ sung ngữ cảnh Việt Nam cho [AGENTS.md](AGENTS.md). Nó khô
 
 ## 3. Câu lệnh tiếng Việt kích hoạt skill `ppt-master`
 
-"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh", "soạn giáo án", "kế hoạch bài dạy", "KHBD", "thí nghiệm ảo", "mô phỏng thí nghiệm".
+"tạo PPT", "làm slide", "làm bài giảng", "tạo bài thuyết trình", "làm poster", "làm báo cáo", "thêm thuyết minh", "làm đẹp slide", "làm video bài giảng", "lồng tiếng", "xuất video", "soạn đề", "làm đề kiểm tra", "đề tiếng Anh", "soạn giáo án", "kế hoạch bài dạy", "KHBD", "thí nghiệm ảo", "mô phỏng thí nghiệm", "video giải thích", "video viết tay", "video whiteboard", "video hoạt hình chữ".
 
 Các cụm "tạo nhanh", "làm nhanh", "không cần hỏi lại" là yêu cầu Quick tường minh (với bài tạo mới thông thường là hồ sơ `workflows/profiles/quick-generate.md` của upstream). Việc chọn hồ sơ và các bước thực hiện vẫn theo đúng `SKILL.md`.
 
@@ -63,7 +63,7 @@ Sau khi xuất, cho người dùng biết đường dẫn file PPTX trong thư m
 
 ## 10. Hỗ trợ thầy cô trước khi làm bài
 
-Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 9 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
+Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 10 loại việc dưới đây, đọc [docs/vi/tro-ly/quy-trinh-hoi.md](docs/vi/tro-ly/quy-trinh-hoi.md) trước, rồi đọc file của loại việc đó. Hỏi thầy cô một lượt và chờ trả lời trước khi khởi tạo dự án.
 
 | Loại việc | File hướng dẫn |
 |---|---|
@@ -76,13 +76,16 @@ Khi người dùng viết tiếng Việt và yêu cầu thuộc một trong 9 lo
 | Soạn đề KHTN tiếng Anh | [docs/vi/tro-ly/de-khtn-tieng-anh.md](docs/vi/tro-ly/de-khtn-tieng-anh.md) |
 | Soạn giáo án tích hợp năng lực số và AI | [docs/vi/tro-ly/giao-an.md](docs/vi/tro-ly/giao-an.md) |
 | Thí nghiệm ảo | [docs/vi/tro-ly/thi-nghiem-ao.md](docs/vi/tro-ly/thi-nghiem-ao.md) |
+| Video giải thích dựng bằng mã | [docs/vi/tro-ly/video-giai-thich.md](docs/vi/tro-ly/video-giai-thich.md) |
 
-- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12), "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13) hoặc "Thí nghiệm ảo" (mục 14) — ba loại việc đó không có bước xác nhận của upstream, xem mục 12, mục 13 và mục 14. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
+- `SKILL.md` vẫn được ưu tiên. Lượt hỏi này chỉ tạo thêm tài liệu nguồn; bước xác nhận của upstream vẫn bắt buộc, trừ khi người dùng yêu cầu tạo nhanh (xem mục 3) hoặc thuộc loại việc "Soạn đề KHTN tiếng Anh" (mục 12), "Soạn giáo án tích hợp năng lực số và năng lực AI" (mục 13), "Thí nghiệm ảo" (mục 14) hoặc "Video giải thích" (mục 15) — bốn loại việc đó không có bước xác nhận của upstream, xem mục 12, mục 13, mục 14 và mục 15. Khi tạo nhanh, kể cả với "không cần hỏi lại", vẫn đọc `docs/vi/tro-ly/quy-trinh-hoi.md` và làm theo mục "Tạo nhanh" của file đó: có thể không hỏi câu nào, nhưng vẫn ghi brief.
 - Hiệu ứng: làm theo mức trong brief và [docs/vi/tro-ly/hieu-ung-lop-hoc.md](docs/vi/tro-ly/hieu-ung-lop-hoc.md). Bài giảng, báo cáo, hoạt động Đoàn, tập huấn: sau khi xuất PPTX, chạy `tools\vi\kiem_hieu_ung.py <file.pptx> --muc <mức>`, sửa tối đa một lần rồi báo kết quả cho thầy cô.
 - Bài mới dạng PPTX (Bài giảng, Báo cáo – tổng kết, Hoạt động Đoàn – sự kiện, Poster/ấn phẩm Zalo – Facebook, Tập huấn/workshop) không làm toàn chữ: chọn nguồn ảnh cho từng trang theo mục "Ảnh minh hoạ" của `docs/vi/tro-ly/quy-trinh-hoi.md`, kể cả khi tạo nhanh.
-- Yêu cầu không thuộc 9 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
+- Yêu cầu không thuộc 10 loại (bối cảnh trường học hay Đoàn một mình không đủ để xếp loại), hoặc người dùng không viết tiếng Việt: làm theo `SKILL.md` như bình thường, không tìm hồ sơ đơn vị và không dùng bộ câu hỏi Việt.
 
 ## 11. Làm video bài giảng
+
+Câu chỉ có "làm video" hoặc "xuất video" (không nói rõ từ slide hay video giải thích): hỏi đúng một câu "Thầy cô muốn làm video từ bài giảng slide đã có, hay dựng video giải thích mới từ nội dung chữ?". Trả lời slide thì làm theo mục này; trả lời video mới thì làm theo mục 15.
 
 Khi người dùng yêu cầu làm video từ một bài giảng đã có, đọc [docs/vi/tro-ly/video-bai-giang.md](docs/vi/tro-ly/video-bai-giang.md), hỏi một lượt theo file đó, rồi làm đúng thứ tự sau. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây, không có thì dùng `python`.
 
@@ -179,3 +182,35 @@ Khi người dùng cần một thí nghiệm ảo hoặc mô phỏng tương tá
 | `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
 
 Điều cấm: không viết file HTML bằng tay; không bỏ bảng số kiểm, công thức hay điều kiện áp dụng để qua được công cụ; không chèn thư viện, font hay địa chỉ web từ Internet; không sửa file trong `tools/vi/thi_nghiem_parts/`; không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`; không commit gì trong `projects/`.
+
+## 15. Làm video giải thích
+
+Khi người dùng cần một video giải thích bài học từ nội dung chữ (video viết tay, video whiteboard, video hoạt hình chữ), đọc [docs/vi/tro-ly/video-giai-thich.md](docs/vi/tro-ly/video-giai-thich.md) và [docs/vi/tro-ly/canh-video.md](docs/vi/tro-ly/canh-video.md) rồi làm đúng thứ tự dưới. Câu chỉ có "làm video" hoặc "xuất video" thì hỏi câu phân loại ở đầu mục 11 trước. Như mục 4: có `venv\Scripts\python.exe` ở thư mục gốc repo thì dùng nó cho mọi lệnh Python dưới đây, không có thì dùng `python`.
+
+1. Hỏi một lượt theo file hướng dẫn, chờ trả lời.
+2. Tạo `projects/_video/<tên_video>/` và viết `video.md` theo đúng ngữ pháp trong file hướng dẫn; thầy cô đưa file giọng thu sẵn thì đặt vào `giong/canh-N.mp3` của thư mục đó.
+3. Chạy `python tools\vi\video_ma.py projects\_video\<tên_video> --plan-only`, rồi chạy lại với `--xem-truoc` và mở xem ảnh từng cảnh trong `xem-truoc/`; chữ chồng lên nhau hay tràn khung thì sửa nội dung `video.md` và dựng thử lại.
+4. Báo trước thầy cô một dòng rằng dựng video mất vài phút, rồi chạy `python tools\vi\video_ma.py projects\_video\<tên_video>`.
+5. Đọc dòng JSON ở stdout. `ready` là `true` thì báo thầy cô đường dẫn `video.mp4`, thời lượng, nguồn giọng (`giong`), nơi để phụ đề, và đọc nguyên văn `warnings`. `error` khác `null` thì xử lý theo `error.step` ở bảng dưới.
+
+| `error.step` | Xử lý |
+|---|---|
+| `input` | Chưa có thư mục hoặc `video.md`, hoặc sai tham số lệnh: viết file rồi chạy lại. |
+| `parse` | Sửa đúng dòng `error.message` nêu rồi chạy lại. |
+| `canh` | Rút gọn hoặc sửa đúng cảnh `error.message` nêu (chữ quá dài, tràn khung, mã mẫu hay mã tham số lạ, mốc `tham-so` vượt thời lượng cảnh) rồi chạy lại. |
+| `giong` | Giọng máy edge-tts lỗi, thường do mất mạng: kiểm mạng rồi chạy lại, tối đa một lần; hoặc đặt sẵn `giong/canh-N.mp3` do thầy cô đưa. |
+| `chromium` | Hỏi thầy cô trước rồi chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium`, vì bước này tải khoảng 150–300 MB. |
+| `ffmpeg` | Cài FFmpeg theo mục "Công cụ tuỳ chọn" của [docs/vi/cai-dat-bang-ai.md](docs/vi/cai-dat-bang-ai.md) rồi chạy lại. |
+| `dung` | Chụp khung hoặc ghép hỏng: báo nguyên `error.message` cho thầy cô, không tự sửa. |
+| `write` | Xin thầy cô đóng `video.md` hoặc `video.mp4` đang mở, kiểm ổ đĩa còn chỗ, rồi chạy lại. |
+| `internal` | Lỗi ngoài dự kiến; dán nguyên `error.message` để báo cho người bảo trì, không tự đoán cách sửa. |
+
+- Giọng máy dùng edge-tts và cần mạng; dựng không có mạng thì mọi cảnh phải có file giọng sẵn trong `giong/`.
+- Video dài 5 phút cần khoảng 4 phút chụp khung, chưa kể tạo giọng; báo trước cho thầy cô một dòng.
+
+Điều cấm:
+
+- Không tự sửa số liệu, công thức hay lời giảng của thầy cô; chỉ rút gọn chữ trên cảnh khi công cụ báo quá dài.
+- Không viết HTML hay ảnh cảnh bằng tay; không sửa file trong `tools/vi/video_ma_parts/`.
+- Không chạy `project_manager.py init`; không tạo SVG; không chạm `skills/`; không commit gì trong `projects/`.
+- Không tự cài phần mềm nào khác, không tự chạy FFmpeg theo cách riêng.

@@ -10,7 +10,7 @@ Antigravity không chép nội dung các file nhắc bằng `@` vào luật, nê
 
 ## Hỏi thầy cô trước khi làm
 
-Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đoàn, và yêu cầu thuộc một trong 9 loại việc ở bảng dưới: trước mọi lệnh của quy trình tạo bài, làm đúng ba bước.
+Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đoàn, và yêu cầu thuộc một trong 10 loại việc ở bảng dưới: trước mọi lệnh của quy trình tạo bài, làm đúng ba bước.
 
 1. Đọc `docs/vi/tro-ly/quy-trinh-hoi.md`, rồi đọc file hướng dẫn của loại việc.
 2. Gửi thầy cô một tin nhắn hỏi theo hai file đó.
@@ -21,6 +21,7 @@ Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đ
 - Câu lệnh có "không cần hỏi lại" hoặc "không hỏi gì": không hỏi câu nào. Câu lệnh chỉ có "tạo nhanh" hoặc "làm nhanh": vẫn hỏi các câu còn thiếu trong mục "Tạo nhanh" của file loại việc. Cả hai trường hợp đều đọc mục "Tạo nhanh" của `docs/vi/tro-ly/quy-trinh-hoi.md` và ghi brief.
 - Trước khi gửi tin nhắn hỏi, chạy kiểm tra máy theo `AGENTS.vi.md` mục 9 (`tools/vi/doctor.py --no-smoke --json`) và thêm dòng báo máy chưa cài xong nếu cần.
 - Chữ "giáo án" một mình: hỏi đúng một câu "Thầy cô cần file Word kế hoạch bài dạy (giáo án 5512), hay slide trình chiếu cho bài này?" trước khi làm gì khác.
+- Chữ "làm video" hoặc "xuất video" một mình: hỏi đúng một câu "Thầy cô muốn làm video từ bài giảng slide đã có, hay dựng video giải thích mới từ nội dung chữ?" trước khi làm gì khác. Trả lời slide thì theo `docs/vi/tro-ly/video-bai-giang.md`; trả lời video mới thì theo `docs/vi/tro-ly/video-giai-thich.md`.
 - Soạn đề KHTN tiếng Anh và soạn giáo án có tài liệu thầy cô gửi: đọc tài liệu đó trước, rồi mới hỏi (xem `AGENTS.vi.md` mục 12 và 13).
 
 | Loại việc | Dấu hiệu nhận biết | File hướng dẫn |
@@ -34,6 +35,7 @@ Người dùng viết tiếng Việt, bối cảnh là trường học hoặc Đ
 | Soạn đề KHTN tiếng Anh | "soạn đề", "đề kiểm tra", "đề tiếng Anh", "đề KHTN", "chuyển đề sang tiếng Anh" | `docs/vi/tro-ly/de-khtn-tieng-anh.md` |
 | Soạn giáo án tích hợp năng lực số và AI | "kế hoạch bài dạy", "KHBD", "giáo án Word", "giáo án 5512" | `docs/vi/tro-ly/giao-an.md` |
 | Thí nghiệm ảo | "thí nghiệm ảo", "mô phỏng thí nghiệm", "mô phỏng tương tác" | `docs/vi/tro-ly/thi-nghiem-ao.md` |
+| Video giải thích dựng bằng mã | "video giải thích", "video viết tay", "video whiteboard", "video hoạt hình chữ" | `docs/vi/tro-ly/video-giai-thich.md` |
 
 ## Ảnh minh hoạ
 
@@ -60,6 +62,14 @@ Bài mới thuộc Bài giảng, Báo cáo – tổng kết, Hoạt động Đo�
 - Không viết file HTML bằng tay, không chèn thư viện hay địa chỉ web. Thí nghiệm ngoài danh mục thì viết mô hình mới theo khuôn, có công thức, điều kiện áp dụng và bảng số kiểm.
 - Đọc nguyên văn `can-soat.md` cho thầy cô; mô hình do AI viết thì thầy cô phải soát công thức trước khi dùng.
 
+## Video giải thích
+
+Đầu ra là video MP4 kiểu viết tay dựng từ nội dung chữ, không phải PPTX.
+
+- Đọc `docs/vi/tro-ly/video-giai-thich.md` và `docs/vi/tro-ly/canh-video.md`, hỏi một lượt, viết `video.md` trong `projects/_video/<tên>/`.
+- Chạy `tools\vi\video_ma.py <thư_mục> --plan-only`, rồi `--xem-truoc` và xem ảnh từng cảnh, rồi mới dựng thật bằng `tools\vi\video_ma.py <thư_mục>`; báo trước thầy cô là dựng mất vài phút.
+- Không viết HTML hay ảnh cảnh bằng tay, không tự chạy FFmpeg. `error.step` là `chromium` thì hỏi thầy cô trước khi tải Chromium (150–300 MB).
+
 ## Các việc khác
 
-Chạy lệnh trên Windows, kiểm tra môi trường trước lệnh Python đầu tiên, làm video, soạn đề, soạn giáo án: đọc `AGENTS.vi.md` trước khi làm.
+Chạy lệnh trên Windows, kiểm tra môi trường trước lệnh Python đầu tiên, làm video, soạn đề, soạn giáo án, video giải thích: đọc `AGENTS.vi.md` trước khi làm.
