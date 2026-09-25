@@ -11,19 +11,27 @@ META_CHOICES = {
     "giong": ("nu", "nam"),
     "toc-do": ("cham", "vua", "nhanh"),
     "phu-de": ("hinh", "file", "khong"),
+    "ban-tay": ("co", "khong"),
+    "may-quay": ("co", "khong"),
+    "chuyen-canh": ("lau-bang", "khong"),
 }
-META_DEFAULTS = {"phong-cach": "viet-tay", "giong": "nu", "toc-do": "vua", "phu-de": "hinh"}
+META_DEFAULTS = {
+    "phong-cach": "viet-tay", "giong": "nu", "toc-do": "vua", "phu-de": "hinh",
+    "ban-tay": "co", "may-quay": "co", "chuyen-canh": "lau-bang",
+}
 
 # loại cảnh -> (trường đơn bắt buộc, trường đơn tuỳ chọn, trường lặp {khoá: (tối thiểu, tối đa)})
 SCENE_SPEC = {
-    "tieu-de": (("chu",), ("phu",), {}),
-    "khai-niem": (("thuat-ngu", "dinh-nghia"), (), {}),
-    "cong-thuc": (("bieu-thuc",), (), {"giai-thich": (0, 4)}),
-    "y-tung-y": (("tieu-de",), (), {"y": (1, 6)}),
+    "tieu-de": (("chu",), ("phu", "hinh", "anh"), {}),
+    "khai-niem": (("thuat-ngu", "dinh-nghia"), ("hinh", "anh"), {}),
+    "cong-thuc": (("bieu-thuc",), ("hinh", "anh"), {"giai-thich": (0, 4)}),
+    "y-tung-y": (("tieu-de",), ("hinh", "anh"), {"y": (1, 6)}),
     "quy-trinh": (("tieu-de",), (), {"buoc": (2, 5)}),
     "so-sanh": (("tieu-de", "trai", "phai"), (), {"y-trai": (1, 4), "y-phai": (1, 4)}),
     "do-thi": (("tieu-de", "truc-ngang", "truc-doc"), (), {"diem": (2, 12)}),
     "thi-nghiem": (("mau",), ("do",), {"tham-so": (0, 99)}),
+    "minh-hoa": (("tieu-de",), (), {"hinh": (1, 3)}),
+    "anh": (("anh", "chu-thich"), ("nguon",), {}),
 }
 SCENE_TYPES = tuple(SCENE_SPEC)
 
@@ -128,6 +136,9 @@ def _finish(so: int, dong0: int, fields: list) -> Scene:
             raise ParseError(dong0, f"Cảnh {so} (loại `{loai}`) cần ít nhất {low} dòng `{key}`.")
         if count > high:
             raise ParseError(dong_truong[key][high], f"Cảnh loại `{loai}` chỉ có tối đa {high} dòng `{key}`.")
+    if "hinh" in truong and "anh" in truong:
+        dong_sau = max(dong_truong["hinh"][0], dong_truong["anh"][0])
+        raise ParseError(dong_sau, f"Cảnh {so} chỉ được có `hinh` hoặc `anh`, không cả hai.")
     for value, no in zip(truong.get("diem", []), dong_truong.get("diem", [])):
         if _POINT_RE.match(value) is None:
             raise ParseError(no, "Điểm đồ thị phải có dạng `x, y` (hai số, dấu thập phân là dấu chấm).")

@@ -28,7 +28,7 @@ def line_of(text: str, needle: str) -> int:
 class FixtureTest(unittest.TestCase):
     def test_sample_parses_all_eight_scene_types_in_order(self):
         video = parse.parse(MAU.read_text(encoding="utf-8"))
-        self.assertEqual([c.loai for c in video.canh], list(parse.SCENE_TYPES))
+        self.assertEqual([c.loai for c in video.canh], list(parse.SCENE_TYPES[:8]))
         self.assertEqual([c.so for c in video.canh], list(range(1, 9)))
         self.assertEqual(video.meta["giong"], "nu")
         self.assertEqual(video.meta["toc-do"], "vua")
@@ -198,6 +198,58 @@ class ExperimentSceneTest(unittest.TestCase):
         self.assertEqual(kiem.tham_so_theo_thoi_gian(scene), {"chieu-dai": [(0.0, 0.4), (6.0, 1.6)]})
         model = thu_vien.load("li-con-lac-don", Path("."))
         self.assertEqual(kiem.ma_do(scene, model), ["chu-ki", "thoi-gian-10-dao-dong"])
+
+
+class NewFieldsTest(unittest.TestCase):
+    def test_meta_choices_have_new_keys_with_defaults(self):
+        for key, choices, default in (
+            ("ban-tay", ("co", "khong"), "co"),
+            ("may-quay", ("co", "khong"), "co"),
+            ("chuyen-canh", ("lau-bang", "khong"), "lau-bang"),
+        ):
+            self.assertEqual(parse.META_CHOICES[key], choices)
+            self.assertEqual(parse.META_DEFAULTS[key], default)
+
+    def test_new_meta_keys_default_when_video_omits_them(self):
+        video = parse.parse(doc("## Cảnh 1\nloai: tieu-de\nchu: A\nloi: Xin chào.\n"))
+        self.assertEqual(video.meta["ban-tay"], "co")
+        self.assertEqual(video.meta["may-quay"], "co")
+        self.assertEqual(video.meta["chuyen-canh"], "lau-bang")
+
+    def test_new_scene_types_are_registered(self):
+        self.assertIn("minh-hoa", parse.SCENE_SPEC)
+        self.assertIn("anh", parse.SCENE_SPEC)
+        self.assertEqual(parse.SCENE_SPEC["minh-hoa"], (("tieu-de",), (), {"hinh": (1, 3)}))
+        self.assertEqual(parse.SCENE_SPEC["anh"], (("anh", "chu-thich"), ("nguon",), {}))
+
+    def test_hinh_and_anh_are_optional_fields_of_the_four_text_scenes(self):
+        for loai in ("tieu-de", "khai-niem", "cong-thuc", "y-tung-y"):
+            _, optional, _ = parse.SCENE_SPEC[loai]
+            self.assertIn("hinh", optional, loai)
+            self.assertIn("anh", optional, loai)
+
+    def test_scene_with_both_hinh_and_anh_is_a_parse_error_at_the_second_line(self):
+        text = doc("## Cảnh 1\nloai: tieu-de\nchu: A\nhinh: flask\nanh: x.png\nloi: Xin chào.\n")
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, "anh: x.png"))
+
+    def test_scene_with_anh_then_hinh_points_at_the_hinh_line(self):
+        text = doc("## Cảnh 1\nloai: tieu-de\nchu: A\nanh: x.png\nhinh: flask\nloi: Xin chào.\n")
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, "hinh: flask"))
+
+    def test_minh_hoa_needs_at_least_one_picture(self):
+        text = doc("## Cảnh 1\nloai: minh-hoa\ntieu-de: A\nloi: Xin chào.\n")
+        with self.assertRaises(parse.ParseError):
+            parse.parse(text)
+
+    def test_minh_hoa_allows_at_most_three_pictures(self):
+        hinhs = "".join(f"hinh: clock | Nhãn {i}\n" for i in range(4))
+        text = doc(f"## Cảnh 1\nloai: minh-hoa\ntieu-de: A\n{hinhs}loi: Xin chào.\n")
+        with self.assertRaises(parse.ParseError):
+            parse.parse(text)
 
 
 if __name__ == "__main__":

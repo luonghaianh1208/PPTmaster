@@ -1,4 +1,4 @@
-# Cảnh video giải thích: danh mục tám loại cảnh
+# Cảnh video giải thích: danh mục mười loại cảnh
 
 File dành cho AI. Đọc cùng `docs/vi/tro-ly/video-giai-thich.md`. Mỗi cảnh trong `video.md` có `loai:`, `loi:` và các trường của loại cảnh dưới đây; trường không có trong danh sách của loại cảnh là lỗi `parse`.
 
@@ -8,6 +8,7 @@ Quy ước chung:
 - Trường lặp viết nhiều dòng cùng khoá, theo đúng thứ tự muốn hiện.
 - Cảnh có danh sách: ý thứ k hiện khi câu thứ k của `loi` bắt đầu; lời ít câu hơn số ý thì các ý hiện đều nhau theo thời lượng giọng.
 - Không chèn địa chỉ web vào bất kỳ trường nào.
+- Bốn loại `tieu-de`, `khai-niem`, `cong-thuc`, `y-tung-y` có thêm trường tuỳ chọn `hinh` (tên một biểu tượng `tabler-outline`, ví dụ `hinh: flask`) hoặc `anh` (tên file trong `anh/`, ví dụ `anh: con-lac.jpg`); một cảnh chỉ được có một trong hai, không cả hai. Bảng tra tên biểu tượng theo khái niệm và cách tải ảnh bằng `image_search.py` sẽ có ở bản sau.
 
 ## Tiêu đề
 
@@ -17,6 +18,8 @@ Mã loại: `tieu-de`.
 |---|---|---|
 | `chu` | có | 90 ký tự |
 | `phu` | không | 90 ký tự |
+| `hinh` | không | tên biểu tượng `tabler-outline` |
+| `anh` | không | tên file trong `anh/` |
 
 Cách hiện: chữ lớn được viết ra giữa khung, dòng phụ hiện bên dưới. Dùng cho cảnh mở đầu hoặc mở một phần mới.
 
@@ -36,6 +39,8 @@ Mã loại: `khai-niem`.
 |---|---|---|
 | `thuat-ngu` | có | 60 ký tự |
 | `dinh-nghia` | có | 220 ký tự |
+| `hinh` | không | tên biểu tượng `tabler-outline` |
+| `anh` | không | tên file trong `anh/` |
 
 Cách hiện: khung được vẽ nét, thuật ngữ rồi định nghĩa được viết vào trong khung.
 
@@ -55,6 +60,8 @@ Mã loại: `cong-thuc`.
 |---|---|---|
 | `bieu-thuc` | có | 90 ký tự |
 | `giai-thich` | lặp 0–4 dòng | mỗi dòng 60 ký tự |
+| `hinh` | không | tên biểu tượng `tabler-outline` |
+| `anh` | không | tên file trong `anh/` |
 
 Cách hiện: biểu thức được viết dần, các dòng giải thích hiện lần lượt theo từng câu của lời.
 
@@ -75,6 +82,8 @@ Mã loại: `y-tung-y`.
 |---|---|---|
 | `tieu-de` | có | 90 ký tự |
 | `y` | lặp 1–6 dòng | mỗi ý 60 ký tự |
+| `hinh` | không | tên biểu tượng `tabler-outline` |
+| `anh` | không | tên file trong `anh/` |
 
 Cách hiện: tiêu đề viết trước, mỗi ý được viết ra khi lời nói tới.
 
@@ -202,4 +211,45 @@ tham-so: 0 chieu-dai 0.4
 tham-so: 6 chieu-dai 1.6
 do: chu-ki
 loi: Hãy quan sát. Khi ta tăng chiều dài dây, chu kì dao động tăng theo.
+```
+
+## Minh hoạ
+
+Mã loại: `minh-hoa`.
+
+| Trường | Bắt buộc | Giới hạn |
+|---|---|---|
+| `tieu-de` | có | 90 ký tự |
+| `hinh` | lặp 1–3 dòng | dạng `tên | nhãn`, tên là biểu tượng `tabler-outline`, nhãn tối đa 30 ký tự |
+
+Cách hiện: tiêu đề viết trước; hình thứ k được vẽ dần từng nét tại mốc câu thứ k của `loi`, nhãn hiện ngay sau khi hình vẽ xong.
+
+```
+## Cảnh 9
+loai: minh-hoa
+tieu-de: Dụng cụ đo chu kì
+hinh: clock | Đồng hồ bấm giây
+hinh: ruler-measure | Thước đo chiều dài
+hinh: weight | Quả nặng
+loi: Ta cần đồng hồ bấm giây. Thước đo chiều dài dây. Và một quả nặng.
+```
+
+## Ảnh thật
+
+Mã loại: `anh`.
+
+| Trường | Bắt buộc | Giới hạn |
+|---|---|---|
+| `anh` | có | tên file `.jpg`/`.jpeg`/`.png`/`.webp` trong `anh/`, tối đa 8 MB |
+| `chu-thich` | có | 90 ký tự |
+| `nguon` | không | dòng ghi nguồn; không ghi thì lấy từ bản ghi cùng tên trong `anh/image_sources.json` (tải bằng `image_search.py`); không có nguồn nào là lỗi `canh` |
+
+Cách hiện: ảnh hiện trong khung vẽ tay, phóng hoặc lướt chậm suốt cảnh; dòng nguồn nhỏ ở góc dưới.
+
+```
+## Cảnh 10
+loai: anh
+anh: con-lac-foucault.jpg
+chu-thich: Con lắc Foucault ở Paris
+loi: Đây là con lắc Foucault, dài 67 mét, dao động rất chậm.
 ```

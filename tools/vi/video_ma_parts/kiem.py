@@ -7,6 +7,7 @@ from pathlib import Path
 
 from thi_nghiem_parts import thu_vien
 
+from . import anh, hinh
 from .parse import ParseError, Scene, Video
 
 LIMITS = {
@@ -18,6 +19,7 @@ LIMITS = {
     ("so-sanh", "tieu-de"): 90, ("so-sanh", "trai"): 24, ("so-sanh", "phai"): 24,
     ("so-sanh", "y-trai"): 60, ("so-sanh", "y-phai"): 60,
     ("do-thi", "tieu-de"): 90, ("do-thi", "truc-ngang"): 40, ("do-thi", "truc-doc"): 40,
+    ("minh-hoa", "tieu-de"): 90, ("anh", "chu-thich"): 90,
 }
 LOI_DAI = 700
 MAX_THAM_SO = 3
@@ -91,6 +93,30 @@ def _kiem_thi_nghiem(scene: Scene, thu_muc: Path) -> None:
             raise CanhError(scene.so, f"đại lượng đo `{ma}` không có trong mẫu `{mau}`. Có: {co}.")
 
 
+def _kiem_hinh_anh(scene: Scene, thu_muc: Path) -> None:
+    if scene.loai == "minh-hoa":
+        for value, no in zip(scene.truong["hinh"], scene.dong_truong["hinh"]):
+            try:
+                ten, _nhan = hinh.tach_minh_hoa(value)
+                hinh.doc(ten)
+            except hinh.HinhError as exc:
+                raise CanhError(scene.so, f"{exc} (dòng {no}).") from exc
+        return
+    if "hinh" in scene.truong:
+        value, no = scene.truong["hinh"][0], scene.dong_truong["hinh"][0]
+        try:
+            hinh.doc(value)
+        except hinh.HinhError as exc:
+            raise CanhError(scene.so, f"{exc} (dòng {no}).") from exc
+    if "anh" in scene.truong:
+        value, no = scene.truong["anh"][0], scene.dong_truong["anh"][0]
+        nguon_tay = scene.truong.get("nguon", [None])[0]
+        try:
+            anh.doc(thu_muc, value, nguon_tay)
+        except anh.AnhError as exc:
+            raise CanhError(scene.so, f"{exc} (dòng {no}).") from exc
+
+
 def kiem(video: Video, thu_muc: Path) -> list:
     warnings: list = []
     for scene in video.canh:
@@ -106,4 +132,5 @@ def kiem(video: Video, thu_muc: Path) -> list:
             warnings.append(f"Cảnh {scene.so}: lời dài {len(scene.loi)} ký tự (quá {LOI_DAI}); nên tách thành hai cảnh.")
         if scene.loai == "thi-nghiem":
             _kiem_thi_nghiem(scene, thu_muc)
+        _kiem_hinh_anh(scene, thu_muc)
     return warnings
