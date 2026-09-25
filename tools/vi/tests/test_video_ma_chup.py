@@ -360,6 +360,30 @@ class PictureMotionChromiumTest(unittest.TestCase):
                 self.assertNotEqual(bd_dau, bd_cuoi, "ảnh phải phóng/lướt (Ken Burns)")
                 self.assertNotEqual(dau, cuoi, "ảnh phải chuyển động (Ken Burns)")
 
+    def test_source_line_of_a_column_photo_sits_under_the_frame_on_one_line(self):
+        # Ô cột hẹp (ảnh dọc rộng ~240 px): dòng nguồn trong góc ảnh bị ngắt hai dòng và đè lên ảnh.
+        for nguon, mot_dong in (("Ảnh: PPT Master bản Việt · CC0 1.0 · Tự vẽ", True),
+                                ("Ảnh: Nguyễn Thị Thử Nghiệm · CC BY-SA 4.0 · Wikimedia Commons", False)):
+            for rong, cao in ((200, 320), (480, 300)):
+                with self.subTest(nguon=nguon, rong=rong, cao=cao):
+                    du = du_hinh("loai: y-tung-y\ntieu-de: Quả nặng\n" + "".join(f"y: {vi_text(60)}\n" for _ in range(6))
+                                 + "anh: a.png\n", {"anh": {**anh_gia(rong, cao), "nguon": nguon}})
+                    du["co"].update(mayQuay=False, banTay=False)
+                    chup.mo_trang(self.page, trang.dung_trang(du))
+                    self.page.evaluate("window.datThoiDiem(window.THI_VIDEO.thoiDiemCuoi())")
+                    r = self.page.evaluate("""() => {
+                        const hop = (s) => { const b = document.querySelector(s).getBoundingClientRect();
+                            return {l: b.left, t: b.top, r: b.right, b: b.bottom, h: b.height}; };
+                        const n = document.querySelector('.anh .nguon');
+                        return {anh: hop('.anh .cua-anh'), nguon: hop('.anh .nguon'),
+                                dong: parseFloat(getComputedStyle(n).lineHeight)}; }""")
+                    self.assertGreaterEqual(r["nguon"]["t"], r["anh"]["b"], "dòng nguồn không được đè lên ảnh")
+                    self.assertGreaterEqual(r["nguon"]["l"], 860, "không lấn sang cột chữ")
+                    self.assertLessEqual(r["nguon"]["r"], 1280)
+                    self.assertLessEqual(r["nguon"]["b"], 620 + 0.5, "trên vùng phụ đề")
+                    if mot_dong:
+                        self.assertLess(r["nguon"]["h"], 1.6 * r["dong"], "tín dụng ngắn phải nằm một dòng")
+
     def test_icon_is_drawn_stroke_by_stroke(self):
         du = du_hinh("loai: y-tung-y\ntieu-de: Dụng cụ\nhinh: flask\ny: Bình tam giác\n", {"hinh": self.hinh})
         chup.mo_trang(self.page, trang.dung_trang(du))

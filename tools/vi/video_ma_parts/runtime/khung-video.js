@@ -138,11 +138,12 @@
       return [c, net('gach', duongQua([[60, 160], [60 + w, 160]], 7), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan', quay: false })];
     }
     // Cột hình bên phải (ô x 900, y 200, rộng 320, cao 380) cho cảnh có `hinh` hoặc `anh`.
+    // Ảnh cao 350 để hai dòng nguồn dưới khung vẫn nằm trên y = 620.
     var coCot = !!(du.hinh || du.anh);
     function cot() {
       var batDau = du.moc && du.moc.length ? du.moc[0] : 1.0;
       if (du.hinh) { return [hinh('hinh', du.hinh, 910, 240, 300, batDau)]; }
-      if (du.anh) { return [anh('anh', du.anh, 900, 200, 320, 380, batDau)]; }
+      if (du.anh) { return [anh('anh', du.anh, 900, 200, 320, 350, batDau)]; }
       return [];
     }
     return { chu: chu, net: net, hinh: hinh, anh: anh, tieuDe: tieuDe, cot: cot, coCot: coCot, gh: gh };

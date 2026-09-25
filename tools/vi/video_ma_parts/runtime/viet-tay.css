@@ -23,5 +23,7 @@ g.hinh.nhan > * { stroke: #1d4ed8; }
 .anh .vien-anh { position: absolute; left: -10px; top: -10px; overflow: visible; }
 .anh .nguon { position: absolute; right: 6px; bottom: 6px; max-width: calc(100% - 12px); font-size: 14px; line-height: 1.25;
   padding: 1px 6px; border-radius: 4px; background: rgba(251, 250, 245, 0.85); color: #374151; text-align: right; }
+.anh .nguon.duoi { top: calc(100% + 12px); bottom: auto; right: -6px; width: max-content; max-width: 300px;
+  padding: 0; background: none; }
 #ban-tay { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 #ban-tay[data-kieu="but"] .gie, #ban-tay[data-kieu="gie"] .but { display: none; }

@@ -93,7 +93,8 @@
     vien.appendChild(net);
     el.appendChild(vien);
     var nguon = document.createElement('div');
-    nguon.className = 'nguon';
+    // Khung hẹp (cột bên phải): dòng nguồn nằm dưới khung, không đè lên ảnh và không bị ngắt vụn.
+    nguon.className = m.rong < 600 ? 'nguon duoi' : 'nguon';
     nguon.textContent = m.nguon;
     el.appendChild(nguon);
     goc.appendChild(el);
