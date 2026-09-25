@@ -57,7 +57,8 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("-r") + 1], "30")
         self.assertIn("libx264", cmd)
         vf = cmd[cmd.index("-vf") + 1]
-        self.assertTrue(vf.startswith("subtitles=.khung/phu-de.srt:force_style="), vf)
+        self.assertTrue(vf.startswith("subtitles=.khung/phu-de.srt:fontsdir=.khung/fonts:force_style="), vf)
+        self.assertIn("FontName=Itim", vf)
 
     def test_video_command_without_burned_subtitles_has_no_filter(self):
         cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), 15, None)
@@ -104,6 +105,15 @@ class AssembleTest(unittest.TestCase):
         self.assertIn("Bài 5 – Sulfur dioxide (thử) '\\''a'\\''", listing)
         self.assertTrue(all(cwd == thu_muc for _, cwd in calls))
         self.assertEqual(len(calls), 3)
+
+    def test_burned_subtitles_bundle_the_itim_font(self):
+        thu_muc = self.project("p-font")
+        calls = []
+        ghep.ghep_video(thu_muc, PLAN, self.giong(thu_muc), "hinh", run=self.fake_run(thu_muc, calls))
+        self.assertTrue((thu_muc / ".khung" / "fonts" / "Itim-Regular.ttf").is_file())
+        joined = " ".join(calls[-1][0])
+        self.assertIn("fontsdir=.khung/fonts", joined)
+        self.assertIn("FontName=Itim", joined)
 
     def test_subtitle_modes(self):
         for mode, expect_srt, expect_burn in (("hinh", False, True), ("file", True, False), ("khong", False, False)):

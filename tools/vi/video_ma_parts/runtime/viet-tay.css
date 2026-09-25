@@ -1,6 +1,6 @@
 html, body { margin: 0; padding: 0; background: #fbfaf5; }
 #khung { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #fbfaf5;
-  font-family: 'Segoe Print', 'Ink Free', 'Comic Sans MS', cursive; color: #1f2937; }
+  font-family: 'Itim', sans-serif; color: #1f2937; }
 #khung svg { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
 .chu { position: absolute; overflow: hidden; line-height: 1.3; white-space: normal; overflow-wrap: normal; text-align: left; }
 .chu.day { display: flex; flex-direction: column; }

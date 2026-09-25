@@ -11,7 +11,7 @@ from pathlib import Path
 TOOLS_VI = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_VI))
 
-from video_ma_parts import chup, lich, parse, trang  # noqa: E402
+from video_ma_parts import chup, lich, parse, phong, trang  # noqa: E402
 
 META = "tieu-de: T\nmon: Toán\nlop: 8\n"
 
@@ -49,7 +49,7 @@ class PageBuildTest(unittest.TestCase):
         html = trang.dung_trang(du)
         self.assertNotIn("http://", html.replace("http://www.w3.org/2000/svg", ""))
         self.assertNotIn("https://", html)
-        self.assertIn("Segoe Print", html)
+        self.assertIn("Itim", html)
         self.assertIn("THI_CANH['tieu-de']", html)
         self.assertNotIn("THI_CANH['y-tung-y']", html)
         self.assertIn("khoiDong", html)
@@ -101,6 +101,35 @@ class ChromiumTest(unittest.TestCase):
             final = Path(tmp) / "cuoi.png"
             chup.chup_cuoi(self.page, html, final)
             self.assertGreater(final.stat().st_size, frames[0].stat().st_size)
+
+    def test_itim_renders_every_vietnamese_letter_without_a_fallback_glyph(self):
+        html = f"<!doctype html><html><head><style>{phong.font_css()}</style></head><body></body></html>"
+        self.page.set_content(html)
+        self.page.evaluate("() => document.fonts.ready")
+        chars = list(phong.CHU_VIET)
+        diffs = self.page.evaluate(
+            """(chars) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                return chars.map((c) => {
+                    ctx.font = "40px 'Itim', monospace";
+                    const w1 = ctx.measureText(c).width;
+                    ctx.font = "40px 'Itim', serif";
+                    const w2 = ctx.measureText(c).width;
+                    return Math.abs(w1 - w2);
+                });
+            }""",
+            chars,
+        )
+        for d, c in zip(diffs, chars):
+            self.assertLess(d, 0.01, c)
+
+    def test_scene_page_computed_font_family_starts_with_itim(self):
+        du, _ = du_cua("loai: tieu-de\nchu: Xin chào\n")
+        html = trang.dung_trang(du)
+        chup.mo_trang(self.page, html)
+        font_family = self.page.evaluate("() => getComputedStyle(document.querySelector('.chu')).fontFamily")
+        self.assertTrue(font_family.startswith("Itim"), font_family)
 
     def test_overflowing_text_is_reported_by_item_id(self):
         du, _ = du_cua("loai: tieu-de\nchu: " + "A" * 80 + "\n")

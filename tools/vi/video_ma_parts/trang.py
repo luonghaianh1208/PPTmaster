@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from . import phong
+
 RUNTIME = Path(__file__).resolve().parent / "runtime"
 NGHIEM = Path(__file__).resolve().parents[1] / "thi_nghiem_parts" / "runtime"
 
@@ -27,5 +29,5 @@ def dung_trang(du: dict, model=None) -> str:
     scripts.append(f"window.DU_CANH = {json_nhung(du)};\nTHI_VIDEO.khoiDong(window.DU_CANH);")
     body = "\n".join(f"<script>\n{s}\n</script>" for s in scripts)
     return ("<!doctype html>\n<html lang=\"vi\"><head><meta charset=\"utf-8\">"
-            f"<style>\n{_doc(RUNTIME / 'viet-tay.css')}\n</style></head>\n"
+            f"<style>\n{phong.font_css()}\n{_doc(RUNTIME / 'viet-tay.css')}\n</style></head>\n"
             f"<body><div id=\"khung\"></div>\n{body}\n</body></html>\n")

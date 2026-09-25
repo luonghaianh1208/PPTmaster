@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
 from video_parts import media, srt
 
 from .lich import DAN_DAU, FPS
+from .phong import FONT as ITIM_FONT, TEN as ITIM_TEN
 
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
-STYLE = "FontName=Segoe UI,FontSize=12,Outline=1,Shadow=0,MarginV=10"
+STYLE = f"FontName={ITIM_TEN},FontSize=16,Outline=1.5,Shadow=0,Spacing=0.5,MarginV=22"
+FONTS_REL = ".khung/fonts"
 
 
 def cues_phu_de(cac_lich: list) -> list:
@@ -43,7 +46,7 @@ def lenh_video(danh_sach_am: Path, out_mp4: Path, fps: int, phu_de_tuong_doi) ->
         "-f", "concat", "-safe", "0", "-i", str(danh_sach_am),
     ]
     if phu_de_tuong_doi:
-        cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:force_style='{STYLE}'"]
+        cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:fontsdir={FONTS_REL}:force_style='{STYLE}'"]
     cmd += ["-r", "30", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out_mp4)]
     return cmd
@@ -76,6 +79,9 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
         thoat = [srt.Cue(index=c.index, start=c.start, end=c.end, text=c.text.replace("{", "\\{").replace("}", "\\}"))
                  for c in cac_cue]
         (lam / "phu-de.srt").write_text(srt.render_srt(thoat), encoding="utf-8")
+        fonts_dir = lam / "fonts"
+        fonts_dir.mkdir(exist_ok=True)
+        shutil.copy2(ITIM_FONT, fonts_dir / ITIM_FONT.name)
         burn = ".khung/phu-de.srt"
     elif phu_de == "file":
         (thu_muc / "phu-de.srt").write_text(cues, encoding="utf-8")
