@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -93,6 +94,24 @@ class CliTest(unittest.TestCase):
                 mock.patch.object(video_ma.giong, "lay_giong", side_effect=boom):
             code, data = self.one_json([str(self.dir)])
         self.assertEqual((code, data["error"]["step"]), (1, "giong"))
+
+    def test_relative_folder_reaches_voice_and_ffmpeg_as_absolute_path(self):
+        self.viet(MOT_CANH)
+        seen = []
+
+        def ghi(so, loi, thu_muc_giong, *a):
+            seen.append(thu_muc_giong)
+            raise media.MediaError("giong", "dừng ở đây", "")
+
+        old = Path.cwd()
+        os.chdir(self.tmp.name)
+        self.addCleanup(os.chdir, old)
+        with mock.patch.object(video_ma, "co_ffmpeg", return_value=True), \
+                mock.patch.object(video_ma, "co_chromium", return_value=True), \
+                mock.patch.object(video_ma.giong, "lay_giong", side_effect=ghi):
+            self.one_json(["bai"])
+        self.assertTrue(seen and seen[0].is_absolute(), seen)
+        self.assertEqual(seen[0], (Path(self.tmp.name) / "bai" / "giong").resolve())
 
     def test_unexpected_error_is_internal(self):
         self.viet(MOT_CANH)

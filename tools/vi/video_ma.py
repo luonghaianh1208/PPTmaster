@@ -144,7 +144,7 @@ def main(argv=None) -> int:
     warnings: list = []
     base = {"ready": False, "files": [], "so_canh": 0, "thoi_luong_giay": None, "phong_cach": None, "giong": None}
     try:
-        kq = chay(Path(args.thu_muc), args.plan_only, args.xem_truoc, warnings)
+        kq = chay(Path(args.thu_muc).resolve(), args.plan_only, args.xem_truoc, warnings)
         emit({**base, **kq, "ready": True, "warnings": warnings, "error": None})
         return 0
     except parse.ParseError as exc:
