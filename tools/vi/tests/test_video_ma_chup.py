@@ -402,6 +402,46 @@ class PictureMotionChromiumTest(unittest.TestCase):
                     if mot_dong:
                         self.assertLess(r["nguon"]["h"], 1.6 * r["dong"], "tín dụng ngắn phải nằm một dòng")
 
+    def test_photo_source_never_covers_text_and_stays_above_the_subtitles(self):
+        # Mọi bố cục có ảnh × ảnh dọc, vuông, ngang × dòng nguồn dài nhất thường gặp × chữ dài tối đa.
+        nguon = "Ảnh: Nguyễn Thị Thử Nghiệm · CC BY-SA 4.0 · Wikimedia Commons"
+        self.assertEqual(len(nguon), 61)
+        bo_cuc = {
+            "anh": f"loai: anh\nchu-thich: {vi_text(90)}\n",
+            "khai-niem": f"loai: khai-niem\nthuat-ngu: {vi_text(60)}\ndinh-nghia: {vi_text(220)}\n",
+            "y-tung-y": f"loai: y-tung-y\ntieu-de: {vi_text(90)}\n" + "".join(f"y: {vi_text(60)}\n" for _ in range(6)),
+            "cong-thuc": ("loai: cong-thuc\nbieu-thuc: " + vi_text(90) + "\n"
+                          + "".join(f"giai-thich: {vi_text(60)}\n" for _ in range(4))),
+            "tieu-de": f"loai: tieu-de\nchu: {vi_text(90)}\nphu: {vi_text(90)}\n",
+        }
+        for loai, noi_dung in bo_cuc.items():
+            for rong, cao in ((600, 1200), (1000, 1000), (2000, 800)):
+                with self.subTest(loai=loai, rong=rong, cao=cao):
+                    du = du_hinh(noi_dung + "anh: a.png\n", {"anh": {**anh_gia(rong, cao), "nguon": nguon}})
+                    du["co"].update(mayQuay=False, banTay=False)
+                    html = trang.dung_trang(du)
+                    self.assertEqual(chup.kiem_tran(self.page, html), [])
+                    chup.mo_trang(self.page, html)
+                    self.page.evaluate("window.datThoiDiem(window.THI_VIDEO.thoiDiemCuoi())")
+                    r = self.page.evaluate("""() => {
+                        const hop = (e) => { const b = e.getBoundingClientRect();
+                            return {l: b.left, t: b.top, r: b.right, b: b.bottom}; };
+                        return {nguon: hop(document.querySelector('.anh .nguon')),
+                                chu: Array.from(document.querySelectorAll('.chu')).map((e) => ({id: e.dataset.id, ...hop(e)}))}; }""")
+                    n = r["nguon"]
+                    self.assertGreaterEqual(n["l"], 0)
+                    self.assertGreaterEqual(n["t"], 0)
+                    self.assertLessEqual(n["r"], 1280)
+                    self.assertLessEqual(n["b"], 620, "dòng nguồn phải nằm trên vùng phụ đề")
+                    for c in r["chu"]:
+                        giao = n["l"] < c["r"] and c["l"] < n["r"] and n["t"] < c["b"] and c["t"] < n["b"]
+                        self.assertFalse(giao, f"dòng nguồn đè lên ô chữ `{c['id']}`: {n} / {c}")
+
+    def test_kiem_tran_reports_a_source_line_below_the_subtitle_line(self):
+        du = du_hinh("loai: y-tung-y\ntieu-de: T\ny: Một\nanh: a.png\n",
+                     {"anh": {**anh_gia(600, 1200), "nguon": "Ảnh: " + vi_text(400)}})
+        self.assertIn("nguon", chup.kiem_tran(self.page, trang.dung_trang(du)))
+
     def test_icon_is_drawn_stroke_by_stroke(self):
         du = du_hinh("loai: y-tung-y\ntieu-de: Dụng cụ\nhinh: flask\ny: Bình tam giác\n", {"hinh": self.hinh})
         chup.mo_trang(self.page, trang.dung_trang(du))

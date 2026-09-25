@@ -124,11 +124,12 @@
       return gan({ id: id, kieu: 'hinh', phanTu: h.phanTu, viewBox: h.viewBox, x: x, y: y, kich: kich, batDau: batDau, thoiLuong: dai, mau: '' }, tuy);
     }
     // Ảnh hiện dần 0,4 s rồi phóng/lướt chậm tới cuối cảnh; khung giữ tỉ lệ ảnh trong ô.
-    function anh(id, a, x, y, rong, cao, batDau) {
+    // `tuy.viTriNguon`: `duoi` (dưới khung, trong ô `tuy.oNguon`), `canh` (bên phải khung), bỏ trống là trong khung.
+    function anh(id, a, x, y, rong, cao, batDau, tuy) {
       batDau = dau(batDau, 0.6);
       var k = vuaKhung(a.rong, a.cao, x, y, rong, cao);
-      return { id: id, kieu: 'anh', dataUrl: a.dataUrl, nguon: a.nguon, x: k.x, y: k.y, rong: k.rong, cao: k.cao,
-        batDau: batDau, thoiLuong: Math.min(0.4, gh - 0.2 - batDau) };
+      return gan({ id: id, kieu: 'anh', dataUrl: a.dataUrl, nguon: a.nguon, x: k.x, y: k.y, rong: k.rong, cao: k.cao,
+        batDau: batDau, thoiLuong: Math.min(0.4, gh - 0.2 - batDau) }, tuy);
     }
     function tieuDe(noiDung, batDau, rong) {
       rong = rong || 1160;
@@ -138,12 +139,12 @@
       return [c, net('gach', duongQua([[60, 160], [60 + w, 160]], 7), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan', quay: false })];
     }
     // Cột hình bên phải (ô x 900, y 200, rộng 320, cao 380) cho cảnh có `hinh` hoặc `anh`.
-    // Ảnh cao 350 để hai dòng nguồn dưới khung vẫn nằm trên y = 620.
+    // Ảnh cao 350 để hai dòng nguồn dưới khung (trải hết bề rộng cột) vẫn nằm trên y = 620.
     var coCot = !!(du.hinh || du.anh);
     function cot() {
       var batDau = du.moc && du.moc.length ? du.moc[0] : 1.0;
       if (du.hinh) { return [hinh('hinh', du.hinh, 910, 240, 300, batDau)]; }
-      if (du.anh) { return [anh('anh', du.anh, 900, 200, 320, 350, batDau)]; }
+      if (du.anh) { return [anh('anh', du.anh, 900, 200, 320, 350, batDau, { viTriNguon: 'duoi', oNguon: { x: 900, rong: 320 } })]; }
       return [];
     }
     return { chu: chu, net: net, hinh: hinh, anh: anh, tieuDe: tieuDe, cot: cot, coCot: coCot, gh: gh };
@@ -324,6 +325,12 @@
         if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1 || r.right > 1281 || r.bottom > 721) {
           loi.push(el.getAttribute('data-id'));
         }
+      }
+      // Dòng nguồn ảnh: nằm trong khung hình và trên vạch phụ đề (y = 620).
+      var ng = goc.querySelector('.anh .nguon');
+      if (ng) {
+        var rn = ng.getBoundingClientRect();
+        if (rn.left < -1 || rn.top < -1 || rn.right > 1281 || rn.bottom > 621) { loi.push('nguon'); }
       }
       return loi;
     };

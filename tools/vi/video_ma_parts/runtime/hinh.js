@@ -93,8 +93,14 @@
     vien.appendChild(net);
     el.appendChild(vien);
     var nguon = document.createElement('div');
-    // Khung hẹp (cột bên phải): dòng nguồn nằm dưới khung, không đè lên ảnh và không bị ngắt vụn.
-    nguon.className = m.rong < 600 ? 'nguon duoi' : 'nguon';
+    // Chỗ dòng nguồn do bố cục gọi quyết định: `duoi` dưới khung, trải trong ô `oNguon` (cột phải);
+    // `canh` bên phải khung (tiêu đề có ảnh); mặc định trong góc dưới phải của khung (cảnh `anh`).
+    var vt = m.viTriNguon === 'duoi' || m.viTriNguon === 'canh' ? m.viTriNguon : 'trong';
+    nguon.className = 'nguon ' + vt;
+    if (vt === 'duoi' && m.oNguon) {
+      nguon.style.left = (m.oNguon.x - m.x) + 'px';
+      nguon.style.width = m.oNguon.rong + 'px';
+    }
     nguon.textContent = m.nguon;
     el.appendChild(nguon);
     goc.appendChild(el);
