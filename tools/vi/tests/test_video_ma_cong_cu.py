@@ -196,6 +196,15 @@ class CliTest(unittest.TestCase):
         self.assertEqual(data["files"], [f"xem-truoc/canh-{i}.png" for i in range(1, 9)])
         self.assertTrue((self.dir / "xem-truoc" / "canh-8.png").is_file())
 
+    def test_help_and_bad_arguments_still_yield_one_json_line(self):
+        for args in (["--help"], ["-h"], [], [str(self.dir), "--bua"]):
+            with self.subTest(args=args):
+                code, lines, _ = chay(args)
+                self.assertEqual(len(lines), 1, lines)
+                data = json.loads(lines[0])
+                self.assertEqual((code, data["error"]["step"]), (1, "input"))
+                self.assertIn("--plan-only", data["error"]["fix"])
+
     def test_json_line_is_valid_even_with_vietnamese_text(self):
         self.viet(MOT_CANH.replace("Xin chào các em.", "Nhờ ướt nhẫm quyết định."))
         code, lines, _ = chay([str(self.dir), "--plan-only"])

@@ -131,7 +131,7 @@ def chay(thu_muc: Path, plan_only: bool, xem_truoc: bool, warnings: list) -> dic
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Dựng video giải thích kiểu viết tay từ video.md")
+    ap = argparse.ArgumentParser(description="Dựng video giải thích kiểu viết tay từ video.md", add_help=False)
     ap.add_argument("thu_muc")
     ap.add_argument("--plan-only", action="store_true")
     ap.add_argument("--xem-truoc", action="store_true")
@@ -139,7 +139,7 @@ def main(argv=None) -> int:
         args = ap.parse_args(argv)
     except SystemExit:
         emit({"ready": False, "files": [], "so_canh": 0, "thoi_luong_giay": None, "phong_cach": None, "giong": None, "warnings": [],
-              "error": {"step": "input", "message": "Sai tham số dòng lệnh.", "fix": "Xem: python tools/vi/video_ma.py --help"}})
+              "error": {"step": "input", "message": "Sai tham số dòng lệnh.", "fix": "Dùng: python tools/vi/video_ma.py <thư_mục> [--plan-only] [--xem-truoc]"}})
         return 1
     warnings: list = []
     base = {"ready": False, "files": [], "so_canh": 0, "thoi_luong_giay": None, "phong_cach": None, "giong": None}
