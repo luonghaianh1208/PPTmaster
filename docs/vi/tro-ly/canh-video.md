@@ -166,7 +166,7 @@ Mã loại: `thi-nghiem`.
 | Trường | Bắt buộc | Giới hạn |
 |---|---|---|
 | `mau` | có | mã một trong tám mẫu dưới đây |
-| `do` | không | tối đa 3 mã đại lượng đo, cách nhau bằng dấu phẩy; bỏ trống thì hiện hai đại lượng đầu của mẫu |
+| `do` | không | tối đa 3 mã đại lượng đo, cách nhau bằng dấu phẩy; không ghi dòng `do` thì hiện hai đại lượng đầu của mẫu |
 | `tham-so` | lặp | dạng `<giây> <mã> <giá trị>`, tối đa 3 mã tham số khác nhau |
 
 Tám mã mẫu:
