@@ -62,6 +62,28 @@ test('ban tay va may quay: hai muc cung bat dau thi uu tien hinh, roi chu, roi n
 });
 var HOP_TAM = { x: 100, y: 100, w: 100, h: 100 };
 
+test('ban tay va may quay: gach chan (quay: false) bat dau muon hon van nhuong tay cho muc may quay dang nhin', function () {
+  // Cảnh minh-hoa thật: tiêu đề viết 0,55–1,4 s, gạch chân 1,4–1,8 s, hình đầu tiên vẽ 1,0–2,8 s.
+  var ds = [muc('a', 0.55, 0.85), muc('b', 1.4, 0.4, { kieu: 'net', quay: false }), muc('c', 1.0, 1.8, { kieu: 'hinh' })];
+  var hop = { a: HOP_TAM, b: HOP_TAM, c: HOP_TAM };
+  var v = T.viTri(ds, 1.6, ngoi, NGHI);
+  assert.strictEqual(Q.mucTieu(ds, hop, 1.6), 'c');
+  assert.ok(gan(v.x, ngoi(ds[2], 0.6 / 1.8).x) && gan(v.y, ngoi(ds[2], 0.6 / 1.8).y), 'tay o hinh may quay dang nhin: ' + JSON.stringify(v));
+  // Chỉ còn gạch chân đang vẽ thì tay vẫn vẽ gạch chân.
+  var ds2 = [muc('a', 0.55, 0.85), muc('b', 1.4, 0.4, { kieu: 'net', quay: false })];
+  var v2 = T.viTri(ds2, 1.6, ngoi, NGHI);
+  assert.ok(gan(v2.x, ngoi(ds2[1], 0.5).x), 'chi con gach chan: ' + JSON.stringify(v2));
+  // Mọi t: mục máy quay nhắm, nếu đang vẽ, chính là mục tay đang vẽ.
+  for (var t = 0; t < 3; t += 1 / 30) {
+    var id = Q.mucTieu(ds, hop, t);
+    var m = ds.filter(function (x) { return x.id === id; })[0];
+    if (!m || t < m.batDau || t >= m.batDau + m.thoiLuong) { continue; }
+    var p = (t - m.batDau) / m.thoiLuong;
+    var tay = T.viTri(ds, t, ngoi, NGHI);
+    assert.ok(gan(tay.x, ngoi(m, p).x) && gan(tay.y, ngoi(m, p).y), 't = ' + t + ': ' + JSON.stringify(tay));
+  }
+});
+
 test('ban tay: bo qua muc dong va muc anh', function () {
   var ds = [muc('a', 1, 1), muc('b', 1.2, 1, { dong: true }), muc('c', 1.3, 0.4, { kieu: 'anh' })];
   var v = T.viTri(ds, 1.5, ngoi, NGHI);

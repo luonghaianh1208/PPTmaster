@@ -14,12 +14,16 @@
   function but(d, hien) { return { x: d.x, y: d.y, hien: hien, kieu: 'but' }; }
 
   // Hai mục cùng bắt đầu: ưu tiên hình, rồi chữ, rồi nét (tay vẽ hình của cột trước, rồi viết tiếp chữ).
+  // Nét trang trí máy quay bỏ qua (gạch chân, `quay: false`) nhường tay cho mục máy quay đang nhìn,
+  // để tay không vẽ gạch chân ở mép khung trong khi máy quay phóng vào hình.
   var UU_TIEN = { hinh: 3, chu: 2, net: 1 };
   function hon(a, b) {
+    if ((a.quay === false) !== (b.quay === false)) { return b.quay === false; }
     if (a.batDau !== b.batDau) { return a.batDau > b.batDau; }
     return (UU_TIEN[a.kieu] || 0) > (UU_TIEN[b.kieu] || 0);
   }
-  // Mục đang vẽ (batDau <= t < kết thúc, như máy quay): mục bắt đầu muộn nhất; trùng thì theo UU_TIEN, rồi mục đứng trước.
+  // Mục đang vẽ (batDau <= t < kết thúc, như máy quay): mục máy quay nhìn được trước nét `quay: false`, rồi mục
+  // bắt đầu muộn nhất; trùng thì theo UU_TIEN, rồi mục đứng trước.
   function dangVe(ds, t) {
     var chon = null;
     ds.forEach(function (m) {
