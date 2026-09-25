@@ -75,9 +75,13 @@ def _tai_nguyen(scene: parse.Scene, thu_muc: Path) -> dict:
     return {"hinh": None, "anh": None, "hinhs": []}
 
 
-def _trang(video, cac_lich, models, thu_muc: Path) -> list:
-    return [trang.dung_trang(lich.du_lieu_canh(c, cl, models.get(c.so), {**_tai_nguyen(c, thu_muc), "meta": video.meta}), models.get(c.so))
+def _cac_du(video, cac_lich, models, thu_muc: Path) -> list:
+    return [lich.du_lieu_canh(c, cl, models.get(c.so), {**_tai_nguyen(c, thu_muc), "meta": video.meta})
             for c, cl in zip(video.canh, cac_lich)]
+
+
+def _trang(video, cac_lich, models, thu_muc: Path) -> list:
+    return [trang.dung_trang(du, models.get(du["so"])) for du in _cac_du(video, cac_lich, models, thu_muc)]
 
 
 def _kiem_tran_tat_ca(page, video, trang_html) -> None:
@@ -137,18 +141,18 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
     cac_giong = [giong.lay_giong(c.so, c.loi, thu_muc / "giong", video.meta["giong"], video.meta["toc-do"]) for c in video.canh]
     cac_lich, canh_bao = lich.dung_lich(video.canh, cac_giong)
     warnings.extend(canh_bao)
-    trang_html = _trang(video, cac_lich, models, thu_muc)
+    cac_du = _cac_du(video, cac_lich, models, thu_muc)
+    models_js = {so: m.js for so, m in models.items()}
+    so_khung = [cl.so_khung for cl in cac_lich]
     lam = thu_muc / ".khung"
     shutil.rmtree(lam, ignore_errors=True)
     anh = lam / "anh"
     anh.mkdir(parents=True)
     try:
-        with _loi_chup(), chup.trinh_duyet() as browser:
-            page = chup.trang_moi(browser)
-            so = 0
-            for canh, cl, html in zip(video.canh, cac_lich, trang_html):
-                log(f"Chụp cảnh {canh.so}/{len(video.canh)} ({cl.so_khung} khung)...")
-                so = chup.chup_canh(page, html, cl.so_khung, lich.FPS, anh, so, log)
+        so_tt = chup.so_tien_trinh()
+        log(f"Chụp {sum(so_khung)} khung ({lich.FPS} khung/giây) bằng {len(chup.chia_dai(so_khung, so_tt))} tiến trình Chromium...")
+        with _loi_chup():
+            chup.chup_song_song(cac_du, models_js, so_khung, lich.FPS, anh, so_tt)
         log("Ghép video bằng FFmpeg...")
         files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"])
     finally:

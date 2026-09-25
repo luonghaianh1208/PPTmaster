@@ -302,6 +302,52 @@ class CliTest(unittest.TestCase):
         self.assertEqual((code, data["error"]["step"]), (1, "dung"))
         self.assertIn("page crashed", data["error"]["message"])
 
+    def test_failing_capture_range_is_dung_naming_the_scene_and_cleans_the_frames(self):
+        self.viet(MOT_CANH)
+        giong = lich.GiongInfo(mp3=self.dir / "x.mp3", giay=3.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
+
+        def hong(cong_viec):
+            (Path(cong_viec["thu_muc_anh"]) / "f000000.png").write_bytes(b"x")
+            raise RuntimeError("Target page crashed")
+
+        with contextlib.ExitStack() as stack:
+            for patch in trinh_duyet_gia():
+                stack.enter_context(patch)
+            stack.enter_context(mock.patch.object(video_ma.giong, "lay_giong", return_value=giong))
+            stack.enter_context(mock.patch.object(video_ma.chup, "chup_dai", side_effect=hong))
+            stack.enter_context(mock.patch.object(video_ma.ghep, "ghep_video", side_effect=AssertionError("không được ghép")))
+            code, data = self.one_json([str(self.dir)])
+        self.assertEqual((code, data["error"]["step"]), (1, "dung"))
+        self.assertIn("cảnh 1", data["error"]["message"])
+        self.assertIn("Target page crashed", data["error"]["message"])
+        self.assertFalse((self.dir / ".khung").exists())
+
+    def test_build_hands_every_scene_to_the_parallel_capture(self):
+        self.viet(MOT_CANH + "\n## Cảnh 2\nloai: tieu-de\nchu: Tạm biệt\nloi: Tạm biệt các em.\n")
+        giong = lich.GiongInfo(mp3=self.dir / "x.mp3", giay=3.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
+        seen = {}
+
+        def gia(cac_du, models_js, so_khung, fps, thu_muc_anh, so_tt):
+            seen.update(cac_du=cac_du, models_js=models_js, so_khung=so_khung, fps=fps, thu_muc_anh=thu_muc_anh, so_tt=so_tt)
+
+        with contextlib.ExitStack() as stack:
+            for patch in trinh_duyet_gia():
+                stack.enter_context(patch)
+            stack.enter_context(mock.patch.object(video_ma.giong, "lay_giong", return_value=giong))
+            stack.enter_context(mock.patch.object(video_ma.chup, "so_tien_trinh", return_value=3))
+            stack.enter_context(mock.patch.object(video_ma.chup, "chup_song_song", side_effect=gia))
+            stack.enter_context(mock.patch.object(video_ma.ghep, "ghep_video", return_value=["video.mp4"]))
+            code, lines, err = chay([str(self.dir)])
+        data = json.loads(lines[0])
+        self.assertEqual(code, 0, data)
+        self.assertEqual([du["so"] for du in seen["cac_du"]], [1, 2])
+        self.assertEqual([du["co"]["lauBang"] for du in seen["cac_du"]], [False, True])
+        n = round(lich.thoi_luong_canh(3.0) * 30)
+        self.assertEqual((seen["so_khung"], seen["fps"], seen["so_tt"]), ([n, n], 30, 3))
+        self.assertEqual(Path(seen["thu_muc_anh"]), self.dir / ".khung" / "anh")
+        json.dumps([seen["cac_du"], seen["models_js"]])
+        self.assertIn("2 tiến trình", err)
+
     def test_stale_separate_subtitle_is_removed_when_not_in_file_mode(self):
         self.viet(MOT_CANH)
         (self.dir / "phu-de.srt").write_text("cu", encoding="utf-8")

@@ -115,6 +115,14 @@ class AssembleTest(unittest.TestCase):
         self.assertIn("fontsdir=.khung/fonts", joined)
         self.assertIn("FontName=Itim", joined)
 
+    def test_default_assembly_reads_and_writes_30_frames_per_second(self):
+        thu_muc = self.project("p-fps")
+        calls = []
+        ghep.ghep_video(thu_muc, PLAN, self.giong(thu_muc), "khong", run=self.fake_run(thu_muc, calls))
+        cmd = calls[-1][0]
+        self.assertEqual(cmd[cmd.index("-framerate") + 1], "30")
+        self.assertEqual(cmd[cmd.index("-r") + 1], "30")
+
     def test_subtitle_modes(self):
         for mode, expect_srt, expect_burn in (("hinh", False, True), ("file", True, False), ("khong", False, False)):
             with self.subTest(mode=mode):

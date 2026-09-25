@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TOOLS_VI = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_VI))
@@ -462,6 +463,145 @@ class PictureMotionChromiumTest(unittest.TestCase):
     def test_kiem_tran_still_catches_overflow_with_a_picture(self):
         du = du_hinh("loai: y-tung-y\ntieu-de: T\ny: " + "A" * 60 + "\nhinh: flask\n", {"hinh": self.hinh})
         self.assertIn("y-0", chup.kiem_tran(self.page, trang.dung_trang(du)))
+
+
+class ChiaDaiTest(unittest.TestCase):
+    def kiem_phu(self, so_khung, so_tt, dai):
+        self.assertTrue(dai)
+        self.assertLessEqual(len(dai), min(so_tt, len(so_khung)))
+        self.assertEqual(dai[0][0], 0)
+        self.assertEqual(dai[-1][1], len(so_khung))
+        for (a, b), (c, _) in zip(dai, dai[1:]):
+            self.assertEqual(b, c)
+        for a, b in dai:
+            self.assertLess(a, b)
+        self.assertEqual(sum(sum(so_khung[a:b]) for a, b in dai), sum(so_khung))
+
+    def test_equal_scenes_split_into_four_neighbouring_ranges(self):
+        self.assertEqual(chup.chia_dai([30] * 8, 4), [(0, 2), (2, 4), (4, 6), (6, 8)])
+
+    def test_a_long_first_scene_gets_a_range_of_its_own(self):
+        dai = chup.chia_dai([300, 30, 30, 30], 4)
+        self.assertEqual(dai[0], (0, 1))
+        self.kiem_phu([300, 30, 30, 30], 4, dai)
+
+    def test_a_long_last_scene_is_not_lumped_with_the_short_ones(self):
+        self.assertEqual(chup.chia_dai([1, 1, 1, 1000], 4)[-1], (3, 4))
+
+    def test_one_scene_or_one_process_is_one_range(self):
+        self.assertEqual(chup.chia_dai([90], 4), [(0, 1)])
+        self.assertEqual(chup.chia_dai([90, 75, 30, 120], 1), [(0, 4)])
+
+    def test_ranges_always_cover_every_scene_once(self):
+        for so_khung in ([75, 84, 90], [30] * 7, [900, 75, 75, 75, 75, 900], [75, 1200], [5, 7, 11, 13, 17, 19, 23]):
+            for so_tt in (1, 2, 3, 4):
+                with self.subTest(so_khung=so_khung, so_tt=so_tt):
+                    self.kiem_phu(so_khung, so_tt, chup.chia_dai(so_khung, so_tt))
+
+    def test_process_count_is_half_the_cores_between_one_and_four(self):
+        for loi, mong in ((None, 1), (1, 1), (2, 1), (3, 1), (6, 3), (8, 4), (32, 4)):
+            with self.subTest(cpu=loi), mock.patch.object(chup.os, "cpu_count", return_value=loi):
+                self.assertEqual(chup.so_tien_trinh(), mong)
+
+
+def ba_canh_ngan():
+    """Ba cảnh 2,5 / 2,8 / 3,0 giây, lau bảng ở cảnh 2 và 3."""
+    text = (f"---\n{META}---\n\n"
+            "## Cảnh 1\nloai: tieu-de\nchu: Chu kì của con lắc đơn dao động nhỏ\nphu: Vật lí 11 · bài mở đầu\nloi: Chào.\n\n"
+            "## Cảnh 2\nloai: khai-niem\nthuat-ngu: Chu kì\ndinh-nghia: Thời gian vật thực hiện một dao động toàn phần.\nloi: Một.\n\n"
+            "## Cảnh 3\nloai: y-tung-y\ntieu-de: Phụ thuộc vào\ny: Chiều dài dây\ny: Gia tốc trọng trường\nloi: Hai.\n")
+    cac_canh = parse.parse(text).canh
+    cac_giong = [lich.GiongInfo(mp3=None, giay=g, moc_cau=[0.0], uoc_luong=False, nguon="may") for g in (0.9, 1.2, 1.4)]
+    plan, _ = lich.dung_lich(cac_canh, cac_giong)
+    return [lich.du_lieu_canh(c, cl, None, {"meta": {}}) for c, cl in zip(cac_canh, plan)], [cl.so_khung for cl in plan]
+
+
+_SO_SANH = """([a, b]) => Promise.all([a, b].map((src) => new Promise((ok, loi) => {
+        const i = new Image(); i.onload = () => ok(i); i.onerror = loi; i.src = src; })))
+    .then((imgs) => {
+        const px = imgs.map((i) => { const c = document.createElement('canvas'); c.width = 1280; c.height = 720;
+            const g = c.getContext('2d'); g.drawImage(i, 0, 0); return g.getImageData(X, 0, 1280 - X, 720).data; });
+        let lon = 0;
+        for (let k = 0; k < px[0].length; k++) { lon = Math.max(lon, Math.abs(px[0][k] - px[1][k])); }
+        return lon; })"""
+SO_SANH_NUA_PHAI = _SO_SANH.replace("X", "640")
+SO_SANH_CA_KHUNG = _SO_SANH.replace("X", "0")
+
+
+@unittest.skipUnless(co_chromium(), NEED_CHROMIUM)
+class ParallelCaptureChromiumTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cac_du, cls.so_khung = ba_canh_ngan()
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.hai = Path(cls.tmp.name) / "hai"
+        cls.mot = Path(cls.tmp.name) / "mot"
+        chup.chup_song_song(cls.cac_du, {}, cls.so_khung, lich.FPS, cls.hai, 2)
+        chup.chup_song_song(cls.cac_du, {}, cls.so_khung, lich.FPS, cls.mot, 1)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_scenes_are_short_and_split_across_both_processes(self):
+        self.assertEqual(self.so_khung, [75, 84, 90])
+        self.assertEqual(chup.chia_dai(self.so_khung, 2), [(0, 2), (2, 3)])
+        self.assertTrue(self.cac_du[1]["co"]["lauBang"] and self.cac_du[2]["co"]["lauBang"])
+        self.assertIsNone(self.cac_du[1]["nenTruoc"], "không được sửa dữ liệu của người gọi")
+
+    def test_every_frame_is_written_once_with_no_gap(self):
+        for thu_muc in (self.hai, self.mot):
+            with self.subTest(thu_muc=thu_muc.name):
+                ten = sorted(p.name for p in thu_muc.iterdir())
+                self.assertEqual(ten, [f"f{i:06d}.png" for i in range(sum(self.so_khung))])
+
+    def test_one_process_and_two_processes_give_the_same_frames(self):
+        # Ngoại lệ duy nhất: các khung lau bảng của cảnh mở đầu dải thứ hai. Nền ở đó là khung cuối cảnh trước dựng
+        # lại trực tiếp, còn Chromium vẽ lại nét gạch chân hơi khác (vài mức xám) khi trang đã được chụp liên tục.
+        dau_dai_2 = self.so_khung[0] + self.so_khung[1]
+        lau = range(dau_dai_2, dau_dai_2 + int(lich.LAU_BANG * lich.FPS) + 1)
+        khac = []
+        for i in range(sum(self.so_khung)):
+            if (self.hai / f"f{i:06d}.png").read_bytes() != (self.mot / f"f{i:06d}.png").read_bytes():
+                khac.append(i)
+        self.assertTrue(set(khac) <= set(lau), khac)
+        import base64
+
+        def url(thu_muc, i):
+            return "data:image/png;base64," + base64.b64encode((thu_muc / f"f{i:06d}.png").read_bytes()).decode("ascii")
+
+        with chup.trinh_duyet() as browser:
+            page = chup.trang_moi(browser)
+            page.set_content("<!doctype html><html><body></body></html>")
+            for i in khac:
+                a, b = url(self.hai, i), url(self.mot, i)
+                self.assertLessEqual(page.evaluate(SO_SANH_CA_KHUNG, [a, b]), 8, i)
+
+    def test_wiped_scene_starts_on_the_last_frame_of_the_previous_scene(self):
+        import base64
+
+        def url(i):
+            return "data:image/png;base64," + base64.b64encode((self.hai / f"f{i:06d}.png").read_bytes()).decode("ascii")
+
+        dau = [0, self.so_khung[0], self.so_khung[0] + self.so_khung[1]]
+        with chup.trinh_duyet() as browser:
+            page = chup.trang_moi(browser)
+            page.set_content("<!doctype html><html><body></body></html>")
+            # Cảnh 2 lấy nền từ khung đã ghi trong cùng tiến trình; cảnh 3 (tiến trình thứ hai) tự dựng lại khung cuối cảnh 2.
+            for k in (1, 2):
+                with self.subTest(canh=k + 1):
+                    cuoi_truoc = dau[k] - 1
+                    self.assertEqual(page.evaluate(SO_SANH_NUA_PHAI, [url(cuoi_truoc), url(dau[k] + 1)]), 0)
+                    self.assertGreater(page.evaluate(SO_SANH_NUA_PHAI, [url(cuoi_truoc), url(dau[k] + self.so_khung[k] - 1)]), 64,
+                                       "khung cuối cảnh mới phải khác nền cảnh trước")
+
+    def test_a_failing_range_is_a_dung_error_naming_its_scenes(self):
+        cac_du = [dict(du) for du in self.cac_du[:2]]
+        cac_du[1]["loai"] = "khong-co-loai-nay"
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(chup.MediaError) as caught:
+            chup.chup_song_song(cac_du, {}, self.so_khung[:2], lich.FPS, Path(tmp), 2)
+        self.assertEqual(caught.exception.step, "dung")
+        self.assertIn("cảnh 2", caught.exception.message)
 
 
 class ChromiumMissingTest(unittest.TestCase):
