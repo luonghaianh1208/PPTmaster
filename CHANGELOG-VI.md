@@ -1,5 +1,34 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.10 — 2026-09-26
+
+Sửa lỗi font tiếng Việt trong video giải thích và làm video trực quan hơn: hình vẽ nét, ảnh thật, bàn tay cầm bút, lau bảng, máy quay động.
+
+### Sửa
+- Chữ tiếng Việt trong video vi.9 bị trộn hai kiểu nét ("Chiều" có "ều" khác nét). Nguyên nhân: Segoe Print thiếu 92 chữ tiếng Việt dựng sẵn (Ink Free thiếu 80, Comic Sans thiếu 92), Chromium lấy từng chữ thiếu từ font khác; phép thử font của vi.9 dùng `document.fonts.check`, hàm này không kiểm độ phủ chữ nên đã nhận sai. Nay đóng gói font Itim (SIL OFL 1.1, kèm `OFL.txt`) trong `tools/vi/video_ma_parts/runtime/fonts/`, nhúng vào trang cảnh, dùng cho cả phụ đề in lên hình và chữ trên canvas thí nghiệm. Có test đọc bảng `cmap` (đủ 134 chữ có dấu) và test Chromium đo độ rộng từng chữ (không chữ nào rơi sang font dự phòng).
+
+### Thêm
+- Hình vẽ nét: trường `hinh:` ở cảnh `tieu-de`, `khai-niem`, `cong-thuc`, `y-tung-y` và loại cảnh mới `minh-hoa` (1–3 hình có nhãn). Hình lấy từ 5.138 biểu tượng `tabler-outline` có sẵn, vẽ dần từng nét, không cần mạng. Tên sai báo lỗi `canh` kèm tối đa 5 tên gần đúng; `canh-video.md` có bảng tra 161 khái niệm tiếng Việt theo môn.
+- Ảnh thật: loại cảnh mới `anh` và trường `anh:` ở bốn loại cảnh trên. AI tải ảnh có giấy phép mở bằng `image_search.py` vào `anh/`; công cụ dựng không tự lên mạng. Ảnh vừa khung không méo, phóng hoặc lướt chậm suốt cảnh, luôn có dòng nguồn (từ `anh/image_sources.json` hoặc `nguon:`); thiếu nguồn hay quá 8 MB là lỗi `canh`. Có ảnh thật thì AI bắt buộc chạy `--xem-truoc` và cho thầy cô xem ảnh trước khi dựng.
+- Bàn tay cầm bút (SVG do repo tự vẽ) đi theo nét đang vẽ và chữ đang viết, nghỉ ở góc khi không vẽ.
+- Lau bảng: 0,5 giây đầu mỗi cảnh từ cảnh 2, bàn tay cầm giẻ xoá khung cuối của cảnh trước. Dẫn đầu mỗi cảnh tăng từ 0,7 lên 1,0 giây.
+- Máy quay: phóng vào phần đang nói (tối đa 1,35 lần), lia sang phần kế, thu về toàn cảnh trong 1,2 giây cuối cảnh; phần đang vẽ luôn nằm trên vạch phụ đề. Cảnh thí nghiệm không có tay, máy quay chỉ đẩy chậm lên 1,06 lần.
+- Khoá đầu mới, đều tuỳ chọn và mặc định bật: `ban-tay`, `may-quay`, `chuyen-canh`. Kịch bản vi.9 dựng được không phải sửa.
+- Chụp 30 khung/giây (trước là 15) bằng nhiều tiến trình Chromium song song (`min(4, số lõi // 2)`, tối thiểu 1). Máy 6 lõi: video 5 phút dựng khoảng 7,1–7,6 phút; một tiến trình khoảng 10,6 phút.
+- Demo con lắc đơn 10 cảnh, giọng edge-tts thật: 104,3 giây, 8,55 MB, dựng trong 186 giây. Chi tiết ở `docs/vi/phat-trien/2026-09-25-video-ma-hinh-anh-kiem-thu.md`.
+
+### Bảo mật
+- Giá trị `hinh:` và `anh:` không còn thoát được khỏi thư mục biểu tượng hay `anh/` bằng `..`, dấu gạch chéo hay tên ổ đĩa.
+- Thuộc tính SVG có namespace và thuộc tính `on…` bị bỏ khi vẽ biểu tượng.
+
+### Ngoài phạm vi
+- Kiểu Vox và khổ dọc 9:16 lùi sang vi.11. Không có nhạc nền, biểu tượng tô màu, video AI sinh hay tự tìm ảnh bên trong công cụ dựng.
+
+### Rủi ro
+- Chưa kiểm: cài Chromium từ đầu trên máy sạch, phiên Antigravity thật với luật mới, thời gian dựng trên máy 2 lõi (ước khoảng 11 phút; câu "khoảng 7 phút" trong spec mục 10 đã được đính chính trong tài liệu).
+- Ảnh tải về có thể sai nội dung hoặc nặng quá 8 MB (demo gặp ảnh 8,7 MB); tài liệu cho AI ghi cách dùng bản thu nhỏ trong `anh/.review/`.
+- Máy quay khá năng động; tiêu đề cảnh vẫn tự hiện dần trong lúc tay viết mục đầu. Chủ repo cần xem demo để quyết có chỉnh ở bản sau.
+
 ## 6.3.2-vi.9 — 2026-09-25
 
 Thêm loại việc thứ 10 cho AI: video giải thích dựng bằng mã (viết tay, không dùng video AI sinh).
