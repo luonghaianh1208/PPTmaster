@@ -105,8 +105,12 @@ class ChromiumTest(unittest.TestCase):
     def test_itim_renders_every_vietnamese_letter_without_a_fallback_glyph(self):
         html = f"<!doctype html><html><head><style>{phong.font_css()}</style></head><body></body></html>"
         self.page.set_content(html)
-        self.page.evaluate("() => document.fonts.ready")
         chars = list(phong.CHU_VIET)
+        text = "".join(chars)
+        loaded = self.page.evaluate(
+            "(text) => document.fonts.load(\"40px 'Itim'\", text).then((faces) => faces.length)", text,
+        )
+        self.assertGreaterEqual(loaded, 1)
         diffs = self.page.evaluate(
             """(chars) => {
                 const canvas = document.createElement('canvas');
@@ -123,6 +127,32 @@ class ChromiumTest(unittest.TestCase):
         )
         for d, c in zip(diffs, chars):
             self.assertLess(d, 0.01, c)
+
+    def test_first_frame_of_a_freshly_opened_page_already_has_itim_loaded(self):
+        du, _ = du_cua("loai: tieu-de\nchu: " + phong.CHU_VIET[:20] + "\n")
+        html = trang.dung_trang(du)
+        page = chup.trang_moi(self.browser)
+        try:
+            chup.mo_trang(page, html)
+            chars = list(phong.CHU_VIET)
+            diffs = page.evaluate(
+                """(chars) => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    return chars.map((c) => {
+                        ctx.font = "40px 'Itim', monospace";
+                        const w1 = ctx.measureText(c).width;
+                        ctx.font = "40px 'Itim', serif";
+                        const w2 = ctx.measureText(c).width;
+                        return Math.abs(w1 - w2);
+                    });
+                }""",
+                chars,
+            )
+            for d, c in zip(diffs, chars):
+                self.assertLess(d, 0.01, c)
+        finally:
+            page.close()
 
     def test_scene_page_computed_font_family_starts_with_itim(self):
         du, _ = du_cua("loai: tieu-de\nchu: Xin chào\n")

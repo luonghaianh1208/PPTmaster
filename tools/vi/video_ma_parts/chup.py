@@ -8,6 +8,8 @@ from pathlib import Path
 
 from video_parts.media import MediaError
 
+from .phong import CHU_VIET
+
 FIX_CHROMIUM = (
     "Cài Chromium bằng: powershell -NoProfile -ExecutionPolicy Bypass -File tools\\vi\\pptmaster.ps1 "
     "-Action tool -Name chromium"
@@ -50,6 +52,9 @@ def trang_moi(browser):
 def mo_trang(page, html: str) -> None:
     page.set_content(html)
     page.wait_for_function("window.THI_VIDEO && window.THI_VIDEO.san === true", timeout=30000)
+    page.evaluate(
+        "(chuViet) => document.fonts.load(\"40px 'Itim'\", document.body.innerText + chuViet)", CHU_VIET,
+    )
     page.evaluate("() => document.fonts.ready.then(() => true)")
 
 
