@@ -12,7 +12,7 @@ from video_parts import media, srt
 from .lich import DAN_DAU, FPS
 
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
-STYLE = "FontName=Segoe UI,FontSize=12,Outline=1,Shadow=0,MarginV=24"
+STYLE = "FontName=Segoe UI,FontSize=12,Outline=1,Shadow=0,MarginV=10"
 
 
 def cues_phu_de(cac_lich: list) -> list:

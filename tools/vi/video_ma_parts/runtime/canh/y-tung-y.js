@@ -7,9 +7,9 @@
       var t = du.truong;
       var kq = B.tieuDe(t['tieu-de'][0], 0.2);
       t.y.forEach(function (y, k) {
-        var top = 190 + k * 82;
+        var top = 186 + k * 74;
         kq.push(B.net('cham-' + k, V.vongTron(96, top + 22, 9), du.moc[k], 0.3, { mau: 'nhan' }));
-        kq.push(B.chu('y-' + k, y, 124, top, 1100, 78, 30, du.moc[k], {}));
+        kq.push(B.chu('y-' + k, y, 124, top, 1100, 72, 30, du.moc[k], {}));
       });
       return kq;
     }

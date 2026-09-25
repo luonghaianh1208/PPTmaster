@@ -11,7 +11,7 @@
       kq.push(bt);
       (t['giai-thich'] || []).forEach(function (g, k) {
         var bd = Math.max(du.moc[k], bt.batDau + bt.thoiLuong + 0.3);
-        kq.push(B.chu('giai-thich-' + k, g, 110, 370 + k * 84, 1060, 76, 28, bd, {}));
+        kq.push(B.chu('giai-thich-' + k, g, 110, 356 + k * 68, 1060, 66, 28, bd, {}));
       });
       return kq;
     }

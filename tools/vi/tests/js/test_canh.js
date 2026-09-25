@@ -86,6 +86,27 @@ test('moi loai canh: muc xac dinh, t=0 chua hien gi, cuoi canh hien du', functio
   });
 });
 
+test('moi loai canh chua trong day 90 px cho phu de, ke ca khi du so dong toi da', function () {
+  var DAY = 630;
+  var bo = tatCa(12);
+  var moc = function (n) { return Array.apply(null, Array(n)).map(function (_, k) { return 0.7 + k; }); };
+  var nhieu = function (n, chu) { return Array.apply(null, Array(n)).map(function () { return chu; }); };
+  bo['y-tung-y'] = du('y-tung-y', 12, moc(6), { 'tieu-de': ['Sáu ý'], y: nhieu(6, 'ý') });
+  bo['cong-thuc'] = du('cong-thuc', 12, moc(4), { 'bieu-thuc': ['T = 2π√(l/g)'], 'giai-thich': nhieu(4, 'g') });
+  bo['so-sanh'] = du('so-sanh', 12, moc(8), { 'tieu-de': ['S'], trai: ['A'], phai: ['B'], 'y-trai': nhieu(4, 'a'), 'y-phai': nhieu(4, 'b') });
+  bo['quy-trinh'] = du('quy-trinh', 12, moc(5), { 'tieu-de': ['Q'], buoc: nhieu(5, 'b') });
+  bo['thi-nghiem'].thamSo = { 'chieu-dai': [[0, 0.4]], g: [[0, 9.8]], 'khoi-luong': [[0, 0.2]] };
+  bo['thi-nghiem'].do = ['chu-ki', 'thoi-gian-10-dao-dong'];
+  LOAI.forEach(function (l) {
+    C[l].muc(bo[l]).forEach(function (m) {
+      var day = m.kieu === 'net'
+        ? Math.max.apply(null, m.d.match(/-?\d+(\.\d+)?/g).map(Number).filter(function (_, i) { return i % 2 === 1; }))
+        : m.y + m.cao;
+      assert.ok(day <= DAY, l + ':' + m.id + ' xuong toi ' + day);
+    });
+  });
+});
+
 test('y k hien dung tai moc cau k', function () {
   var bo = tatCa(12);
   var ids = function (l, tienTo) {

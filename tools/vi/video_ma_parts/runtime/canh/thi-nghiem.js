@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
   var V = root.THI_VIDEO;
-  var RONG = 792, CAO = 462;
+  var RONG = 792, CAO = 422;
 
   function thamSoTai(du, t) {
     var K = root.THI_NGHIEM_KHUNG;
@@ -41,14 +41,14 @@
       var B = V.tao(du);
       var kb = du.khaiBao;
       var kq = B.tieuDe(kb.ten, 0.2);
-      kq.push(B.net('khung', V.hopQua(40, 190, 800, 470, 5), 0.1, 0.7, {}));
+      kq.push(B.net('khung', V.hopQua(40, 190, 800, 430, 5), 0.1, 0.7, {}));
       kq.push(B.chu('nhan-tham-so', 'Thông số', 880, 190, 360, 40, 26, 0.4, { mau: 'nhan' }));
       Object.keys(du.thamSo).slice(0, 3).forEach(function (ma, k) {
-        kq.push(B.chu('ts-' + k, '', 880, 236 + k * 60, 360, 56, 20, 0.4, { dong: true }));
+        kq.push(B.chu('ts-' + k, '', 880, 232 + k * 56, 360, 56, 20, 0.4, { dong: true }));
       });
-      kq.push(B.chu('nhan-do', 'Số đo', 880, 430, 360, 40, 26, 0.4, { mau: 'nhan' }));
+      kq.push(B.chu('nhan-do', 'Số đo', 880, 410, 360, 40, 26, 0.4, { mau: 'nhan' }));
       du.do.slice(0, 3).forEach(function (ma, k) {
-        kq.push(B.chu('do-' + k, '', 880, 476 + k * 70, 360, 66, 22, 0.4, { dong: true, mau: 'do' }));
+        kq.push(B.chu('do-' + k, '', 880, 452 + k * 58, 360, 58, 20, 0.4, { dong: true, mau: 'do' }));
       });
       return kq;
     },
