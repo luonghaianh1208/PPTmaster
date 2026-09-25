@@ -34,6 +34,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 - Soạn **đề kiểm tra** KHTN/Vật lí/Hoá học/Sinh học bằng tiếng Anh, từ đề tiếng Việt có sẵn hoặc từ đầu, xuất ra file Word.
 - Soạn **giáo án** kế hoạch bài dạy theo Công văn 5512, tích hợp năng lực số và năng lực AI, xuất ra file Word.
 - Tạo **thí nghiệm ảo** Toán, Vật lí, Hoá học: một file HTML chạy không cần mạng, có bảng số liệu, đồ thị và phiếu học tập Word; 8 mô hình đã kiểm bằng số.
+- Dựng **video giải thích** kiểu viết tay từ nội dung bài: chữ, công thức, đồ thị và thí nghiệm ảo được viết dần ra theo giọng đọc tiếng Việt, có phụ đề.
 
 ## Ba file bấm đúp
 
@@ -55,6 +56,7 @@ macOS/Linux: chạy `sh tools/vi/setup.sh`.
 | [Soạn đề tiếng Anh](docs/vi/soan-de-tieng-anh.md) | Từ đề tiếng Việt hoặc từ đầu, ra ba file Word (hai file nếu không cần bản song ngữ) |
 | [Soạn giáo án](docs/vi/soan-giao-an.md) | Kế hoạch bài dạy 5512 tích hợp năng lực số và AI |
 | [Làm thí nghiệm ảo](docs/vi/thi-nghiem-ao.md) | File HTML tương tác chạy không cần mạng, kèm phiếu học tập |
+| [Làm video giải thích](docs/vi/video-giai-thich.md) | Video viết tay có giọng đọc và phụ đề, dựng từ nội dung bài |
 
 Tài liệu gốc (tiếng Anh) của dự án nằm trong [docs/](docs/).
 

@@ -85,6 +85,22 @@ Bộ công cụ bị sửa đổi hoặc thiếu file bản quyền (`LICENSE`, 
 - Nếu thông báo có `FileNotFoundError` kèm một đường dẫn rất dài, xem mục **Đường dẫn quá dài** ngay bên dưới.
 - Nếu vẫn lỗi, khi hỏi hỗ trợ hãy chụp toàn bộ màn hình kết quả `KIEM-TRA.bat` để gửi kèm.
 
+## Dựng video giải thích thất bại
+
+Xem dòng kết quả AI đọc được, phần `error`:
+
+- `input`: chưa có thư mục video hoặc file `video.md`. Nhờ AI viết file theo docs/vi/tro-ly/video-giai-thich.md rồi chạy lại.
+- `parse`: `error.message` nêu đúng số **Dòng** trong `video.md` cần sửa, ví dụ thiếu `loai:` hay `loi:`, cảnh đánh số không liên tiếp, hoặc có địa chỉ web.
+- `canh`: nội dung một cảnh không vừa khung. `error.message` nêu số cảnh: chữ dài quá giới hạn, **chữ tràn khung** khi dựng thử, mã thí nghiệm không có trong danh mục, hoặc mốc thời gian của thí nghiệm dài hơn lời đọc. AI rút gọn chữ hoặc tách thành hai cảnh; lời giảng và số liệu của thầy cô giữ nguyên.
+- `giong`: không tạo được giọng đọc. Giọng máy **cần mạng**: kiểm tra mạng rồi nhờ AI chạy lại. Không có mạng thì thu giọng từng cảnh thành `giong\canh-1.mp3`, `giong\canh-2.mp3`… trong thư mục video; cảnh có file sẵn không cần mạng.
+- `chromium`: máy chưa có Chromium để vẽ cảnh. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB, một lần). Bước cài `playwright` báo `FileNotFoundError` hay lỗi đường dẫn thì xem mục **Đường dẫn quá dài**.
+- `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
+- `dung`: chụp khung hoặc ghép video hỏng giữa chừng. Dán nguyên dòng `error.message` gửi người bảo trì.
+- `write`: **`video.mp4` đang mở** trong trình phát video — đóng lại rồi chạy lại; hoặc ổ đĩa hết dung lượng.
+- `internal`: lỗi ngoài dự kiến. Dán nguyên dòng `error.message` gửi người bảo trì.
+
+Các dòng `warnings` không chặn video, chỉ gợi ý: cảnh dài quá 40 giây, video dài quá 8 phút, lời một cảnh quá 700 ký tự, hoặc "mốc câu ước lượng" khi dùng giọng thu sẵn (chữ có thể hiện lệch tiếng một chút).
+
 ## Tạo thí nghiệm ảo thất bại
 
 Xem dòng kết quả AI đọc được, phần `error`:

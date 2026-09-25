@@ -107,6 +107,20 @@ Thí nghiệm cho giáo viên trình diễn trên máy chiếu:
 Làm thí nghiệm ảo chuyển dịch cân bằng N2O4 ⇌ 2NO2 cho Hoá 11, giáo viên trình diễn, không cần phiếu học tập
 ```
 
+## Video giải thích
+
+Video viết tay có cảnh thí nghiệm ảo:
+
+```
+Làm video giải thích bài Con lắc đơn bằng kiểu viết tay
+```
+
+Video viết tay từ nội dung thầy cô dán vào:
+
+```
+Làm video viết tay giải thích phản ứng trao đổi ion, giọng nam, phụ đề để file riêng. Nội dung: (dán dàn ý bài vào đây)
+```
+
 ## Tạo nhanh
 
 ```
