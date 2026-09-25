@@ -9,6 +9,7 @@ stdout đúng một dòng JSON. Hướng dẫn: docs/vi/tro-ly/video-giai-thich.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib.util
 import json
 import os
@@ -24,6 +25,8 @@ from video_parts import media  # noqa: E402
 
 FIX_INPUT = "Viết video.md trong thư mục dự án (xem docs/vi/tro-ly/video-giai-thich.md) rồi chạy lại."
 FIX_INTERNAL = "Lỗi ngoài dự kiến; dán nguyên thông báo này cho người bảo trì."
+FIX_CHUP = "Chạy lại một lần; vẫn lỗi thì dán nguyên thông báo này cho người bảo trì."
+GIONG_TAM = 8.0
 
 
 def log(text: str) -> None:
@@ -68,13 +71,36 @@ def _kiem_tran_tat_ca(page, video, trang_html) -> None:
             raise kiem.CanhError(canh.so, f"chữ ở mục `{', '.join(tran)}` tràn khung. Rút ngắn nội dung hoặc chia thành hai cảnh.")
 
 
+@contextlib.contextmanager
+def _loi_chup():
+    try:
+        yield
+    except (media.MediaError, kiem.CanhError, OSError):
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise media.MediaError("dung", f"Chụp khung hỏng: {type(exc).__name__}: {exc}", FIX_CHUP) from exc
+
+
+def _giong_tam(video: parse.Video) -> list:
+    """Giọng giả cho bố cục: 8 giây, hoặc tới mốc `tham-so` cuối của cảnh để thấy trạng thái cuối."""
+    out = []
+    for c in video.canh:
+        moc = [float(v.split()[0]) for v in c.truong.get("tham-so", [])]
+        out.append(lich.GiongInfo(mp3=None, giay=max([GIONG_TAM] + moc), moc_cau=[], uoc_luong=True, nguon="may"))
+    return out
+
+
+def _trang_tam(video: parse.Video, models: dict) -> list:
+    cac_lich, _ = lich.dung_lich(video.canh, _giong_tam(video), kiem_moc=False)
+    return _trang(video, cac_lich, models)
+
+
 def _xem_truoc(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
-    gia = [lich.GiongInfo(mp3=None, giay=8.0, moc_cau=[], uoc_luong=True, nguon="may") for _ in video.canh]
-    cac_lich, _ = lich.dung_lich(video.canh, gia, kiem_moc=False)
-    trang_html = _trang(video, cac_lich, _mo_hinh(video, thu_muc))
+    trang_html = _trang_tam(video, _mo_hinh(video, thu_muc))
     ra = thu_muc / "xem-truoc"
+    shutil.rmtree(ra, ignore_errors=True)
     files = []
-    with chup.trinh_duyet() as browser:
+    with _loi_chup(), chup.trinh_duyet() as browser:
         page = chup.trang_moi(browser)
         _kiem_tran_tat_ca(page, video, trang_html)
         for canh, html in zip(video.canh, trang_html):
@@ -89,18 +115,20 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
         raise media.MediaError("ffmpeg", "Chưa có FFmpeg.", media.FIX_FFMPEG)
     if not co_chromium():
         raise media.MediaError("chromium", "Chưa cài Chromium hoặc playwright.", chup.FIX_CHROMIUM)
+    models = _mo_hinh(video, thu_muc)
+    with _loi_chup(), chup.trinh_duyet() as browser:
+        _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, models))
     cac_giong = [giong.lay_giong(c.so, c.loi, thu_muc / "giong", video.meta["giong"], video.meta["toc-do"]) for c in video.canh]
     cac_lich, canh_bao = lich.dung_lich(video.canh, cac_giong)
     warnings.extend(canh_bao)
-    trang_html = _trang(video, cac_lich, _mo_hinh(video, thu_muc))
+    trang_html = _trang(video, cac_lich, models)
     lam = thu_muc / ".khung"
     shutil.rmtree(lam, ignore_errors=True)
     anh = lam / "anh"
     anh.mkdir(parents=True)
     try:
-        with chup.trinh_duyet() as browser:
+        with _loi_chup(), chup.trinh_duyet() as browser:
             page = chup.trang_moi(browser)
-            _kiem_tran_tat_ca(page, video, trang_html)
             so = 0
             for canh, cl, html in zip(video.canh, cac_lich, trang_html):
                 log(f"Chụp cảnh {canh.so}/{len(video.canh)} ({cl.so_khung} khung)...")
@@ -109,6 +137,8 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
         files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"])
     finally:
         shutil.rmtree(lam, ignore_errors=True)
+    if video.meta["phu-de"] != "file":
+        (thu_muc / "phu-de.srt").unlink(missing_ok=True)
     nguon = {g.nguon for g in cac_giong}
     return {"files": files, "so_canh": len(video.canh), "thoi_luong_giay": round(sum(cl.thoi_luong for cl in cac_lich), 2),
             "phong_cach": video.meta["phong-cach"], "giong": nguon.pop() if len(nguon) == 1 else "hon-hop"}
