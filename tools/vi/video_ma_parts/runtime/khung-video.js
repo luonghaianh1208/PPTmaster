@@ -156,7 +156,7 @@
     }
     root.datThoiDiem = dat;
     root.THI_VIDEO.thoiDiemCuoi = function () {
-      return muc.reduce(function (cao, m) { return Math.max(cao, m.batDau + m.thoiLuong); }, 0) + 0.3;
+      return du.thoiLuong - 0.2;
     };
     root.THI_VIDEO.kiemTran = function () {
       dat(1e6);

@@ -184,6 +184,21 @@ class ChromiumTest(unittest.TestCase):
         cuoi = self.page.evaluate("document.querySelector('[data-id=do-0]').textContent")
         self.assertIn("2,539", cuoi)
 
+    def test_preview_shows_the_scene_at_its_final_parameter_value(self):
+        from thi_nghiem_parts import thu_vien
+
+        model = thu_vien.load("li-con-lac-don", Path("."))
+        text = (f"---\n{META}---\n\n## Cảnh 1\nloai: thi-nghiem\nmau: li-con-lac-don\ntham-so: 0 chieu-dai 0.4\n"
+                "tham-so: 5 chieu-dai 1.6\ndo: chu-ki\nloi: Ok.\n")
+        canh = parse.parse(text).canh[0]
+        giong = lich.GiongInfo(mp3=None, giay=6.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
+        plan, _ = lich.dung_lich([canh], [giong])
+        html = trang.dung_trang(lich.du_lieu_canh(canh, plan[0], model), model)
+        chup.mo_trang(self.page, html)
+        self.page.evaluate("window.datThoiDiem(window.THI_VIDEO.thoiDiemCuoi())")
+        ts0 = self.page.evaluate("document.querySelector('[data-id=ts-0]').textContent")
+        self.assertIn("1,60 m", ts0)
+
 
 class ChromiumMissingTest(unittest.TestCase):
     def test_missing_playwright_is_a_chromium_error(self):
