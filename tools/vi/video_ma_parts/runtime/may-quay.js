@@ -1,0 +1,111 @@
+(function (root) {
+  'use strict';
+
+  // Máy quay theo t: hàm thuần, chạy được trong Node. `hop[id] = {x, y, w, h}` đo ở Z = 1.
+  // Kết quả {z, tx, ty}: điểm (x, y) của lớp bảng hiện ở (z*x + tx, z*y + ty).
+  var RONG = 1280, CAO = 720, DAY = 620;
+  var ZMAX = 1.35;
+  var CHUYEN = 0.6;
+  var THU = 1.2;
+  var XONG = 0.2;
+  var TAM = { x: 640, y: 310 };
+  var GOC = { z: 1, tx: 0, ty: 0 };
+
+  function kep(x, a, b) { return x < a ? a : (x > b ? b : x); }
+  function em(u) { u = kep(u, 0, 1); return u * u * (3 - 2 * u); }
+  function tron(a, b, u) {
+    if (u >= 1) { return { z: b.z, tx: b.tx, ty: b.ty }; }
+    return { z: a.z + (b.z - a.z) * u, tx: a.tx + (b.tx - a.tx) * u, ty: a.ty + (b.ty - a.ty) * u };
+  }
+  function ketThuc(m) { return m.batDau + m.thoiLuong; }
+  var UU_TIEN = { hinh: 3, chu: 2, net: 1 };
+  function hon(a, b) {
+    if (a.batDau !== b.batDau) { return a.batDau > b.batDau; }
+    return (UU_TIEN[a.kieu] || 0) > (UU_TIEN[b.kieu] || 0);
+  }
+  function quayDuoc(m, hop) { return !m.dong && m.quay !== false && !!hop[m.id]; }
+
+  // Mục tiêu tại t: mục đang vẽ (batDau <= t < kết thúc) bắt đầu muộn nhất (trùng thì hình, chữ, nét);
+  // không có thì mục vừa xong gần nhất.
+  function mucTai(ds, hop, t) {
+    var ve = null;
+    var xong = null;
+    ds.forEach(function (m) {
+      if (!quayDuoc(m, hop)) { return; }
+      if (t >= m.batDau && t < ketThuc(m)) {
+        if (!ve || hon(m, ve)) { ve = m; }
+      } else if (ketThuc(m) <= t && (!xong || ketThuc(m) >= ketThuc(xong))) {
+        xong = m;
+      }
+    });
+    return ve || xong;
+  }
+
+  // Z nhỏ nhất để hộp có đáy <= 620 mà lớp bảng vẫn phủ kín khung.
+  function zToiThieu(h) {
+    var day = h.y + h.h;
+    return day > DAY ? Math.min(ZMAX, (CAO - DAY) / (CAO - day)) : 1;
+  }
+
+  function kepKhoang(v, lo, hi, phuLo, phuHi) {
+    return lo <= hi ? kep(v, lo, hi) : kep(v, phuLo, phuHi);
+  }
+
+  // Kẹp để lớp bảng phủ kín khung và hộp nằm trong khung, đáy <= 620.
+  function kepHop(s, h) {
+    var z = kep(Math.max(s.z, zToiThieu(h)), 1, ZMAX);
+    var phuX = RONG * (1 - z), phuY = CAO * (1 - z);
+    var tx = kepKhoang(s.tx, Math.max(phuX, -z * h.x), Math.min(0, RONG - z * (h.x + h.w)), phuX, 0);
+    var ty = kepKhoang(s.ty, Math.max(phuY, -z * h.y), Math.min(0, DAY - z * (h.y + h.h)), phuY, 0);
+    return { z: z, tx: tx, ty: ty };
+  }
+
+  function ngam(h) {
+    var z = kep(Math.min(0.6 * RONG / h.w, 0.6 * 560 / h.h), 1, ZMAX);
+    return kepHop({ z: z, tx: TAM.x - z * (h.x + h.w / 2), ty: TAM.y - z * (h.y + h.h / 2) }, h);
+  }
+
+  function theoMuc(ds, hop, t) {
+    var moc = [];
+    ds.forEach(function (m) {
+      if (!quayDuoc(m, hop)) { return; }
+      moc.push(m.batDau, ketThuc(m));
+    });
+    moc.sort(function (a, b) { return a - b; });
+    var dang = null;
+    var tu = GOC;
+    var luc = -Infinity;
+    function hienTai(x) {
+      var s = tron(tu, dang ? ngam(hop[dang.id]) : GOC, em((x - luc) / CHUYEN));
+      return dang ? kepHop(s, hop[dang.id]) : s;
+    }
+    for (var i = 0; i < moc.length && moc[i] <= t; i++) {
+      var moi = mucTai(ds, hop, moc[i]);
+      if (moi !== dang) {
+        tu = hienTai(moc[i]);
+        dang = moi;
+        luc = moc[i];
+      }
+    }
+    return hienTai(t);
+  }
+
+  function tinh(ds, hop, t, gh, cauHinh) {
+    cauHinh = cauHinh || {};
+    if (cauHinh.mayQuay === false) { return { z: 1, tx: 0, ty: 0 }; }
+    if (cauHinh.day) {
+      var z = 1 + 0.06 * kep(t / gh, 0, 1);
+      return { z: z, tx: 640 * (1 - z), ty: 360 * (1 - z) };
+    }
+    var ve = em((t - (gh - THU)) / (THU - XONG));
+    if (ve >= 1) { return { z: 1, tx: 0, ty: 0 }; }
+    return tron(theoMuc(ds, hop, t), GOC, ve);
+  }
+
+  function mucTieu(ds, hop, t) {
+    var m = mucTai(ds, hop, t);
+    return m ? m.id : null;
+  }
+
+  root.THI_MAY_QUAY = { ZMAX: ZMAX, tinh: tinh, mucTieu: mucTieu, kepHop: kepHop };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
