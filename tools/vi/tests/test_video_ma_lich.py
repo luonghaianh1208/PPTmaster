@@ -40,9 +40,9 @@ class DurationTest(unittest.TestCase):
         self.assertGreaterEqual(toi_thieu, 2.5)
         self.assertLess(toi_thieu, 2.5 + 1 / lich.FPS)
         long = lich.thoi_luong_canh(4.13)
-        self.assertGreaterEqual(long, 0.7 + 4.13 + 0.6)
+        self.assertGreaterEqual(long, lich.DAN_DAU + 4.13 + 0.6)
         self.assertAlmostEqual(long * lich.FPS, round(long * lich.FPS), places=6)
-        self.assertLess(long, 0.7 + 4.13 + 0.6 + 1 / lich.FPS)
+        self.assertLess(long, lich.DAN_DAU + 4.13 + 0.6 + 1 / lich.FPS)
 
 
 class RevealTimesTest(unittest.TestCase):
@@ -140,6 +140,44 @@ class ExperimentDataTest(unittest.TestCase):
         du = lich.du_lieu_canh(scene, plan[0])
         self.assertEqual(du["diem"], [[0.5, 1.0], [2.0, 3.5]])
         self.assertEqual(len(du["moc"]), 2)
+
+
+class ResourceDataTest(unittest.TestCase):
+    def test_minh_hoa_reveal_marks_match_picture_count(self):
+        scene = canh_dau("loai: minh-hoa\ntieu-de: A\nhinh: clock | Đồng hồ\nhinh: atom | Nguyên tử\n",
+                         "Đầu tiên xem đồng hồ. Sau đó xem nguyên tử.")
+        plan, _ = lich.dung_lich([scene], [giong(6.0, [0.0, 3.0])])
+        du = lich.du_lieu_canh(scene, plan[0])
+        self.assertEqual(len(du["moc"]), 2)
+
+    def test_hinhs_keep_order_and_labels(self):
+        scene = canh_dau("loai: minh-hoa\ntieu-de: A\nhinh: clock | Đồng hồ\nhinh: atom | Nguyên tử\n", "Ok.")
+        plan, _ = lich.dung_lich([scene], [giong(3.0, [0.0])])
+        tai_nguyen = {"hinh": None, "anh": None,
+                      "hinhs": [{"ten": "clock", "nhan": "Đồng hồ"}, {"ten": "atom", "nhan": "Nguyên tử"}]}
+        du = lich.du_lieu_canh(scene, plan[0], tai_nguyen=tai_nguyen)
+        self.assertEqual([h["ten"] for h in du["hinhs"]], ["clock", "atom"])
+        self.assertEqual([h["nhan"] for h in du["hinhs"]], ["Đồng hồ", "Nguyên tử"])
+
+    def test_co_flags_for_scene_one_and_two(self):
+        scene1 = canh_dau("loai: tieu-de\nchu: A\n", "Xin chào.")
+        scene2 = canh_dau("loai: tieu-de\nchu: B\n", "Tiếp theo.")
+        scene2.so = 2
+        meta = {"ban-tay": "co", "may-quay": "khong", "chuyen-canh": "lau-bang"}
+        plan1, _ = lich.dung_lich([scene1], [giong(2.0, [0.0])])
+        du1 = lich.du_lieu_canh(scene1, plan1[0], tai_nguyen={"meta": meta})
+        self.assertEqual(du1["co"], {"banTay": True, "mayQuay": False, "lauBang": False})
+        plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
+        du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
+        self.assertEqual(du2["co"], {"banTay": True, "mayQuay": False, "lauBang": True})
+
+    def test_lau_bang_off_when_meta_says_khong(self):
+        scene2 = canh_dau("loai: tieu-de\nchu: B\n", "Tiếp theo.")
+        scene2.so = 2
+        meta = {"ban-tay": "co", "may-quay": "co", "chuyen-canh": "khong"}
+        plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
+        du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
+        self.assertFalse(du2["co"]["lauBang"])
 
 
 if __name__ == "__main__":

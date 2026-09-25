@@ -14,7 +14,7 @@ from video_parts import media, srt  # noqa: E402
 
 
 def canh_lich(so, bat_dau, thoi_luong, giay, cau, moc_giong):
-    return lich.CanhLich(so=so, bat_dau=bat_dau, thoi_luong=thoi_luong, so_khung=round(thoi_luong * 15), giay_giong=giay,
+    return lich.CanhLich(so=so, bat_dau=bat_dau, thoi_luong=thoi_luong, so_khung=round(thoi_luong * lich.FPS), giay_giong=giay,
                          cau=cau, moc_cau=[lich.DAN_DAU + m for m in moc_giong], moc_cau_giong=moc_giong, uoc_luong=False)
 
 
@@ -30,12 +30,12 @@ class SubtitleTest(unittest.TestCase):
         self.assertEqual([c.index for c in cues], [1, 2, 3])
         self.assertEqual(cues[0].text, "Xin chào các em.")
         self.assertEqual(cues[1].text, "Học H2SO4 nhé.")
-        self.assertAlmostEqual(cues[0].start, 0.7)
-        self.assertAlmostEqual(cues[0].end, 2.7)
-        self.assertAlmostEqual(cues[1].start, 2.7)
-        self.assertAlmostEqual(cues[1].end, 0.7 + 4.0)
-        self.assertAlmostEqual(cues[2].start, 6.0 + 0.7)
-        self.assertAlmostEqual(cues[2].end, 6.0 + 0.7 + 1.5)
+        self.assertAlmostEqual(cues[0].start, lich.DAN_DAU)
+        self.assertAlmostEqual(cues[0].end, lich.DAN_DAU + 2.0)
+        self.assertAlmostEqual(cues[1].start, lich.DAN_DAU + 2.0)
+        self.assertAlmostEqual(cues[1].end, lich.DAN_DAU + 4.0)
+        self.assertAlmostEqual(cues[2].start, 6.0 + lich.DAN_DAU)
+        self.assertAlmostEqual(cues[2].end, 6.0 + lich.DAN_DAU + 1.5)
 
     def test_cues_render_to_valid_srt(self):
         text = srt.render_srt(ghep.cues_phu_de(PLAN))
@@ -46,13 +46,13 @@ class CommandTest(unittest.TestCase):
     def test_audio_command_delays_pads_and_cuts_to_scene_length(self):
         cmd = ghep.lenh_am_canh(Path("giong/canh-1.mp3"), Path("am-1.wav"), 6.0)
         joined = " ".join(cmd)
-        self.assertIn("adelay=700:all=1", joined)
+        self.assertIn(f"adelay={int(round(lich.DAN_DAU * 1000))}:all=1", joined)
         self.assertIn("apad=whole_dur=6.000", joined)
         self.assertEqual(cmd[cmd.index("-t") + 1], "6.000")
 
-    def test_video_command_uses_15_fps_frames_and_30_fps_output(self):
-        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), 15, ".khung/phu-de.srt")
-        self.assertEqual(cmd[cmd.index("-framerate") + 1], "15")
+    def test_video_command_uses_scene_fps_frames_and_30_fps_output(self):
+        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), lich.FPS, ".khung/phu-de.srt")
+        self.assertEqual(cmd[cmd.index("-framerate") + 1], str(lich.FPS))
         self.assertEqual(cmd[cmd.index("-framerate") + 3], ".khung/anh/f%06d.png")
         self.assertEqual(cmd[cmd.index("-r") + 1], "30")
         self.assertIn("libx264", cmd)
@@ -61,7 +61,7 @@ class CommandTest(unittest.TestCase):
         self.assertIn("FontName=Itim", vf)
 
     def test_video_command_without_burned_subtitles_has_no_filter(self):
-        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), 15, None)
+        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), lich.FPS, None)
         self.assertNotIn("-vf", cmd)
 
 

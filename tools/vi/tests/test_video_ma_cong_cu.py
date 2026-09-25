@@ -267,7 +267,7 @@ class CliTest(unittest.TestCase):
         def thoi_luong(html):
             return float(re.search(r'"thoiLuong": ([0-9.]+)', html).group(1))
 
-        self.assertGreaterEqual(thoi_luong(trang["canh-2.png"]), 20.7)
+        self.assertGreaterEqual(thoi_luong(trang["canh-2.png"]), 20.0 + lich.DAN_DAU)
         self.assertAlmostEqual(thoi_luong(trang["canh-1.png"]), lich.thoi_luong_canh(8.0), delta=0.01)
 
     def test_preview_clears_old_images(self):

@@ -10,8 +10,9 @@ from pathlib import Path
 from .kiem import CanhError, ma_do, tham_so_theo_thoi_gian
 from .parse import Scene
 
-FPS = 15
-DAN_DAU = 0.7
+FPS = 30
+DAN_DAU = 1.0
+LAU_BANG = 0.5
 DUOI = 0.6
 TOI_THIEU = 2.5
 CANH_DAI = 40.0
@@ -76,6 +77,7 @@ def so_muc(scene: Scene) -> int:
         "so-sanh": len(t.get("y-trai", [])) + len(t.get("y-phai", [])),
         "do-thi": len(t.get("diem", [])),
         "cong-thuc": len(t.get("giai-thich", [])),
+        "minh-hoa": len(t.get("hinh", [])),
     }.get(scene.loai, 0)
 
 
@@ -108,7 +110,9 @@ def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = 
     return plan, warnings
 
 
-def du_lieu_canh(scene: Scene, cl: CanhLich, model=None) -> dict:
+def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None = None) -> dict:
+    tai_nguyen = tai_nguyen or {}
+    meta = tai_nguyen.get("meta", {})
     du = {
         "so": scene.so,
         "loai": scene.loai,
@@ -116,6 +120,15 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None) -> dict:
         "danDau": DAN_DAU,
         "truong": scene.truong,
         "moc": [round(DAN_DAU + m, 3) for m in moc_hien(so_muc(scene), cl.moc_cau_giong, cl.giay_giong)],
+        "hinh": tai_nguyen.get("hinh"),
+        "anh": tai_nguyen.get("anh"),
+        "hinhs": tai_nguyen.get("hinhs", []),
+        "co": {
+            "banTay": meta.get("ban-tay", "co") == "co",
+            "mayQuay": meta.get("may-quay", "co") == "co",
+            "lauBang": meta.get("chuyen-canh", "lau-bang") == "lau-bang" and scene.so > 1,
+        },
+        "nenTruoc": None,
     }
     if scene.loai == "do-thi":
         du["diem"] = [[float(p) for p in v.split(",")] for v in scene.truong["diem"]]

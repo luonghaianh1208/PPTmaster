@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from thi_nghiem_parts import thu_vien  # noqa: E402
-from video_ma_parts import chup, ghep, giong, kiem, lich, parse, trang  # noqa: E402
+from video_ma_parts import anh, chup, ghep, giong, hinh, kiem, lich, parse, trang  # noqa: E402
 from video_parts import media  # noqa: E402
 
 FIX_INPUT = "Viết video.md trong thư mục dự án (xem docs/vi/tro-ly/video-giai-thich.md) rồi chạy lại."
@@ -60,8 +60,24 @@ def _mo_hinh(video: parse.Video, thu_muc: Path) -> dict:
     return {c.so: thu_vien.load(c.truong["mau"][0], thu_muc) for c in video.canh if c.loai == "thi-nghiem"}
 
 
-def _trang(video, cac_lich, models) -> list:
-    return [trang.dung_trang(lich.du_lieu_canh(c, cl, models.get(c.so)), models.get(c.so)) for c, cl in zip(video.canh, cac_lich)]
+def _tai_nguyen(scene: parse.Scene, thu_muc: Path) -> dict:
+    if scene.loai == "minh-hoa":
+        hinhs = []
+        for value in scene.truong["hinh"]:
+            ten, nhan = hinh.tach_minh_hoa(value)
+            hinhs.append({**hinh.doc(ten), "nhan": nhan})
+        return {"hinh": None, "anh": None, "hinhs": hinhs}
+    if "hinh" in scene.truong:
+        return {"hinh": hinh.doc(scene.truong["hinh"][0]), "anh": None, "hinhs": []}
+    if "anh" in scene.truong:
+        nguon_tay = scene.truong.get("nguon", [None])[0]
+        return {"hinh": None, "anh": anh.doc(thu_muc, scene.truong["anh"][0], nguon_tay), "hinhs": []}
+    return {"hinh": None, "anh": None, "hinhs": []}
+
+
+def _trang(video, cac_lich, models, thu_muc: Path) -> list:
+    return [trang.dung_trang(lich.du_lieu_canh(c, cl, models.get(c.so), {**_tai_nguyen(c, thu_muc), "meta": video.meta}), models.get(c.so))
+            for c, cl in zip(video.canh, cac_lich)]
 
 
 def _kiem_tran_tat_ca(page, video, trang_html) -> None:
@@ -90,13 +106,13 @@ def _giong_tam(video: parse.Video) -> list:
     return out
 
 
-def _trang_tam(video: parse.Video, models: dict) -> list:
+def _trang_tam(video: parse.Video, thu_muc: Path, models: dict) -> list:
     cac_lich, _ = lich.dung_lich(video.canh, _giong_tam(video), kiem_moc=False)
-    return _trang(video, cac_lich, models)
+    return _trang(video, cac_lich, models, thu_muc)
 
 
 def _xem_truoc(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
-    trang_html = _trang_tam(video, _mo_hinh(video, thu_muc))
+    trang_html = _trang_tam(video, thu_muc, _mo_hinh(video, thu_muc))
     ra = thu_muc / "xem-truoc"
     shutil.rmtree(ra, ignore_errors=True)
     files = []
@@ -117,11 +133,11 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
         raise media.MediaError("chromium", "Chưa cài Chromium hoặc playwright.", chup.FIX_CHROMIUM)
     models = _mo_hinh(video, thu_muc)
     with _loi_chup(), chup.trinh_duyet() as browser:
-        _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, models))
+        _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, thu_muc, models))
     cac_giong = [giong.lay_giong(c.so, c.loi, thu_muc / "giong", video.meta["giong"], video.meta["toc-do"]) for c in video.canh]
     cac_lich, canh_bao = lich.dung_lich(video.canh, cac_giong)
     warnings.extend(canh_bao)
-    trang_html = _trang(video, cac_lich, models)
+    trang_html = _trang(video, cac_lich, models, thu_muc)
     lam = thu_muc / ".khung"
     shutil.rmtree(lam, ignore_errors=True)
     anh = lam / "anh"
