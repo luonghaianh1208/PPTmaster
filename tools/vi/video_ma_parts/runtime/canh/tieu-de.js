@@ -6,10 +6,10 @@
       var B = V.tao(du);
       var t = du.truong;
       var kq = [];
-      var c = B.chu('chu', t.chu[0], 80, 150, 1120, 340, 60, 0.3, { can: 'giua', mau: 'nhan' });
+      var c = B.chu('chu', t.chu[0], 80, 60, 1120, 320, 60, 0.3, { can: 'giua', mau: 'nhan', day: true });
       kq.push(c);
-      kq.push(B.net('gach', V.duongQua([[340, 510], [940, 510]], 3), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan' }));
-      if (t.phu) { kq.push(B.chu('phu', t.phu[0], 80, 540, 1120, 90, 34, c.batDau + c.thoiLuong + 0.4, { can: 'giua' })); }
+      kq.push(B.net('gach', V.duongQua([[340, 400], [940, 400]], 3), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan' }));
+      if (t.phu) { kq.push(B.chu('phu', t.phu[0], 80, 430, 1120, 90, 34, c.batDau + c.thoiLuong + 0.4, { can: 'giua' })); }
       return kq;
     }
   };

@@ -98,6 +98,27 @@ class ChromiumTest(unittest.TestCase):
         du, _ = du_cua("loai: tieu-de\nchu: " + "A" * 80 + "\n")
         self.assertIn("chu", chup.kiem_tran(self.page, trang.dung_trang(du)))
 
+    def khoang_gach(self, html: str, id_chu: str, y_gach: float) -> float:
+        chup.mo_trang(self.page, html)
+        self.page.evaluate("window.datThoiDiem(1e6)")
+        day = self.page.evaluate(f"document.querySelector('[data-id=\"{id_chu}\"] .trong').getBoundingClientRect().bottom")
+        return y_gach - day
+
+    def test_underline_sits_right_under_a_one_line_heading(self):
+        for noi_dung, id_chu, y_gach in (("loai: y-tung-y\ntieu-de: Ba bước\ny: Một\n", "tieu-de", 160),
+                                         ("loai: khai-niem\nthuat-ngu: Chu kì\ndinh-nghia: Thời gian.\n", "thuat-ngu", 335),
+                                         ("loai: tieu-de\nchu: Con lắc đơn\nphu: Vật lí 11\n", "chu", 400)):
+            du, _ = du_cua(noi_dung)
+            self.assertLess(abs(self.khoang_gach(trang.dung_trang(du), id_chu, y_gach)), 30, id_chu)
+
+    def test_two_line_term_and_heading_fit_their_boxes(self):
+        du, _ = du_cua("loai: khai-niem\nthuat-ngu: Chu kì dao động điều hoà của con lắc đơn khi góc lệch nhỏ\n"
+                       "dinh-nghia: Thời gian.\n")
+        self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+        du, _ = du_cua("loai: y-tung-y\ntieu-de: Chu kì của con lắc đơn phụ thuộc vào những yếu tố nào và "
+                       "không phụ thuộc vào yếu tố nào\ny: Một\n")
+        self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+
     def test_hostile_text_renders_as_text(self):
         du, _ = du_cua('loai: tieu-de\nchu: a < b </script><img src=x onerror=alert(1)> & "c"\n')
         html = trang.dung_trang(du)

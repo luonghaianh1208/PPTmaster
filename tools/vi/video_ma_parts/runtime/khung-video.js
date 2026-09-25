@@ -103,7 +103,7 @@
       return gan({ id: id, kieu: 'net', d: d, batDau: batDau, thoiLuong: dai, mau: '', day: 4 }, tuy);
     }
     function tieuDe(noiDung, batDau) {
-      var c = chu('tieu-de', noiDung, 60, 30, 1160, 116, 40, batDau, { mau: 'nhan' });
+      var c = chu('tieu-de', noiDung, 60, 30, 1160, 116, 40, batDau, { mau: 'nhan', day: true });
       var w = Math.min(1160, Math.max(240, demKyTu(noiDung) * 40 * 0.6));
       return [c, net('gach', duongQua([[60, 160], [60 + w, 160]], 7), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan' })];
     }
@@ -129,7 +129,7 @@
         svg.appendChild(el);
       } else {
         el = document.createElement('div');
-        el.className = 'chu ' + m.can + ' ' + m.mau;
+        el.className = 'chu ' + m.can + ' ' + m.mau + (m.day ? ' day' : '');
         el.setAttribute('data-id', m.id);
         el.style.left = m.x + 'px';
         el.style.top = m.y + 'px';
@@ -148,7 +148,8 @@
           o.el.style.strokeDashoffset = String(1 - p);
           o.el.style.opacity = p > 0 ? '1' : '0';
         } else if (!o.m.dong) {
-          o.el.innerHTML = catDanhDau(o.m.chu, Math.round(p * demKyTu(o.m.chu)));
+          var html = catDanhDau(o.m.chu, Math.round(p * demKyTu(o.m.chu)));
+          o.el.innerHTML = o.m.day ? '<span class="trong">' + html + '</span>' : html;
         }
       });
       if (loai.capNhat) { loai.capNhat(goc, du, t); }
