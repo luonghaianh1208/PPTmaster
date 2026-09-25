@@ -105,6 +105,19 @@ class CliTest(unittest.TestCase):
         self.assertIsNone(data["error"])
         self.assertEqual(sorted(p.name for p in self.dir.iterdir()), ["video.md"])
 
+    def test_picture_fixture_passes_plan_only_offline(self):
+        # Mẫu có hình, ảnh dọc tên có dấu cách và dấu (nguồn trong image_sources.json), ảnh có `nguon:`, thí nghiệm.
+        mau_hinh = TOOLS_VI / "fixtures" / "video-hinh"
+        code, data = self.one_json([str(mau_hinh), "--plan-only"])
+        self.assertEqual((code, data["error"]), (0, None), data)
+        self.assertEqual(data["so_canh"], 6)
+        self.assertEqual(data["warnings"], [])
+        text = (mau_hinh / "video.md").read_text(encoding="utf-8")
+        for loai in ("tieu-de", "khai-niem", "y-tung-y", "minh-hoa", "anh", "thi-nghiem"):
+            self.assertIn(f"loai: {loai}\n", text)
+        self.assertTrue((mau_hinh / "anh" / "quả nặng dọc.png").is_file())
+        self.assertFalse((mau_hinh / "xem-truoc").exists())
+
     def test_missing_ffmpeg_and_chromium_are_reported_before_any_voice(self):
         self.viet(MOT_CANH)
         with mock.patch.object(video_ma, "co_ffmpeg", return_value=False), \

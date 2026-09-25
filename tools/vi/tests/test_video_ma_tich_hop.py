@@ -1,4 +1,4 @@
-"""Tích hợp: dựng video 2 cảnh thật với tiếng giả. Tự bỏ qua nếu máy thiếu Chromium/playwright hoặc FFmpeg/ffprobe."""
+"""Tích hợp: dựng video 3 cảnh thật (hình, ảnh, thí nghiệm) với tiếng giả, 2 tiến trình chụp. Tự bỏ qua nếu máy thiếu Chromium/playwright hoặc FFmpeg/ffprobe."""
 
 import contextlib
 import io
@@ -10,15 +10,17 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TOOLS_VI = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_VI))
 
 import video_ma  # noqa: E402
-from video_ma_parts import lich  # noqa: E402
+from video_ma_parts import chup, lich  # noqa: E402
 
 CO = video_ma.co_chromium() and video_ma.co_ffmpeg()
 NEED = "máy thiếu Chromium/playwright hoặc FFmpeg/ffprobe"
+ANH_MAU = TOOLS_VI / "fixtures" / "video-hinh" / "anh" / "con-lac.png"
 
 VIDEO_MD = """---
 tieu-de: Con lắc đơn
@@ -32,9 +34,17 @@ loai: y-tung-y
 tieu-de: Chu kì phụ thuộc vào gì
 y: Chiều dài dây l
 y: Gia tốc trọng trường g
+hinh: ruler-measure
 loi: Thứ nhất, chu kì phụ thuộc chiều dài dây. Thứ hai, chu kì phụ thuộc gia tốc trọng trường.
 
 ## Cảnh 2
+loai: anh
+anh: con-lac.png
+chu-thich: Con lắc lệch khỏi vị trí cân bằng
+nguon: Hình vẽ minh hoạ · CC0 1.0
+loi: Đây là con lắc đang dao động.
+
+## Cảnh 3
 loai: thi-nghiem
 mau: li-con-lac-don
 tham-so: 0 chieu-dai 0.4
@@ -42,6 +52,9 @@ tham-so: 3 chieu-dai 1.6
 do: chu-ki
 loi: Hãy quan sát chu kì.
 """
+
+
+GIAY = (3.0, 2.5, 4.0)
 
 
 def tao_tieng(path: Path, giay: float) -> None:
@@ -64,13 +77,18 @@ class EndToEndTest(unittest.TestCase):
         thu_muc = Path(tmp.name) / ten
         thu_muc.mkdir()
         (thu_muc / "video.md").write_text(VIDEO_MD.format(phu_de=phu_de), encoding="utf-8")
-        tao_tieng(thu_muc / "giong" / "canh-1.mp3", 3.0)
-        tao_tieng(thu_muc / "giong" / "canh-2.mp3", 4.0)
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+        (thu_muc / "anh").mkdir()
+        shutil.copyfile(ANH_MAU, thu_muc / "anh" / "con-lac.png")
+        for so, giay in enumerate(GIAY, 1):
+            tao_tieng(thu_muc / "giong" / f"canh-{so}.mp3", giay)
+        out, err = io.StringIO(), io.StringIO()
+        # Hai tiến trình Chromium dù máy có bao nhiêu lõi: mỗi dải tự dựng lại nền lau bảng của cảnh đầu dải.
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+                mock.patch.object(chup, "so_tien_trinh", return_value=2):
             code = video_ma.main([str(thu_muc)])
         lines = [l for l in out.getvalue().splitlines() if l.strip()]
         self.assertEqual(len(lines), 1, lines)
+        self.nhat_ky = err.getvalue()
         return thu_muc, code, json.loads(lines[0])
 
     def test_builds_a_playable_video_in_a_hard_folder_name(self):
@@ -86,7 +104,9 @@ class EndToEndTest(unittest.TestCase):
         self.assertEqual((kinds["video"]["width"], kinds["video"]["height"]), (1280, 720))
         self.assertEqual(kinds["video"]["r_frame_rate"], "30/1")
         self.assertIn("audio", kinds)
-        expect = lich.thoi_luong_canh(3.0) + lich.thoi_luong_canh(4.0)
+        self.assertEqual(data["so_canh"], 3)
+        self.assertIn("bằng 2 tiến trình Chromium", self.nhat_ky)
+        expect = sum(lich.thoi_luong_canh(g) for g in GIAY)
         self.assertAlmostEqual(float(info["format"]["duration"]), expect, delta=0.25)
         self.assertAlmostEqual(data["thoi_luong_giay"], expect, delta=0.01)
         self.assertFalse((thu_muc / ".khung").exists())
