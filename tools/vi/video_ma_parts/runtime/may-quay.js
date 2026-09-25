@@ -41,7 +41,9 @@
     return ve || xong;
   }
 
-  // Z nhỏ nhất để hộp có đáy <= 620 mà lớp bảng vẫn phủ kín khung.
+  // Z nhỏ nhất để hộp có đáy <= 620 mà lớp bảng vẫn phủ kín khung: z >= 100 / (720 - đáy).
+  // Chỉ làm được khi đáy <= 720 - 100 / 1,35 ≈ 646; hộp thấp hơn thì z kẹp ở 1,35 và đáy vượt 620
+  // (bố cục cảnh giữ mọi nội dung trên y = 630 nên không xảy ra).
   function zToiThieu(h) {
     var day = h.y + h.h;
     return day > DAY ? Math.min(ZMAX, (CAO - DAY) / (CAO - day)) : 1;

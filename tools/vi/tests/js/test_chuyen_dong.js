@@ -204,3 +204,31 @@ test('may quay: chuyen muc tieu muot, khong nhay qua 0,1 giua hai khung 1/30 s n
     truoc = s;
   }
 });
+
+test('may quay: canh ngan 2,5667 s co hinh va o chu day 628 van giu rang buoc, ve dung {1,0,0}', function () {
+  var gh = 2.5667;
+  var hop = { hinh: { x: 910, y: 240, w: 300, h: 300 }, y: { x: 124, y: 556, w: 700, h: 72 } };
+  var ds = [muc('hinh', 0.55, 1.2, { kieu: 'hinh' }), muc('y', 1.0, gh - 0.2 - 1.0)];
+  var veNha = gh - 1.2;
+  for (var i = 0; i <= 240; i++) {
+    var t = gh * i / 240;
+    var s = Q.tinh(ds, hop, t, gh, {});
+    assert.ok(phuKin(s), 't=' + t + ' ' + JSON.stringify(s));
+    assert.ok(s.z >= 1 - 1e-9 && s.z <= 1.35 + 1e-9, 't=' + t + ' z=' + s.z);
+    var id = Q.mucTieu(ds, hop, t);
+    if (id && t < veNha) {
+      var b = bienDoi(s, hop[id]);
+      assert.ok(b.y + b.h <= 620 + 1e-6, 't=' + t + ' ' + id + ' day ' + (b.y + b.h));
+    }
+  }
+  assert.deepStrictEqual(Q.tinh(ds, hop, gh - 1 / 30, gh, {}), { z: 1, tx: 0, ty: 0 });
+  assert.deepStrictEqual(Q.tinh(ds, hop, gh - 0.2, gh, {}), { z: 1, tx: 0, ty: 0 });
+});
+
+test('ban tay va may quay: cung ranh gioi bat dau (t = batDau la dang ve)', function () {
+  var ds = [muc('a', 1, 1)];
+  var v = T.viTri(ds, 1, ngoi, NGHI);
+  assert.ok(v.hien && gan(v.x, 100) && gan(v.y, 100), JSON.stringify(v));
+  assert.strictEqual(T.dangVe(ds, 1), ds[0]);
+  assert.strictEqual(Q.mucTieu(ds, { a: HOP_TAM }, 1), 'a');
+});

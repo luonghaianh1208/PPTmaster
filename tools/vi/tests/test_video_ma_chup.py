@@ -344,22 +344,39 @@ class PictureMotionChromiumTest(unittest.TestCase):
                 self.assertAlmostEqual(r["w"] / r["h"], rong / cao, delta=0.01 * rong / cao)
                 nguon = self.page.evaluate("document.querySelector('.anh .nguon').textContent")
                 self.assertIn("Tác giả thử", nguon)
-                cuoi = self.page.screenshot(type="png")
+                # Ken Burns: so hai thời điểm sau khi ảnh đã hiện hẳn, chỉ chụp ô ảnh (không tính máy quay, tay, chú thích).
+                du["co"].update(mayQuay=False, banTay=False)
+                chup.mo_trang(self.page, trang.dung_trang(du))
+                o_anh = self.page.locator(".anh .cua-anh")
+                bien_doi = "getComputedStyle(document.querySelector('.anh img')).transform"
+                self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.5)
+                self.assertEqual(self.page.evaluate("getComputedStyle(document.querySelector('.anh')).opacity"), "1")
+                dau, bd_dau = o_anh.screenshot(type="png"), self.page.evaluate(bien_doi)
                 self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 0.2)
-                self.assertNotEqual(cuoi, self.page.screenshot(type="png"), "ảnh phải chuyển động (Ken Burns)")
+                cuoi, bd_cuoi = o_anh.screenshot(type="png"), self.page.evaluate(bien_doi)
+                self.assertNotEqual(bd_dau, bd_cuoi, "ảnh phải phóng/lướt (Ken Burns)")
+                self.assertNotEqual(dau, cuoi, "ảnh phải chuyển động (Ken Burns)")
 
     def test_icon_is_drawn_stroke_by_stroke(self):
         du = du_hinh("loai: y-tung-y\ntieu-de: Dụng cụ\nhinh: flask\ny: Bình tam giác\n", {"hinh": self.hinh})
         chup.mo_trang(self.page, trang.dung_trang(du))
         m = self.muc("hinh")
         self.assertGreaterEqual(m["thoiLuong"], 1.2)
+        trang_thai = """() => Array.from(document.querySelectorAll('g.hinh > *')).map((e) => {
+            const cs = getComputedStyle(e);
+            return {o: parseFloat(cs.opacity), d: parseFloat(cs.strokeDashoffset)}; })"""
+        self.assertGreaterEqual(len(self.hinh["phanTu"]), 3)
         self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.5 * m["thoiLuong"])
-        giua = self.page.screenshot(type="png")
+        giua = self.page.evaluate(trang_thai)
+        xong = [e for e in giua if e["o"] == 1 and abs(e["d"]) < 1e-6]
+        chua = [e for e in giua if e["o"] == 0 or abs(e["d"] - 1) < 1e-6]
+        dang = [e for e in giua if e not in xong and e not in chua]
+        self.assertGreaterEqual(len(xong), 1, giua)
+        self.assertGreaterEqual(len(chua), 1, giua)
+        self.assertLessEqual(len(dang), 1, giua)
         self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 0.2)
-        self.assertNotEqual(giua, self.page.screenshot(type="png"))
-        mo = self.page.evaluate("""() => Array.from(document.querySelectorAll('g.hinh > *'))
-            .map((e) => getComputedStyle(e).opacity)""")
-        self.assertEqual(set(mo), {"1"})
+        cuoi = self.page.evaluate(trang_thai)
+        self.assertTrue(all(e["o"] == 1 and abs(e["d"]) < 1e-6 for e in cuoi), cuoi)
 
     def test_pen_hand_sits_on_the_pen_tip_while_writing(self):
         noi_dung = "loai: y-tung-y\ntieu-de: Ba bước\ny: Nhờ ướt nhẫm quyết định mọi thứ\ny: Hai bước nhỏ\n"
@@ -426,6 +443,21 @@ class PictureMotionChromiumTest(unittest.TestCase):
         self.page.evaluate("(t) => window.datThoiDiem(t)", 0.1)
         self.page.evaluate("(t) => window.datThoiDiem(t)", t)
         self.assertEqual(mot, self.page.screenshot(type="png"), "cùng t phải cho cùng khung")
+
+    def test_icon_attributes_with_namespace_or_event_keys_are_skipped(self):
+        hinh_la = {"ten": "la", "viewBox": "0 0 24 24", "phanTu": [
+            {"the": "path", "thuocTinh": {"d": "M2 2l20 20", "{urn:x-thu}nhan": "a", "onload": "window.BI_CHAY = 1"}},
+            {"the": "circle", "thuocTinh": {"cx": "12", "cy": "12", "r": "5", "ONCLICK": "window.BI_CHAY = 2"}},
+        ]}
+        du = du_hinh("loai: y-tung-y\ntieu-de: T\ny: Một\nhinh: flask\n", {"hinh": hinh_la})
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.page.evaluate("window.datThoiDiem(1e6)")
+        kq = self.page.evaluate("""() => Array.from(document.querySelectorAll('g.hinh > *'))
+            .map((e) => Array.from(e.attributes).map((a) => a.name))""")
+        self.assertEqual(len(kq), 2)
+        for ten in kq:
+            self.assertFalse([a for a in ten if a.lower().startswith("on") or "{" in a or "nhan" in a], ten)
+        self.assertIsNone(self.page.evaluate("window.BI_CHAY"))
 
     def test_kiem_tran_still_catches_overflow_with_a_picture(self):
         du = du_hinh("loai: y-tung-y\ntieu-de: T\ny: " + "A" * 60 + "\nhinh: flask\n", {"hinh": self.hinh})

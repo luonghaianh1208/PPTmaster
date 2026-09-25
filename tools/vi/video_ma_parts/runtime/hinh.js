@@ -24,7 +24,8 @@
     var cac = m.phanTu.map(function (p) {
       var el = document.createElementNS(NS, p.the);
       Object.keys(p.thuocTinh || {}).forEach(function (k) {
-        if (!BO_QUA[k] && !/^on/i.test(k)) { el.setAttribute(k, p.thuocTinh[k]); }
+        // Bỏ thuộc tính có không gian tên (`{ns}tên` từ ElementTree) và mọi thuộc tính sự kiện `on…`.
+        if (!BO_QUA[k] && k.charAt(0) !== '{' && !/^on/i.test(k)) { el.setAttribute(k, p.thuocTinh[k]); }
       });
       el.setAttribute('pathLength', '1');
       el.style.strokeWidth = String(Math.max(3, m.kich / 60) / s);

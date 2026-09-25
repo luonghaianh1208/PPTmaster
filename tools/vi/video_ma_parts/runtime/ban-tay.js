@@ -19,11 +19,11 @@
     if (a.batDau !== b.batDau) { return a.batDau > b.batDau; }
     return (UU_TIEN[a.kieu] || 0) > (UU_TIEN[b.kieu] || 0);
   }
-  // Mục đang vẽ (0 < p < 1): mục bắt đầu muộn nhất; trùng thì theo UU_TIEN, rồi mục đứng trước.
+  // Mục đang vẽ (batDau <= t < kết thúc, như máy quay): mục bắt đầu muộn nhất; trùng thì theo UU_TIEN, rồi mục đứng trước.
   function dangVe(ds, t) {
     var chon = null;
     ds.forEach(function (m) {
-      if (veDuoc(m) && t > m.batDau && t < ketThuc(m) && (!chon || hon(m, chon))) { chon = m; }
+      if (veDuoc(m) && t >= m.batDau && t < ketThuc(m) && (!chon || hon(m, chon))) { chon = m; }
     });
     return chon;
   }
