@@ -1,5 +1,30 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.9 — 2026-09-25
+
+Thêm loại việc thứ 10 cho AI: video giải thích dựng bằng mã (viết tay, không dùng video AI sinh).
+
+### Thêm
+- `tools/vi/video_ma.py` và các module trong `tools/vi/video_ma_parts/`: đọc kịch bản cảnh, dựng ra video MP4 1280×720, 30 khung/giây, có tiếng, phụ đề in lên hình hoặc file `.srt` rời.
+- Tám loại cảnh: tiêu đề, khái niệm, công thức, ý từng ý, quy trình, so sánh, đồ thị, thí nghiệm. Cảnh thí nghiệm chạy trực tiếp một trong tám mô hình thí nghiệm ảo đã kiểm bằng số (`thi_nghiem_parts/`), tham số nội suy theo thời gian nên đối tượng (ví dụ con lắc) chuyển động thật trong video, không phải ảnh tĩnh.
+- Thuyết minh: dùng giọng edge-tts (`vi-VN-HoaiMyNeural`, `vi-VN-NamMinhNeural`) hoặc file mp3 thầy cô tự cung cấp cho từng cảnh; file mp3 có sẵn không bao giờ bị ghi đè.
+- Mỗi khung được chụp bằng Chromium headless ở 15 khung/giây rồi ghép ra 30 khung/giây bằng FFmpeg; văn bản xuất hiện dần theo mốc câu trong lời thuyết minh, không hiện hết ngay từ đầu cảnh.
+- Dựng thật một video mẫu (bài Con lắc đơn, 8 cảnh, thuyết minh tổng hợp): 74,667 giây, 1,97 MB, dựng trong 99 giây; `ffprobe` xác nhận h264 1280×720 30 khung/giây kèm luồng tiếng aac mono. Ba lỗi thật gặp khi dựng đã sửa: đường gạch chân tiêu đề lệch khỏi chữ, phụ đề in đè lên nội dung cảnh, đường dẫn thư mục tương đối làm FFmpeg không tìm thấy file tiếng. Chi tiết ở `docs/vi/phat-trien/2026-09-25-video-ma-kiem-thu.md`.
+
+### Yêu cầu
+- Cần Chromium của Playwright (tải một lần qua `pptmaster.ps1 -Action tool -Name chromium`, khoảng 150–300 MB) và FFmpeg đã có sẵn từ trước.
+- Cần mạng khi dùng giọng máy edge-tts; không cần mạng nếu dùng file mp3 thầy cô tự cung cấp.
+
+### Ngoài phạm vi
+- Không dựng video AI sinh cảnh (kiểu Veo/Sora); mọi khung hình do mã vẽ ra.
+- Không hỗ trợ khổ dọc (9:16) hay các nền tảng như TikTok/Reels; canvas cố định 1280×720.
+- Không tạo giọng đọc kiểu lồng tiếng nhân vật (Vox) hay nhiều giọng chồng nhau trong một cảnh.
+
+### Rủi ro
+- Giọng edge-tts thật (gọi qua mạng bên trong một lần chạy đầy đủ), cài Chromium từ đầu trên máy sạch, và chạy trong Antigravity thật đều **chưa được kiểm** trong biên bản nghiệm thu này; chủ repo cần tự thử trước khi coi là ổn định.
+- Thí nghiệm ảo vẫn là mô hình lí tưởng hoá đã ghi ở `6.3.2-vi.8`; dùng lại nguyên trạng trong cảnh thí nghiệm, không đổi.
+- Vài chỗ thẩm mỹ còn để lại, không chặn phát hành: ô quy trình trống khi chữ ngắn, cảnh công thức không có tiêu đề nên đỉnh khung trống, phụ đề hơi sít chữ, con lắc nhỏ khi dây ngắn.
+
 ## 6.3.2-vi.8 — 2026-09-21
 
 Thêm thí nghiệm ảo cho Toán, Vật lí, Hoá học: một file HTML tương tác chạy không cần mạng, kèm phiếu học tập Word, dựng từ 8 mô hình đã kiểm bằng số.
