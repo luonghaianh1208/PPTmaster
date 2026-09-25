@@ -158,10 +158,13 @@ class ExperimentSceneTest(unittest.TestCase):
         self.assertIn("thư viện", str(caught.exception))
 
     def test_unknown_model_lists_the_library(self):
-        text = doc("## Cảnh 1\nloai: thi-nghiem\nmau: li-khong-co\nloi: Xin chào.\n")
-        with self.assertRaises(kiem.CanhError) as caught:
-            kiem.kiem(parse.parse(text), Path("."))
-        self.assertIn("li-con-lac-don", str(caught.exception))
+        for mau in ("li-khong-co", "../../x"):
+            with self.subTest(mau=mau):
+                text = doc(f"## Cảnh 1\nloai: thi-nghiem\nmau: {mau}\nloi: Xin chào.\n")
+                with self.assertRaises(kiem.CanhError) as caught:
+                    kiem.kiem(parse.parse(text), Path("."))
+                self.assertIn("li-con-lac-don", str(caught.exception))
+                self.assertNotIn("moi", str(caught.exception))
 
     def test_unknown_parameter(self):
         _, run = self.check("tham-so: 0 toc-do 3\n")

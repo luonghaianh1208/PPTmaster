@@ -59,6 +59,9 @@ def _kiem_thi_nghiem(scene: Scene, thu_muc: Path) -> None:
     if mau == thu_vien.NEW_MODEL:
         raise CanhError(scene.so, "Video chỉ dùng mẫu có sẵn trong thư viện thí nghiệm, không dùng `moi`. Mẫu có: "
                         + ", ".join(thu_vien.list_models()) + ".")
+    if mau not in thu_vien.list_models():
+        raise CanhError(scene.so, f"không có mẫu `{mau}` trong thư viện thí nghiệm. Mẫu có: "
+                        + ", ".join(thu_vien.list_models()) + ".")
     try:
         model = thu_vien.load(mau, thu_muc)
     except thu_vien.ModelError as exc:
