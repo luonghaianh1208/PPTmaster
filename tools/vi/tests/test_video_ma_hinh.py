@@ -495,3 +495,21 @@ class KiemAnhSceneTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GoiYThuTuTest(unittest.TestCase):
+    def test_english_typo_gets_the_english_name_first(self):
+        from video_ma_parts import hinh as h
+        self.assertEqual(h.goi_y("magnt")[0], "magnet")
+
+    def test_vietnamese_input_still_uses_the_table_first(self):
+        from video_ma_parts import hinh as h
+        self.assertEqual(h.goi_y("nam châm")[0], "magnet")
+        self.assertIn("flask", h.goi_y("binh-thi-nghiem"))
+
+    def test_unreadable_table_gives_no_table_suggestions(self):
+        from unittest import mock
+        from video_ma_parts import hinh as h
+        with mock.patch.object(h.BANG_TRA.__class__, "read_text", side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "x")):
+            self.assertEqual(h.bang_tra(), [])
+

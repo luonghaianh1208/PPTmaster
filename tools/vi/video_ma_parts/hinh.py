@@ -58,7 +58,7 @@ def bang_tra() -> list:
     """Các dòng (khái niệm, tên) của mục "Bảng tra biểu tượng" trong canh-video.md; thiếu file thì rỗng."""
     try:
         van_ban = BANG_TRA.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return []
     phan = van_ban.split("## Bảng tra biểu tượng", 1)
     if len(phan) < 2:
@@ -94,8 +94,12 @@ def _goi_y_viet(ten: str) -> list:
 
 def goi_y(ten: str) -> list:
     """Tối đa 5 tên: theo bảng tra tiếng Việt trước, rồi tên tiếng Anh gần đúng (không có `brand-*`)."""
-    kq = [t for t in _goi_y_viet(ten) if not t.startswith("brand-")]
-    for t in difflib.get_close_matches(_bo_dau(chuan_ten(ten)), _danh_sach(), n=_SO_GOI_Y, cutoff=_NGUONG_GOI_Y):
+    viet = [t for t in _goi_y_viet(ten) if not t.startswith("brand-")]
+    anh = difflib.get_close_matches(_bo_dau(chuan_ten(ten)), _danh_sach(), n=_SO_GOI_Y, cutoff=_NGUONG_GOI_Y)
+    # Tên một từ không dấu thường là tên tiếng Anh gõ sai: xếp gợi ý tiếng Anh trước.
+    mot_tu_khong_dau = ten.strip().isascii() and not any(c in ten for c in " -_")
+    kq = []
+    for t in (anh + viet if mot_tu_khong_dau else viet + anh):
         if t not in kq:
             kq.append(t)
     return kq[:_SO_GOI_Y]
