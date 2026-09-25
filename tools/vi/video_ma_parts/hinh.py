@@ -9,6 +9,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 THU_MUC = Path(__file__).resolve().parents[3] / "skills" / "ppt-master" / "templates" / "icons" / "tabler-outline"
+# Bảng tra khái niệm tiếng Việt -> tên biểu tượng: một nguồn duy nhất, đọc thẳng từ tài liệu cho AI.
+BANG_TRA = Path(__file__).resolve().parents[3] / "docs" / "vi" / "tro-ly" / "canh-video.md"
+BANG_TRA_TEN = "docs/vi/tro-ly/canh-video.md"
 
 NHAN_TOI_DA = 30
 _TIEN_TO = "tabler-outline/"
@@ -19,6 +22,8 @@ _SVG_NS = "{http://www.w3.org/2000/svg}"
 _SO_GOI_Y = 5
 _NGUONG_GOI_Y = 0.5
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
+_DONG_BANG_RE = re.compile(r"^\| ([^|]+?) \| ([^|]+?) \| `([^`]+)` \|$", re.M)
+_NGUONG_VIET = 0.75
 
 
 class HinhError(Exception):
@@ -35,13 +40,65 @@ def chuan_ten(s: str) -> str:
 
 
 def _danh_sach() -> list:
-    return sorted(p.stem for p in THU_MUC.glob("*.svg"))
+    """Tên để gợi ý theo tiếng Anh; bỏ biểu tượng thương hiệu `brand-*` (không bao giờ là hình bài học)."""
+    return sorted(p.stem for p in THU_MUC.glob("*.svg") if not p.stem.startswith("brand-"))
 
 
 def _bo_dau(s: str) -> str:
     s = s.replace("đ", "d").replace("Đ", "D")
     s = unicodedata.normalize("NFD", s)
     return "".join(c for c in s if unicodedata.category(c) != "Mn")
+
+
+def _khoa(s: str) -> str:
+    return " ".join(_bo_dau(s).lower().replace("-", " ").split())
+
+
+def bang_tra() -> list:
+    """Các dòng (khái niệm, tên) của mục "Bảng tra biểu tượng" trong canh-video.md; thiếu file thì rỗng."""
+    try:
+        van_ban = BANG_TRA.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    phan = van_ban.split("## Bảng tra biểu tượng", 1)
+    if len(phan) < 2:
+        return []
+    return [(khai_niem.strip(), ten.strip()) for _mon, khai_niem, ten in _DONG_BANG_RE.findall(phan[1])]
+
+
+def _goi_y_viet(ten: str) -> list:
+    """Khớp tên (bỏ dấu) với cột khái niệm tiếng Việt: trùng hẳn, rồi chứa nhau, rồi gần giống, rồi chung một từ."""
+    khoa = _khoa(ten)
+    if not khoa:
+        return []
+    tu = {t for t in khoa.split() if len(t) >= 3}
+    dau = khoa.split()[0]
+    bac: dict = {}
+    for thu_tu, (khai_niem, ten_hinh) in enumerate(bang_tra()):
+        for cum in (_khoa(c) for c in khai_niem.split(",")):
+            if not cum:
+                continue
+            if cum == khoa:
+                b = 0
+            elif khoa in cum or cum in khoa:
+                b = 1
+            elif difflib.SequenceMatcher(None, khoa, cum).ratio() >= _NGUONG_VIET:
+                b = 2
+            elif tu & set(cum.split()):
+                b = 3 if dau in cum.split() else 4  # chung từ đầu (danh từ chính) xếp trước
+            else:
+                continue
+            bac[ten_hinh] = min(bac.get(ten_hinh, (9, 0)), (b, thu_tu))
+    return sorted(bac, key=lambda t: bac[t])
+
+
+def goi_y(ten: str) -> list:
+    """Tối đa 5 tên: theo bảng tra tiếng Việt trước, rồi tên tiếng Anh gần đúng (không có `brand-*`)."""
+    kq = [t for t in _goi_y_viet(ten) if not t.startswith("brand-")]
+    for t in difflib.get_close_matches(_bo_dau(chuan_ten(ten)), _danh_sach(), n=_SO_GOI_Y, cutoff=_NGUONG_GOI_Y):
+        if t not in kq:
+            kq.append(t)
+    return kq[:_SO_GOI_Y]
 
 
 def _hop_le(chuan: str) -> bool:
@@ -75,10 +132,11 @@ def doc(ten: str) -> dict:
     if not duong_dan.is_relative_to(goc):
         raise HinhError(thong_bao_sai)
     if not duong_dan.is_file():
-        goi_y = difflib.get_close_matches(_bo_dau(chuan), _danh_sach(), n=_SO_GOI_Y, cutoff=_NGUONG_GOI_Y)
-        thong_bao = f"không có biểu tượng `{ten}` trong thư viện tabler-outline"
-        if goi_y:
-            thong_bao += ". Có thể bạn muốn: " + ", ".join(goi_y)
+        cac_goi_y = goi_y(ten)
+        thong_bao = (f"không có biểu tượng `{ten}` trong thư viện tabler-outline. Tên biểu tượng là tiếng Anh: tra mục "
+                     f"\"Bảng tra biểu tượng\" trong {BANG_TRA_TEN}")
+        if cac_goi_y:
+            thong_bao += ". Có thể bạn muốn: " + ", ".join(cac_goi_y)
         raise HinhError(thong_bao)
     root = ET.fromstring(duong_dan.read_text(encoding="utf-8"))
     phan_tu = []

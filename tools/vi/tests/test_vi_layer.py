@@ -1617,6 +1617,8 @@ class ExplainerVideoGuideTest(unittest.TestCase):
         body = section(read(SCENE_GUIDE), "## Bảng tra biểu tượng")
         rows = re.findall(r"^\| ([^|]+?) \| ([^|]+?) \| `([^`]+)` \|$", body, re.M)
         self.assertGreaterEqual(len(rows), 80)
+        # Gợi ý tên biểu tượng trong hinh.py đọc đúng bảng này (một nguồn duy nhất).
+        self.assertEqual(hinh.bang_tra(), [(khai_niem, ten) for _mon, khai_niem, ten in rows])
         mon = {row[0] for row in rows}
         self.assertEqual(mon, {"Toán", "Vật lí", "Hoá học", "Sinh học", "Địa lí", "Chung"})
         thu_muc = SKILL_DIR / "templates" / "icons" / "tabler-outline"

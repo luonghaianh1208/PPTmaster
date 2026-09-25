@@ -365,6 +365,44 @@ class DiacriticIconNameTest(unittest.TestCase):
         self.assertIn("Có thể bạn muốn", str(caught.exception))
 
 
+def _goi_y(ten: str) -> list:
+    with unittest.TestCase().assertRaises(hinh.HinhError) as caught:
+        hinh.doc(ten)
+    thong_bao = str(caught.exception)
+    if "Có thể bạn muốn: " not in thong_bao:
+        return []
+    return [t.strip() for t in thong_bao.split("Có thể bạn muốn: ", 1)[1].rstrip(".").split(",")]
+
+
+class VietnameseIconSuggestionTest(unittest.TestCase):
+    def test_error_says_names_are_english_and_points_to_the_lookup_table(self):
+        with self.assertRaises(hinh.HinhError) as caught:
+            hinh.doc("nam châm")
+        thong_bao = str(caught.exception)
+        self.assertIn("tiếng Anh", thong_bao)
+        self.assertIn("Bảng tra biểu tượng", thong_bao)
+        self.assertIn("docs/vi/tro-ly/canh-video.md", thong_bao)
+
+    def test_nam_cham_suggests_magnet_first(self):
+        self.assertEqual(_goi_y("nam châm")[0], "magnet")
+        self.assertEqual(_goi_y("Nam cham")[0], "magnet")
+
+    def test_dong_ho_suggests_a_clock(self):
+        goi_y = _goi_y("đồng hồ")
+        self.assertEqual(goi_y[0], "clock")
+        self.assertIn("stopwatch", goi_y)
+
+    def test_brand_icons_are_never_suggested(self):
+        for ten in ("githu", "facebok", "youtub", "tiktok-logo", "brand", "đồng hồ", "bình thí nghiệm", "twiter"):
+            with self.subTest(ten=ten):
+                self.assertFalse([t for t in _goi_y(ten) if t.startswith("brand-")], _goi_y(ten))
+
+    def test_at_most_five_suggestions(self):
+        for ten in ("đồng hồ", "bình", "flaks"):
+            with self.subTest(ten=ten):
+                self.assertLessEqual(len(_goi_y(ten)), 5)
+
+
 class HinhPathEscapeTest(unittest.TestCase):
     def test_rejects_absolute_windows_path(self):
         with self.assertRaises(hinh.HinhError):
