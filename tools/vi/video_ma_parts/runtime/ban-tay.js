@@ -2,7 +2,7 @@
   'use strict';
 
   // Vị trí bàn tay theo t: hàm thuần, chạy được trong Node. Trình duyệt cấp `ngoi(muc, p) -> {x, y}`.
-  var LAU_BANG = 0.5;
+  var LAU_BANG = 0.5; // mặc định khi thiếu tuy.giayLau (test Node); trang truyền du.giayLauBang từ Python
   var LUOT = 0.4;
   var NOI = 0.6;
   var CUOI = 0.2;
@@ -34,8 +34,9 @@
 
   function viTri(ds, t, ngoi, nghi, tuy) {
     tuy = tuy || {};
-    if (tuy.lauBang && t >= 0 && t <= LAU_BANG) {
-      return { x: -120 + 1400 * t / LAU_BANG, y: 380, hien: true, kieu: 'gie' };
+    var lau = typeof tuy.giayLau === 'number' ? tuy.giayLau : LAU_BANG;
+    if (tuy.lauBang && t >= 0 && t <= lau) {
+      return { x: -120 + 1400 * t / lau, y: 380, hien: true, kieu: 'gie' };
     }
     var het = typeof tuy.gh === 'number' ? tuy.gh - CUOI : Infinity;
     if (t >= het) { return but(nghi, false); }
@@ -56,7 +57,7 @@
     var ra = truoc ? Math.min(LUOT, het - te) : 0;
     if (truoc && t < te + ra) { return but(noi(ngoi(truoc, 1), nghi, (t - te) / ra), true); }
     if (sau && sau.batDau < het) {
-      var vao = Math.max(sau.batDau - LUOT, truoc ? te + ra : 0, tuy.lauBang ? LAU_BANG : 0);
+      var vao = Math.max(sau.batDau - LUOT, truoc ? te + ra : 0, tuy.lauBang ? lau : 0);
       if (t >= vao && vao < sau.batDau) { return but(noi(nghi, ngoi(sau, 0), (t - vao) / (sau.batDau - vao)), true); }
     }
     return but(nghi, false);

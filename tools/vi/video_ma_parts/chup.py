@@ -6,6 +6,7 @@ import base64
 import contextlib
 import os
 import sys
+from concurrent.futures import FIRST_EXCEPTION, ProcessPoolExecutor, wait
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,6 +25,17 @@ VIEWPORT = {"width": 1280, "height": 720}
 
 class GhiKhungLoi(Exception):
     """OSError khi ghi hoặc đọc lại khung PNG (đầy ổ, bị khoá). Qua được pickle từ tiến trình con."""
+
+
+class LoiBuocCon(Exception):
+    """MediaError của tiến trình con (ví dụ `chromium`), giữ step và fix khi đi qua pickle."""
+
+    def __init__(self, step: str, message: str, fix: str) -> None:
+        super().__init__(step, message, fix)
+        self.step, self.message, self.fix = step, message, fix
+
+    def __str__(self) -> str:
+        return self.message
 
 
 def _mo(p):
@@ -74,14 +86,12 @@ def kiem_tran(page, html: str) -> list:
     return list(page.evaluate("() => window.THI_VIDEO.kiemTran()"))
 
 
-def chup_canh(page, html: str, so_khung: int, fps: int, thu_muc: Path, so_dau: int, ghi_log=None) -> int:
+def chup_canh(page, html: str, so_khung: int, fps: int, thu_muc: Path, so_dau: int) -> int:
     mo_trang(page, html)
     thu_muc.mkdir(parents=True, exist_ok=True)
     for i in range(so_khung):
         page.evaluate("(t) => window.datThoiDiem(t)", i / fps)
         page.screenshot(path=str(thu_muc / f"f{so_dau + i:06d}.png"), type="png")
-        if ghi_log is not None and (i + 1) % 60 == 0:
-            ghi_log(f"  đã chụp {i + 1}/{so_khung} khung của cảnh này")
     return so_dau + so_khung
 
 
@@ -120,10 +130,11 @@ def _data_url(png: bytes) -> str:
 
 
 def chup_dai(cong_viec: dict) -> int:
-    """Chụp một dải cảnh trong một Chromium riêng. Chạy được trong tiến trình con Windows `spawn`."""
-    tools_vi = str(Path(__file__).resolve().parents[1])
-    if tools_vi not in sys.path:
-        sys.path.insert(0, tools_vi)
+    """Chụp một dải cảnh trong một Chromium riêng. Chạy được trong tiến trình con Windows `spawn`.
+
+    `cac_du`, `so_khung`, `khung_dau` chỉ gồm các cảnh của dải, thêm cảnh ngay trước (để dựng nền lau bảng);
+    `dau`, `cuoi` là chỉ số trong các danh sách đó, còn `khung_dau` giữ số thứ tự khung của cả video.
+    """
     from . import trang
 
     cac_du = [dict(du) for du in cong_viec["cac_du"]]
@@ -162,16 +173,18 @@ def chup_dai(cong_viec: dict) -> int:
 
 
 def _chup_dai_con(cong_viec: dict) -> int:
-    """Vỏ cho tiến trình con: MediaError không gửi ngược qua pickle được nên đổi sang RuntimeError."""
+    """Vỏ cho tiến trình con: MediaError không gửi ngược qua pickle được nên đổi sang LoiBuocCon (giữ step)."""
     try:
         return chup_dai(cong_viec)
     except MediaError as exc:
-        raise RuntimeError(f"{exc.step}: {exc.message}") from None
+        raise LoiBuocCon(exc.step, exc.message, exc.fix) from None
 
 
 def _loi_dai(cac_du: list, dau: int, cuoi: int, exc: BaseException) -> MediaError:
     a, b = cac_du[dau]["so"], cac_du[cuoi - 1]["so"]
     canh = f"cảnh {a}" if a == b else f"cảnh {a}–{b}"
+    if isinstance(exc, LoiBuocCon):
+        return MediaError(exc.step, exc.message, exc.fix)
     if isinstance(exc, GhiKhungLoi):
         return MediaError("write", f"Không ghi được khung hình ở {canh}: {exc}", FIX_GHI)
     return MediaError("dung", f"Chụp khung lỗi ở {canh}: {type(exc).__name__}: {exc}", FIX_DUNG)
@@ -182,26 +195,32 @@ def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_
     for n in so_khung[:-1]:
         khung_dau.append(khung_dau[-1] + n)
     Path(thu_muc_anh).mkdir(parents=True, exist_ok=True)
-    viec = [{"cac_du": cac_du, "models_js": models_js, "dau": a, "cuoi": b, "khung_dau": khung_dau,
-             "so_khung": list(so_khung), "fps": fps, "thu_muc_anh": str(thu_muc_anh)}
-            for a, b in chia_dai(so_khung, so_tt)]
+    viec = []
+    for a, b in chia_dai(so_khung, so_tt):
+        # Mỗi tiến trình chỉ nhận cảnh của dải mình và cảnh ngay trước (nền lau bảng), không nhận cả video.
+        lo = max(a - 1, 0)
+        cac_so = {du["so"] for du in cac_du[lo:b]}
+        viec.append({"cac_du": cac_du[lo:b], "models_js": {so: js for so, js in models_js.items() if so in cac_so},
+                     "dau": a - lo, "cuoi": b - lo, "khung_dau": khung_dau[lo:b], "so_khung": list(so_khung[lo:b]),
+                     "fps": fps, "thu_muc_anh": str(thu_muc_anh)})
     if len(viec) == 1:
         try:
             chup_dai(viec[0])
         except MediaError:
             raise
         except Exception as exc:  # noqa: BLE001
-            raise _loi_dai(cac_du, viec[0]["dau"], viec[0]["cuoi"], exc) from exc
+            raise _loi_dai(viec[0]["cac_du"], viec[0]["dau"], viec[0]["cuoi"], exc) from exc
         return
-    from concurrent.futures import ProcessPoolExecutor
-
+    loi = None
     with ProcessPoolExecutor(max_workers=len(viec)) as pool:
-        cac_tuong_lai = [(v, pool.submit(_chup_dai_con, v)) for v in viec]
-        loi = None
-        for v, tl in cac_tuong_lai:
-            try:
-                tl.result()
-            except Exception as exc:  # noqa: BLE001
-                loi = loi or _loi_dai(cac_du, v["dau"], v["cuoi"], exc)
+        theo_tl = {pool.submit(_chup_dai_con, v): v for v in viec}
+        xong, con_lai = wait(theo_tl, return_when=FIRST_EXCEPTION)
+        hong = [tl for tl in theo_tl if tl in xong and tl.exception() is not None]
+        if hong:
+            # Dải đầu tiên hỏng: huỷ các dải chưa chạy; dải đang chạy vẫn được chờ xong trước khi dọn thư mục.
+            for tl in con_lai:
+                tl.cancel()
+            v = theo_tl[hong[0]]
+            loi = _loi_dai(v["cac_du"], v["dau"], v["cuoi"], hong[0].exception())
     if loi is not None:
         raise loi

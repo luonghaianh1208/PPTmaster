@@ -118,6 +118,7 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None
         "loai": scene.loai,
         "thoiLuong": cl.thoi_luong,
         "danDau": DAN_DAU,
+        "giayLauBang": LAU_BANG,
         "truong": scene.truong,
         "moc": [round(DAN_DAU + m, 3) for m in moc_hien(so_muc(scene), cl.moc_cau_giong, cl.giay_giong)],
         "hinh": tai_nguyen.get("hinh"),

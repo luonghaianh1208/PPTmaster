@@ -129,6 +129,14 @@ test('ban tay: lau bang dung gie, x tang dan theo t, y = 380', function () {
   assert.strictEqual(T.viTri(ds, 0.3, ngoi, NGHI).kieu, 'but', 'khong lau bang thi khong co gie');
 });
 
+test('ban tay: do dai lau bang theo tuy.giayLau (tu du.giayLauBang)', function () {
+  var ds = [muc('a', 1.05, 1)];
+  var v = T.viTri(ds, 0.8, ngoi, NGHI, { lauBang: true, giayLau: 1.0 });
+  assert.strictEqual(v.kieu, 'gie');
+  assert.ok(gan(v.x, -120 + 1400 * 0.8 / 1.0));
+  assert.strictEqual(T.viTri(ds, 0.8, ngoi, NGHI, { lauBang: true }).kieu, 'but', 'mac dinh 0,5 giay');
+});
+
 test('ban tay: o khung cuoi canh ngan tay da nghi', function () {
   var gh = 2.5667;
   var ds = [muc('a', 0.55, gh - 0.2 - 0.55)];

@@ -123,6 +123,11 @@ class AssembleTest(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("-framerate") + 1], "30")
         self.assertEqual(cmd[cmd.index("-r") + 1], "30")
 
+    def test_output_rate_follows_the_capture_rate(self):
+        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), 25, None)
+        self.assertEqual(cmd[cmd.index("-framerate") + 1], "25")
+        self.assertEqual(cmd[cmd.index("-r") + 1], "25")
+
     def test_subtitle_modes(self):
         for mode, expect_srt, expect_burn in (("hinh", False, True), ("file", True, False), ("khong", False, False)):
             with self.subTest(mode=mode):

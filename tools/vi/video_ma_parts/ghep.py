@@ -47,7 +47,7 @@ def lenh_video(danh_sach_am: Path, out_mp4: Path, fps: int, phu_de_tuong_doi) ->
     ]
     if phu_de_tuong_doi:
         cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:fontsdir={FONTS_REL}:force_style='{STYLE}'"]
-    cmd += ["-r", "30", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+    cmd += ["-r", str(fps), "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out_mp4)]
     return cmd
 

@@ -146,13 +146,13 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
     so_khung = [cl.so_khung for cl in cac_lich]
     lam = thu_muc / ".khung"
     shutil.rmtree(lam, ignore_errors=True)
-    anh = lam / "anh"
-    anh.mkdir(parents=True)
+    thu_muc_khung = lam / "anh"
+    thu_muc_khung.mkdir(parents=True)
     try:
         so_tt = chup.so_tien_trinh()
         log(f"Chụp {sum(so_khung)} khung ({lich.FPS} khung/giây) bằng {len(chup.chia_dai(so_khung, so_tt))} tiến trình Chromium...")
         with _loi_chup():
-            chup.chup_song_song(cac_du, models_js, so_khung, lich.FPS, anh, so_tt)
+            chup.chup_song_song(cac_du, models_js, so_khung, lich.FPS, thu_muc_khung, so_tt)
         log("Ghép video bằng FFmpeg...")
         files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"])
     finally:

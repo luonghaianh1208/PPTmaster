@@ -133,6 +133,7 @@ class ExperimentDataTest(unittest.TestCase):
         self.assertEqual(du["khaiBao"]["ma"], "li-con-lac-don")
         self.assertEqual(du["thoiLuong"], plan[0].thoi_luong)
         self.assertEqual(du["danDau"], lich.DAN_DAU)
+        self.assertEqual(du["giayLauBang"], lich.LAU_BANG)
 
     def test_graph_scene_data_has_numeric_points(self):
         scene = canh_dau("loai: do-thi\ntieu-de: A\ntruc-ngang: x\ntruc-doc: y\ndiem: 0.5, 1\ndiem: 2, 3.5\n", "Ok.")
@@ -178,6 +179,18 @@ class ResourceDataTest(unittest.TestCase):
         plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
         du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
         self.assertFalse(du2["co"]["lauBang"])
+
+
+class WipeLengthTest(unittest.TestCase):
+    def test_runtime_defaults_match_the_python_wipe_length(self):
+        import re
+
+        runtime = TOOLS_VI / "video_ma_parts" / "runtime"
+        for ten in ("khung-video.js", "ban-tay.js"):
+            with self.subTest(file=ten):
+                so = re.search(r"var LAU_BANG = ([0-9.]+);", (runtime / ten).read_text(encoding="utf-8"))
+                self.assertIsNotNone(so)
+                self.assertEqual(float(so.group(1)), lich.LAU_BANG)
 
 
 if __name__ == "__main__":

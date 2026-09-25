@@ -2,7 +2,7 @@
   'use strict';
 
   var TOC_DO_VIET = 20;
-  var LAU_BANG = 0.5;
+  var LAU_BANG = 0.5; // mặc định khi chạy ngoài trang (Node); trang lấy du.giayLauBang từ lich.LAU_BANG của Python
   var HINH_TOI_THIEU = 1.2;
   var CO_TAY = 0.85;
   var NS = 'http://www.w3.org/2000/svg';
@@ -102,9 +102,10 @@
     var w = rong * s, h = cao * s;
     return { x: x + (o - w) / 2, y: y + (c - h) / 2, rong: w, cao: h };
   }
+  function giayLau(du) { return typeof du.giayLauBang === 'number' ? du.giayLauBang : LAU_BANG; }
   function tao(du) {
     var gh = du.thoiLuong;
-    var sau = du.co && du.co.lauBang ? LAU_BANG + 0.05 : 0;
+    var sau = du.co && du.co.lauBang ? giayLau(du) + 0.05 : 0;
     function dau(batDau, lui) { return Math.min(Math.max(batDau, sau), gh - lui); }
     function chu(id, noiDung, x, y, rong, cao, co, batDau, tuy) {
       batDau = dau(batDau, 0.6);
@@ -165,6 +166,7 @@
     var co = du.co || {};
     var gh = du.thoiLuong;
     var thiNghiem = du.loai === 'thi-nghiem';
+    var lau = giayLau(du);
     var nen = null;
     if (co.lauBang && du.nenTruoc) {
       nen = document.createElement('img');
@@ -288,9 +290,9 @@
 
     function datNen(t) {
       if (!nen) { return; }
-      if (t > LAU_BANG) { nen.style.display = 'none'; return; }
+      if (t > lau) { nen.style.display = 'none'; return; }
       nen.style.display = 'block';
-      nen.style.clipPath = 'inset(0 0 0 ' + kep(-120 + 1400 * t / LAU_BANG, 0, 1280) + 'px)';
+      nen.style.clipPath = 'inset(0 0 0 ' + kep(-120 + 1400 * t / lau, 0, 1280) + 'px)';
     }
 
     function dat(t, noiBo) {
@@ -300,7 +302,7 @@
       var cam = noiBo ? { z: 1, tx: 0, ty: 0 } : Q.tinh(muc, hop, t, gh, { mayQuay: co.mayQuay === true, day: thiNghiem });
       goc.style.transform = matTran(cam);
       if (!tay) { return; }
-      var v = noiBo ? { hien: false } : T.viTri(muc, t, ngoiCua(cam), T.NGHI, { lauBang: !!co.lauBang, gh: gh });
+      var v = noiBo ? { hien: false } : T.viTri(muc, t, ngoiCua(cam), T.NGHI, { lauBang: !!co.lauBang, giayLau: lau, gh: gh });
       tay.style.display = v.hien ? 'block' : 'none';
       if (!v.hien) { return; }
       tay.setAttribute('data-kieu', v.kieu);

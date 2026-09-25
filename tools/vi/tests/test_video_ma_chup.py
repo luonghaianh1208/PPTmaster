@@ -722,6 +722,91 @@ class ParallelCaptureChromiumTest(unittest.TestCase):
         self.assertIn("cảnh 2", caught.exception.message)
 
 
+def _khong_mo_duoc_chromium(cong_viec):
+    """Thay `_chup_dai_con` trong tiến trình con: Chromium không mở được (MediaError `chromium`)."""
+    @contextlib.contextmanager
+    def hong():
+        raise chup.MediaError("chromium", "Không mở được Chromium: thử", chup.FIX_CHROMIUM)
+        yield
+
+    with mock.patch.object(chup, "trinh_duyet", hong):
+        return chup._chup_dai_con(cong_viec)
+
+
+class _PoolGia:
+    """ProcessPoolExecutor giả, không tạo tiến trình. `hong`: dải đầu hỏng ngay, các dải sau còn chờ và tự xong
+    sau 3 giây nếu không bị huỷ. Không `hong`: mọi dải xong ngay."""
+
+    def __init__(self, hong, max_workers=None):
+        self.hong = hong
+        self.viec = []
+        self.dong = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.shutdown(wait=True)
+        return False
+
+    def submit(self, fn, cong_viec):
+        import threading
+        from concurrent.futures import Future
+
+        tl = Future()
+        self.viec.append((cong_viec, tl))
+        if not self.hong:
+            tl.set_result(0)
+        elif len(self.viec) == 1:
+            tl.set_exception(RuntimeError("hỏng"))
+        else:
+            threading.Timer(3.0, lambda: tl.cancelled() or tl.done() or tl.set_result(0)).start()
+        return tl
+
+    def shutdown(self, wait=True, cancel_futures=False):
+        self.dong = (wait, cancel_futures)
+
+
+class ParallelBookkeepingTest(unittest.TestCase):
+    """Không cần Chromium: thay ProcessPoolExecutor bằng bản giả để xem việc gửi đi và cách dừng."""
+
+    def chay(self, hong):
+        cac_du, so_khung = ba_canh_ngan()
+        pool = _PoolGia(hong)
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(chup, "ProcessPoolExecutor", lambda max_workers: pool):
+            try:
+                chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 3)
+            except chup.MediaError as exc:
+                return pool, exc, cac_du, so_khung
+        return pool, None, cac_du, so_khung
+
+    def test_first_failure_cancels_the_ranges_still_waiting(self):
+        import time
+
+        dau = time.monotonic()
+        pool, loi, _, _ = self.chay(hong=True)
+        self.assertLess(time.monotonic() - dau, 2.0, "không chờ các dải còn lại chạy xong")
+        self.assertEqual(len(pool.viec), 3)
+        self.assertTrue(all(tl.cancelled() for _v, tl in pool.viec[1:]))
+        self.assertIsNotNone(loi)
+        self.assertEqual(loi.step, "dung")
+        self.assertIn("cảnh 1", loi.message)
+        self.assertEqual(pool.dong[0], True, "vẫn chờ các tiến trình đang chạy trước khi dọn")
+
+    def test_each_worker_gets_only_its_scenes_and_the_one_before(self):
+        pool, loi, cac_du, so_khung = self.chay(hong=False)
+        self.assertIsNone(loi)
+        khung_dau = [0, so_khung[0], so_khung[0] + so_khung[1]]
+        for (a, b), (v, _tl) in zip(chup.chia_dai(so_khung, 3), pool.viec):
+            with self.subTest(dai=(a, b)):
+                lo = max(a - 1, 0)
+                self.assertEqual([du["so"] for du in v["cac_du"]], [du["so"] for du in cac_du[lo:b]])
+                self.assertEqual((v["dau"], v["cuoi"]), (a - lo, b - lo))
+                self.assertEqual(v["khung_dau"], khung_dau[lo:b], "số thứ tự khung giữ nguyên")
+                self.assertEqual(v["so_khung"], so_khung[lo:b])
+
+
 def _chup_canh_day_dia(page, html, so_khung, fps, thu_muc, so_dau, ghi_log=None):
     raise OSError(28, "No space left on device")
 
@@ -794,6 +879,15 @@ class CaptureBookkeepingTest(unittest.TestCase):
                 self.assertRaises(chup.MediaError) as caught:
             chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 1)
         self.assertEqual(caught.exception.step, "dung")
+
+    def test_chromium_failure_in_a_child_process_is_a_chromium_error(self):
+        cac_du, so_khung = ba_canh_ngan()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(chup, "_chup_dai_con", _khong_mo_duoc_chromium), \
+                self.assertRaises(chup.MediaError) as caught:
+            chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 2)
+        self.assertEqual(caught.exception.step, "chromium")
+        self.assertIn("pptmaster.ps1", caught.exception.fix)
+        self.assertIn("Không mở được Chromium", caught.exception.message)
 
     def test_disk_error_in_a_child_process_is_a_write_error(self):
         cac_du, so_khung = ba_canh_ngan()

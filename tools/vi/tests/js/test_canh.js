@@ -17,7 +17,7 @@ var C = globalThis.THI_CANH;
 var KHAI_BAO = JSON.parse(fs.readFileSync(path.join(TN, 'mo_hinh', 'li-con-lac-don.json'), 'utf8'));
 
 function du(loai, thoiLuong, moc, truong, them) {
-  var d = { so: 1, loai: loai, thoiLuong: thoiLuong, danDau: 0.7, moc: moc, truong: truong };
+  var d = { so: 1, loai: loai, thoiLuong: thoiLuong, danDau: 1.0, moc: moc, truong: truong };
   Object.keys(them || {}).forEach(function (k) { d[k] = them[k]; });
   return d;
 }
@@ -63,6 +63,14 @@ test('demKyTu bo dau danh dau; tienDo kep 0..1', function () {
 
 test('khung-video khong giu hang dan dau rieng: du.danDau tu Python la nguon duy nhat', function () {
   assert.strictEqual(V.DAN_DAU, undefined);
+});
+
+test('lau bang: do dai lay tu du.giayLauBang cua Python, mac dinh 0,5 khi thieu', function () {
+  var co = { lauBang: true };
+  var mot = V.tao({ thoiLuong: 6, co: co, giayLauBang: 1.0 }).chu('a', 'x', 0, 0, 100, 50, 30, 0.2, {});
+  assert.ok(mot.batDau >= 1.05, 'muc dau tien doi het lau bang: ' + mot.batDau);
+  var macDinh = V.tao({ thoiLuong: 6, co: co }).chu('a', 'x', 0, 0, 100, 50, 30, 0.2, {});
+  assert.ok(Math.abs(macDinh.batDau - 0.55) < 1e-9, String(macDinh.batDau));
 });
 
 test('duong ve la xac dinh theo hat giong', function () {
@@ -178,18 +186,18 @@ test('thi nghiem: so do la so cua tinh() cua mo hinh, o moi thoi diem', function
 
 test('thi nghiem: mo hinh mot-lan chay lai tu moc tham-so gan nhat, mo hinh khac tinh tu danDau', function () {
   var T = C['thi-nghiem'];
-  var d = { danDau: 0.7, khaiBao: { hoatHinh: 'mot-lan' },
+  var d = { danDau: 1.0, khaiBao: { hoatHinh: 'mot-lan' },
     thamSo: { 'goc-nem': [[0, 30], [8, 60]], 'van-toc': [[12, 15]] } };
-  assert.strictEqual(T.mocGanNhat(d, 5), 0.7);
+  assert.strictEqual(T.mocGanNhat(d, 5), 1.0);
   assert.strictEqual(T.mocGanNhat(d, 9), 8);
   assert.strictEqual(T.mocGanNhat(d, 13), 12);
-  assert.ok(Math.abs(T.thoiGianMoHinh(d, 5) - 4.3) < 1e-9);
+  assert.ok(Math.abs(T.thoiGianMoHinh(d, 5) - 4.0) < 1e-9);
   assert.strictEqual(T.thoiGianMoHinh(d, 8), 0);
   assert.strictEqual(T.thoiGianMoHinh(d, 10), 2);
   assert.strictEqual(T.thoiGianMoHinh(d, 14), 2);
   assert.strictEqual(T.thoiGianMoHinh(d, 0.2), 0);
   d.khaiBao.hoatHinh = 'lap';
-  assert.ok(Math.abs(T.thoiGianMoHinh(d, 14) - 13.3) < 1e-9);
+  assert.ok(Math.abs(T.thoiGianMoHinh(d, 14) - 13.0) < 1e-9);
 });
 
 test('thi nghiem: khong co dong chu nao bat dau tai t=0 ngoai dong so do', function () {
