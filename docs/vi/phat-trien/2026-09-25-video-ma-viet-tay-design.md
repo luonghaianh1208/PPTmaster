@@ -125,6 +125,8 @@ loi: Bước một, đo chính xác thể tích acid. Bước hai, nhỏ từ t�
 | `do-thi` | `tieu-de`, `truc-ngang`, `truc-doc`, `diem` (lặp, dạng `x, y`) | 2–12 điểm | trục rồi từng điểm vẽ dần, nối đường |
 | `thi-nghiem` | `mau`, `tham-so` (lặp), `do` | mẫu thuộc 8 mô hình | xem mục 7 |
 
+Giới hạn bổ sung: tiêu đề cảnh ≤ 90 ký tự, `trai` và `phai` ≤ 24, `truc-ngang` và `truc-doc` ≤ 40.
+
 Ý thứ k của các loại có danh sách hiện khi câu thứ k của lời bắt đầu; ít câu hơn số ý thì chia đều theo thời lượng cảnh (mục 8).
 
 ## 7. Cảnh thí nghiệm
@@ -145,11 +147,12 @@ loi: Khi tăng chiều dài dây, chu kì dao động tăng theo.
 - `do:` liệt kê các đại lượng đo hiện thành số bên cạnh hình vẽ; mỗi giá trị lấy từ `tinh()` của mô hình tại thời điểm đó.
 - Cảnh chạy `ve(ctx, p, t, kt, d)` của mô hình trong canvas với `t` là thời gian trong cảnh; mô hình `hoatHinh: mot-lan` chạy một lần trong khoảng `thoiLuong`.
 - Dùng lại `khung.js` của thí nghiệm ảo cho `MAU`, `PHONG`, `dinhDang`, `danhDau`.
+- Tối đa 3 mã tham số khác nhau trong `tham-so:` và tối đa 3 đại lượng trong `do:` (mặc định hai đại lượng đầu của mô hình); số giây của `tham-so:` tính từ đầu cảnh.
 
 ## 8. Giọng, mốc thời gian và phụ đề
 
-1. Với mỗi cảnh: có `giong/canh-N.mp3` thì dùng; không thì gọi edge-tts với `lời` của cảnh, lưu `giong/canh-N.mp3` (lần dựng sau dùng lại nếu `lời` không đổi; công cụ ghi mã băm của lời trong `giong/canh-N.txt`).
-2. Thời lượng cảnh = thời lượng file giọng (`probe_duration`) + 0,6 giây, tối thiểu 2,5 giây.
+1. Với mỗi cảnh: có `giong/canh-N.mp3` thì dùng; không thì gọi edge-tts với `lời` của cảnh, lưu `giong/canh-N.mp3` (lần dựng sau dùng lại nếu `lời` không đổi; công cụ ghi sổ `giong/canh-N.json` gồm mã băm của lời, giọng, tốc độ và mốc câu; có `canh-N.mp3` mà không có `canh-N.json` là file thầy cô đặt sẵn, không bao giờ bị ghi đè).
+2. Thời lượng cảnh = 0,7 giây dẫn đầu (tiêu đề viết trước khi tiếng bắt đầu) + thời lượng file giọng (`probe_duration`) + 0,6 giây, tối thiểu 2,5 giây, làm tròn lên bội của 1/15 giây. Tiếng được đệm 0,7 giây im lặng ở đầu; mốc câu và mốc hiện ý tính theo thời gian cảnh.
 3. Mốc câu: edge-tts trả mốc câu; file có sẵn không có mốc thì chia các câu của `lời` theo tỉ lệ số ký tự trên thời lượng giọng, và ghi cảnh báo "mốc câu ước lượng".
 4. Ý thứ k hiện tại mốc câu thứ k; ít câu hơn ý thì hiện đều nhau trên thời lượng giọng.
 5. Phụ đề: mỗi câu là một `Cue` tại mốc câu cộng độ lệch của cảnh (`cumulative_offsets`); `phu-de: hinh` in bằng phần in phụ đề dùng chung; `file` ghi `phu-de.srt`.
@@ -159,7 +162,7 @@ loi: Khi tăng chiều dài dây, chu kì dao động tăng theo.
 - `trang.py` ghép một trang HTML cho mỗi cảnh: khung + phong cách + file cảnh + dữ liệu cảnh (JSON, thoát `<` như `build_html.py`); trang chỉ đọc thời điểm qua `window.datThoiDiem(t)`.
 - `chup.py` mở trang trong Chromium 1280×720, gọi `datThoiDiem(số_khung / fps_chụp)`, chụp. Trước khi chụp, đo phần tử có tràn khung không (dùng cho `--xem-truoc` và cho lỗi `canh`).
 - `ghep.py` ghép chuỗi khung của các cảnh thành hình, ghép tiếng các cảnh (đệm im lặng cuối cảnh), xuất MP4 30 khung/giây (khung chụp thấp hơn được nhân lên), rồi in phụ đề.
-- `fps_chụp` chốt sau khi đo (mục 12); khung viết tay mặc định 12–15.
+- `fps_chụp = 15`, ảnh PNG (đã đo ở biên bản kiểm thử: 45,3 ms/khung).
 
 ## 10. Công cụ
 
