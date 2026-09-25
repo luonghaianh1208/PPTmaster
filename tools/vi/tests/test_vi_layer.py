@@ -4,9 +4,12 @@ import fnmatch
 import json
 import re
 import shutil
+import struct
 import subprocess
 import sys
+import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -65,7 +68,7 @@ class UpstreamBoundaryTest(unittest.TestCase):
         tag = upstream_base_tag()
         if tag is None:
             self.skipTest("Không có git hoặc tag upstream")
-        proc = git("diff", "--name-only", tag)
+        proc = git("-c", "core.quotepath=off", "diff", "--name-only", tag)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         changed = [path for path in proc.stdout.splitlines() if path]
         outside = [
@@ -1544,6 +1547,33 @@ EXPLAINER_GUIDE_HEADINGS = (
 )
 
 
+def _png_gia(rong: int, cao: int) -> bytes:
+    def khoi(loai: bytes, du_lieu: bytes) -> bytes:
+        return struct.pack(">I", len(du_lieu)) + loai + du_lieu + struct.pack(">I", zlib.crc32(loai + du_lieu))
+
+    hang = b"\x00" + b"\xff\xff\xff" * rong
+    return (b"\x89PNG\r\n\x1a\n" + khoi(b"IHDR", struct.pack(">IIBBBBB", rong, cao, 8, 2, 0, 0, 0))
+            + khoi(b"IDAT", zlib.compress(hang * cao)) + khoi(b"IEND", b""))
+
+
+def _jpeg_gia(rong: int, cao: int) -> bytes:
+    return b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 11, 8, cao, rong, 1) + b"\x01\x11\x00\xff\xd9"
+
+
+def _anh_gia(thu_muc: Path, video) -> None:
+    """Tạo ảnh nhỏ cho mọi `anh:` của kịch bản, kèm bản ghi nguồn cho ảnh không ghi `nguon:`."""
+    ten_cac_anh = [scene.truong["anh"][0] for scene in video.canh if "anh" in scene.truong]
+    if not ten_cac_anh:
+        return
+    (thu_muc / "anh").mkdir()
+    for ten in ten_cac_anh:
+        du_lieu = _png_gia(8, 6) if ten.lower().endswith(".png") else _jpeg_gia(8, 6)
+        (thu_muc / "anh" / ten).write_bytes(du_lieu)
+    items = [{"filename": scene.truong["anh"][0], "author": "Tác giả thử", "license_name": "CC0", "provider": "wikimedia"}
+             for scene in video.canh if "anh" in scene.truong and "nguon" not in scene.truong]
+    (thu_muc / "anh" / "image_sources.json").write_text(json.dumps({"items": items}), encoding="utf-8")
+
+
 class ExplainerVideoGuideTest(unittest.TestCase):
     def test_guide_has_its_own_sections_in_order(self):
         self.assertEqual(h2_headings(read(EXPLAINER_GUIDE)), list(EXPLAINER_GUIDE_HEADINGS))
@@ -1564,7 +1594,58 @@ class ExplainerVideoGuideTest(unittest.TestCase):
         self.assertGreaterEqual(len(blocks), 1)
         for block in blocks:
             video = parse.parse(block)
-            self.assertEqual(kiem.kiem(video, REPO_ROOT), [])
+            with tempfile.TemporaryDirectory() as tmp:
+                _anh_gia(Path(tmp), video)
+                self.assertEqual(kiem.kiem(video, Path(tmp)), [])
+
+    def test_guide_example_shows_pictures_photos_and_motion_keys(self):
+        from video_ma_parts import parse
+
+        body = section(read(EXPLAINER_GUIDE), "## Cấu trúc video.md")
+        videos = [parse.parse(block) for block in re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)]
+        scenes = [scene for video in videos for scene in video.canh]
+        self.assertTrue(any(s.loai == "minh-hoa" for s in scenes))
+        self.assertTrue(any(s.loai != "minh-hoa" and "hinh" in s.truong for s in scenes))
+        self.assertTrue(any(s.loai == "anh" and "nguon" in s.truong for s in scenes))
+        self.assertTrue(any(s.loai != "anh" and "anh" in s.truong for s in scenes))
+        for key in ("ban-tay", "may-quay", "chuyen-canh"):
+            self.assertIn(f"\n{key}: ", body)
+
+    def test_scene_guide_icon_table_names_exist(self):
+        from video_ma_parts import hinh
+
+        body = section(read(SCENE_GUIDE), "## Bảng tra biểu tượng")
+        rows = re.findall(r"^\| ([^|]+?) \| ([^|]+?) \| `([^`]+)` \|$", body, re.M)
+        self.assertGreaterEqual(len(rows), 80)
+        mon = {row[0] for row in rows}
+        self.assertEqual(mon, {"Toán", "Vật lí", "Hoá học", "Sinh học", "Địa lí", "Chung"})
+        thu_muc = SKILL_DIR / "templates" / "icons" / "tabler-outline"
+        for _mon, _khai_niem, ten in rows:
+            with self.subTest(ten=ten):
+                self.assertTrue((thu_muc / f"{ten}.svg").is_file(), ten)
+                hinh.doc(ten)
+        self.assertIn('rg --files skills/ppt-master/templates/icons/tabler-outline -g "*', body)
+
+    def test_docs_cover_pictures_photos_and_motion(self):
+        guide = read(EXPLAINER_GUIDE)
+        for phrase in ("minh-hoa", "image_search.py", "ban-tay", "may-quay", "chuyen-canh", "Itim", "--xem-truoc",
+                       "anh\\.review\\", "8 MB", "1,5 lần"):
+            with self.subTest(file=EXPLAINER_GUIDE, phrase=phrase):
+                self.assertIn(phrase, guide)
+        scenes = read(SCENE_GUIDE)
+        for phrase in ("image_search.py", "image_sources.json", "anh/.review/", "8 MB", "`nguon`"):
+            with self.subTest(file=SCENE_GUIDE, phrase=phrase):
+                self.assertIn(phrase, scenes)
+        agents = section(read("AGENTS.vi.md"), AGENTS_VI_EXPLAINER_HEADING)
+        for phrase in ("image_search.py", "--xem-truoc", "anh\\.review\\", "1,5 lần", "ban-tay"):
+            with self.subTest(file="AGENTS.vi.md", phrase=phrase):
+                self.assertIn(phrase, agents)
+        teachers = read("docs/vi/video-giai-thich.md")
+        for phrase in ("Itim", "OFL", "7–8 phút", "11 phút", "bàn tay", "máy quay"):
+            with self.subTest(file="docs/vi/video-giai-thich.md", phrase=phrase):
+                self.assertIn(phrase, teachers)
+        self.assertIn("image_search.py", read(".agents/rules/ppt-master-vi.md"))
+        self.assertIn(".review", section(read("docs/vi/xu-ly-loi.md"), "## Dựng video giải thích thất bại"))
 
     def test_scene_guide_lists_every_scene_type_and_field(self):
         from video_ma_parts import parse
