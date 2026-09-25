@@ -5,13 +5,16 @@
     muc: function (du) {
       var B = V.tao(du);
       var t = du.truong;
-      var kq = B.tieuDe(t['tieu-de'][0], 0.2);
+      var cot = B.coCot;
+      var kq = B.tieuDe(t['tieu-de'][0], 0.2, cot ? 800 : 1160);
+      var dai = Math.max.apply(null, t.y.map(function (y) { return V.demKyTu(y); }));
+      var co = cot && dai > 45 ? 26 : 30;
       t.y.forEach(function (y, k) {
         var top = 186 + k * 74;
         kq.push(B.net('cham-' + k, V.vongTron(96, top + 22, 9), du.moc[k], 0.3, { mau: 'nhan' }));
-        kq.push(B.chu('y-' + k, y, 124, top, 1100, 72, 30, du.moc[k], {}));
+        kq.push(B.chu('y-' + k, y, 124, top, cot ? 736 : 1100, 72, co, du.moc[k], {}));
       });
-      return kq;
+      return kq.concat(B.cot());
     }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

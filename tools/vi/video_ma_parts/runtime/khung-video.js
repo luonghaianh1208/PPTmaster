@@ -2,6 +2,9 @@
   'use strict';
 
   var TOC_DO_VIET = 20;
+  var LAU_BANG = 0.5;
+  var HINH_TOI_THIEU = 1.2;
+  var CO_TAY = 0.85;
   var NS = 'http://www.w3.org/2000/svg';
   var DANH_DAU = /\*\*(.+?)\*\*|~([^~]+)~|\^([^\^]+)\^/g;
 
@@ -28,14 +31,18 @@
     return kq;
   }
   function demKyTu(chu) { return tach(chu).reduce(function (n, o) { return n + o.chu.length; }, 0); }
+  // Hiện n ký tự đầu; khi 0 < n < tổng, chèn span.ngoi rỗng ngay sau ký tự thứ n (điểm ngòi bút).
   function catDanhDau(chu, n) {
     var con = n;
     var html = '';
+    var giua = n > 0 && n < demKyTu(chu);
     tach(chu).forEach(function (o) {
       var hien = con > 0 ? o.chu.slice(0, con) : '';
       var an = o.chu.slice(hien.length);
       con -= hien.length;
-      var trong = thoat(hien) + (an ? '<span class="an">' + thoat(an) + '</span>' : '');
+      var ngoi = giua && hien && con === 0 ? '<span class="ngoi"></span>' : '';
+      if (ngoi) { giua = false; }
+      var trong = thoat(hien) + ngoi + (an ? '<span class="an">' + thoat(an) + '</span>' : '');
       html += o.the ? '<' + o.the + '>' + trong + '</' + o.the + '>' : trong;
     });
     return html;
@@ -89,31 +96,85 @@
     Object.keys(tuy || {}).forEach(function (k) { dich[k] = tuy[k]; });
     return dich;
   }
+  // Đặt khung w×h giữ tỉ lệ rong:cao vừa trong ô (x, y, o, c), căn giữa (object-fit: contain).
+  function vuaKhung(rong, cao, x, y, o, c) {
+    var s = Math.min(o / rong, c / cao);
+    var w = rong * s, h = cao * s;
+    return { x: x + (o - w) / 2, y: y + (c - h) / 2, rong: w, cao: h };
+  }
   function tao(du) {
     var gh = du.thoiLuong;
+    var sau = du.co && du.co.lauBang ? LAU_BANG + 0.05 : 0;
+    function dau(batDau, lui) { return Math.min(Math.max(batDau, sau), gh - lui); }
     function chu(id, noiDung, x, y, rong, cao, co, batDau, tuy) {
-      batDau = Math.min(batDau, gh - 0.6);
+      batDau = dau(batDau, 0.6);
       var dai = Math.max(0.3, Math.min(thoiGianViet(noiDung), gh - 0.2 - batDau));
       return gan({ id: id, kieu: 'chu', chu: noiDung, x: x, y: y, rong: rong, cao: cao, co: co, batDau: batDau, thoiLuong: dai, can: 'trai', mau: '' }, tuy);
     }
     function net(id, d, batDau, dai, tuy) {
-      batDau = Math.min(batDau, gh - 0.6);
+      batDau = dau(batDau, 0.6);
       dai = Math.max(0.2, Math.min(dai, gh - 0.2 - batDau));
       return gan({ id: id, kieu: 'net', d: d, batDau: batDau, thoiLuong: dai, mau: '', day: 4 }, tuy);
     }
-    function tieuDe(noiDung, batDau) {
-      var c = chu('tieu-de', noiDung, 60, 30, 1160, 116, 40, batDau, { mau: 'nhan', day: true });
-      var w = Math.min(1160, Math.max(240, demKyTu(noiDung) * 40 * 0.6));
-      return [c, net('gach', duongQua([[60, 160], [60 + w, 160]], 7), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan' })];
+    // Biểu tượng vẽ lần lượt từng phần tử; cả hình ít nhất 1,2 s.
+    function hinh(id, h, x, y, kich, batDau, tuy) {
+      batDau = dau(batDau, 0.2 + HINH_TOI_THIEU);
+      var dai = Math.min(3, Math.max(HINH_TOI_THIEU, 0.45 * h.phanTu.length));
+      dai = Math.max(0.3, Math.min(dai, gh - 0.2 - batDau));
+      return gan({ id: id, kieu: 'hinh', phanTu: h.phanTu, viewBox: h.viewBox, x: x, y: y, kich: kich, batDau: batDau, thoiLuong: dai, mau: '' }, tuy);
     }
-    return { chu: chu, net: net, tieuDe: tieuDe, gh: gh };
+    // Ảnh hiện dần 0,4 s rồi phóng/lướt chậm tới cuối cảnh; khung giữ tỉ lệ ảnh trong ô.
+    function anh(id, a, x, y, rong, cao, batDau) {
+      batDau = dau(batDau, 0.6);
+      var k = vuaKhung(a.rong, a.cao, x, y, rong, cao);
+      return { id: id, kieu: 'anh', dataUrl: a.dataUrl, nguon: a.nguon, x: k.x, y: k.y, rong: k.rong, cao: k.cao,
+        batDau: batDau, thoiLuong: Math.min(0.4, gh - 0.2 - batDau) };
+    }
+    function tieuDe(noiDung, batDau, rong) {
+      rong = rong || 1160;
+      var co = rong < 1160 && demKyTu(noiDung) > 40 ? 32 : 40;
+      var c = chu('tieu-de', noiDung, 60, 30, rong, 116, co, batDau, { mau: 'nhan', day: true });
+      var w = Math.min(rong, Math.max(240, demKyTu(noiDung) * co * 0.6));
+      return [c, net('gach', duongQua([[60, 160], [60 + w, 160]], 7), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan', quay: false })];
+    }
+    // Cột hình bên phải (ô x 900, y 200, rộng 320, cao 380) cho cảnh có `hinh` hoặc `anh`.
+    var coCot = !!(du.hinh || du.anh);
+    function cot() {
+      var batDau = du.moc && du.moc.length ? du.moc[0] : 1.0;
+      if (du.hinh) { return [hinh('hinh', du.hinh, 910, 240, 300, batDau)]; }
+      if (du.anh) { return [anh('anh', du.anh, 900, 200, 320, 380, batDau)]; }
+      return [];
+    }
+    return { chu: chu, net: net, hinh: hinh, anh: anh, tieuDe: tieuDe, cot: cot, coCot: coCot, gh: gh };
+  }
+
+  function matTran(s) {
+    if (Math.abs(s.z - 1) < 1e-9 && Math.abs(s.tx) < 1e-6 && Math.abs(s.ty) < 1e-6) { return 'none'; }
+    return 'matrix(' + s.z + ',0,0,' + s.z + ',' + s.tx + ',' + s.ty + ')';
   }
 
   function khoiDong(du) {
-    var goc = document.getElementById('khung');
+    var H = root.THI_HINH;
+    var T = root.THI_BAN_TAY;
+    var Q = root.THI_MAY_QUAY;
+    var khung = document.getElementById('khung');
     var loai = root.THI_CANH[du.loai];
     var muc = loai.muc(du);
+    var co = du.co || {};
+    var gh = du.thoiLuong;
+    var thiNghiem = du.loai === 'thi-nghiem';
+    var nen = null;
+    if (co.lauBang && du.nenTruoc) {
+      nen = document.createElement('img');
+      nen.id = 'nen-truoc';
+      nen.src = du.nenTruoc;
+      khung.appendChild(nen);
+    }
+    var goc = document.createElement('div');
+    goc.id = 'bang';
+    khung.appendChild(goc);
     var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 've');
     svg.setAttribute('viewBox', '0 0 1280 720');
     goc.appendChild(svg);
     var ds = muc.map(function (m) {
@@ -126,6 +187,10 @@
         el.style.strokeWidth = String(m.day);
         el.style.strokeDasharray = '1';
         svg.appendChild(el);
+      } else if (m.kieu === 'hinh') {
+        el = H.taoHinh(svg, m);
+      } else if (m.kieu === 'anh') {
+        el = H.taoAnh(goc, m);
       } else {
         el = document.createElement('div');
         el.className = 'chu ' + m.can + ' ' + m.mau + (m.day ? ' day' : '');
@@ -139,13 +204,25 @@
       }
       return { m: m, el: el };
     });
+    var theoId = {};
+    ds.forEach(function (o) { theoId[o.m.id] = o; });
     if (loai.dung) { loai.dung(goc, du); }
-    function dat(t) {
+    var tay = null;
+    if (co.banTay && !thiNghiem) {
+      goc.insertAdjacentHTML('beforeend', T.SVG);
+      tay = goc.lastElementChild;
+    }
+
+    function datMuc(t) {
       ds.forEach(function (o) {
         var p = tienDo(t, o.m.batDau, o.m.thoiLuong);
         if (o.m.kieu === 'net') {
           o.el.style.strokeDashoffset = String(1 - p);
           o.el.style.opacity = p > 0 ? '1' : '0';
+        } else if (o.m.kieu === 'hinh') {
+          H.datHinh(o.el, p);
+        } else if (o.m.kieu === 'anh') {
+          H.datAnh(o.el, o.m, p, t, gh, du.so);
         } else if (!o.m.dong) {
           var html = catDanhDau(o.m.chu, Math.round(p * demKyTu(o.m.chu)));
           o.el.innerHTML = o.m.day ? '<span class="trong">' + html + '</span>' : html;
@@ -153,12 +230,91 @@
       });
       if (loai.capNhat) { loai.capNhat(goc, du, t); }
     }
-    root.datThoiDiem = dat;
+
+    // Hộp bao và điểm đầu/cuối của từng mục ở trạng thái cuối, đo khi Z = 1. Đo một lần, sau khi font đã nạp.
+    var hop = null;
+    var dauCuoi = {};
+    function doHop() {
+      goc.style.transform = 'none';
+      datMuc(1e6);
+      var k = khung.getBoundingClientRect();
+      var kq = {};
+      ds.forEach(function (o) {
+        var m = o.m;
+        if (m.dong) { return; }
+        if (m.kieu === 'net') {
+          var b = o.el.getBBox();
+          kq[m.id] = { x: b.x, y: b.y, w: b.width, h: b.height };
+        } else if (m.kieu === 'hinh') {
+          kq[m.id] = { x: m.x, y: m.y, w: m.kich, h: m.kich };
+        } else if (m.kieu === 'anh') {
+          kq[m.id] = { x: m.x, y: m.y, w: m.rong, h: m.cao };
+        } else {
+          var r = document.createRange();
+          r.selectNodeContents(o.el);
+          var cac = r.getClientRects();
+          var bao = r.getBoundingClientRect();
+          if (!cac.length || bao.width <= 0) { return; }
+          kq[m.id] = { x: bao.left - k.left, y: bao.top - k.top, w: bao.width, h: bao.height };
+          var a = cac[0], z = cac[cac.length - 1];
+          dauCuoi[m.id] = {
+            dau: { x: a.left - k.left, y: a.top + 0.8 * a.height - k.top },
+            cuoi: { x: z.right - k.left, y: z.top + 0.8 * z.height - k.top }
+          };
+        }
+      });
+      return kq;
+    }
+
+    function ngoiCua(cam) {
+      var k = khung.getBoundingClientRect();
+      return function (m, p) {
+        var o = theoId[m.id];
+        if (m.kieu === 'net') {
+          var L = o.el.getTotalLength();
+          var d = o.el.getPointAtLength(kep(p, 0, 1) * L);
+          return { x: d.x, y: d.y };
+        }
+        if (m.kieu === 'hinh') { return H.ngoiHinh(o.el, m, p); }
+        var dc = dauCuoi[m.id] || { dau: { x: m.x, y: m.y + m.co }, cuoi: { x: m.x, y: m.y + m.co } };
+        var s = p > 0 && p < 1 ? o.el.querySelector('.ngoi') : null;
+        if (!s) { return p >= 0.5 ? dc.cuoi : dc.dau; }
+        var r = s.getBoundingClientRect();
+        return { x: (r.left - k.left - cam.tx) / cam.z, y: (r.top + 0.8 * r.height - k.top - cam.ty) / cam.z };
+      };
+    }
+
+    function datNen(t) {
+      if (!nen) { return; }
+      if (t > LAU_BANG) { nen.style.display = 'none'; return; }
+      nen.style.display = 'block';
+      nen.style.clipPath = 'inset(0 0 0 ' + kep(-120 + 1400 * t / LAU_BANG, 0, 1280) + 'px)';
+    }
+
+    function dat(t, noiBo) {
+      if (!noiBo && !hop) { hop = doHop(); }
+      datMuc(t);
+      datNen(t);
+      var cam = noiBo ? { z: 1, tx: 0, ty: 0 } : Q.tinh(muc, hop, t, gh, { mayQuay: co.mayQuay === true, day: thiNghiem });
+      goc.style.transform = matTran(cam);
+      if (!tay) { return; }
+      var v = noiBo ? { hien: false } : T.viTri(muc, t, ngoiCua(cam), T.NGHI, { lauBang: !!co.lauBang, gh: gh });
+      tay.style.display = v.hien ? 'block' : 'none';
+      if (!v.hien) { return; }
+      tay.setAttribute('data-kieu', v.kieu);
+      // Tay nằm trong lớp bảng để theo máy quay, nhưng giữ cỡ trên màn hình không đổi khi phóng.
+      tay.style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + (CO_TAY / cam.z) + ')';
+    }
+    root.datThoiDiem = function (t) { dat(t, false); };
     root.THI_VIDEO.thoiDiemCuoi = function () {
       return du.thoiLuong - 0.2;
     };
+    // Kiểm tràn ở trạng thái cuối, máy quay Z = 1, không bàn tay, không nền cảnh trước.
     root.THI_VIDEO.kiemTran = function () {
-      dat(1e6);
+      dat(1e6, false);
+      goc.style.transform = 'none';
+      if (tay) { tay.style.display = 'none'; }
+      if (nen) { nen.style.display = 'none'; }
       var loi = [];
       var cacO = goc.querySelectorAll('.chu');
       for (var i = 0; i < cacO.length; i++) {
@@ -170,14 +326,15 @@
       }
       return loi;
     };
-    dat(0);
+    dat(0, true);
     root.THI_VIDEO.san = true;
   }
 
   root.THI_CANH = root.THI_CANH || {};
   root.THI_VIDEO = {
+    LAU_BANG: LAU_BANG,
     kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau,
     thoiGianViet: thoiGianViet, duongQua: duongQua, hopQua: hopQua, vongTron: vongTron, muiTen: muiTen,
-    tao: tao, khoiDong: khoiDong, san: false
+    rng: rng, vuaKhung: vuaKhung, tao: tao, khoiDong: khoiDong, san: false
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

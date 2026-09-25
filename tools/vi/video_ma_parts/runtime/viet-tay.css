@@ -1,7 +1,9 @@
 html, body { margin: 0; padding: 0; background: #fbfaf5; }
 #khung { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #fbfaf5;
   font-family: 'Itim', sans-serif; color: #1f2937; }
-#khung svg { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+#nen-truoc { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; display: none; }
+#bang { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
+#bang > svg.ve { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
 .chu { position: absolute; overflow: hidden; line-height: 1.3; white-space: normal; overflow-wrap: normal; text-align: left; }
 .chu.day { display: flex; flex-direction: column; }
 .chu.day > .trong { margin-top: auto; padding-bottom: 0.25em; }
@@ -13,3 +15,13 @@ html, body { margin: 0; padding: 0; background: #fbfaf5; }
 path.net { fill: none; stroke: #1f2937; stroke-linecap: round; stroke-linejoin: round; }
 path.net.nhan { stroke: #1d4ed8; }
 path.net.do { stroke: #b91c1c; }
+g.hinh > * { fill: none; stroke: #1f2937; stroke-linecap: round; stroke-linejoin: round; }
+g.hinh.nhan > * { stroke: #1d4ed8; }
+.anh { position: absolute; opacity: 0; }
+.anh .cua-anh { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; background: #ffffff; }
+.anh img { display: block; width: 100%; height: 100%; object-fit: contain; transform-origin: 50% 50%; }
+.anh .vien-anh { position: absolute; left: -10px; top: -10px; overflow: visible; }
+.anh .nguon { position: absolute; right: 6px; bottom: 6px; max-width: calc(100% - 12px); font-size: 14px; line-height: 1.25;
+  padding: 1px 6px; border-radius: 4px; background: rgba(251, 250, 245, 0.85); color: #374151; text-align: right; }
+#ban-tay { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+#ban-tay[data-kieu="but"] .gie, #ban-tay[data-kieu="gie"] .but { display: none; }

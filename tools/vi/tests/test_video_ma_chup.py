@@ -259,6 +259,179 @@ class ChromiumTest(unittest.TestCase):
         self.assertIn("1,60 m", ts0)
 
 
+def png(rong: int, cao: int) -> bytes:
+    """PNG sọc ngang tự dựng bằng thư viện chuẩn (để thấy ảnh chuyển động)."""
+    import struct
+    import zlib
+
+    hang = [b"\x00" + (bytes((200, 90, 60)) if (y // 40) % 2 else bytes((60, 120, 200))) * rong for y in range(cao)]
+    def khoi(loai, du):
+        return struct.pack(">I", len(du)) + loai + du + struct.pack(">I", zlib.crc32(loai + du) & 0xFFFFFFFF)
+    return (b"\x89PNG\r\n\x1a\n" + khoi(b"IHDR", struct.pack(">IIBBBBB", rong, cao, 8, 2, 0, 0, 0))
+            + khoi(b"IDAT", zlib.compress(b"".join(hang), 9)) + khoi(b"IEND", b""))
+
+
+def anh_gia(rong: int, cao: int) -> dict:
+    import base64
+    return {"dataUrl": "data:image/png;base64," + base64.b64encode(png(rong, cao)).decode("ascii"),
+            "nguon": "Ảnh: Tác giả thử · CC BY 4.0 · Wikimedia", "rong": rong, "cao": cao}
+
+
+def du_hinh(noi_dung: str, tai_nguyen: dict, so: int = 1, giay: float = 6.0,
+            loi: str = "Xin chào các em. Hôm nay học bài mới. Cảm ơn các em."):
+    truoc = "".join(f"## Cảnh {k}\nloai: tieu-de\nchu: Mở đầu\nloi: Chào.\n\n" for k in range(1, so))
+    text = f"---\n{META}---\n\n{truoc}## Cảnh {so}\n{noi_dung}loi: {loi}\n"
+    canh = parse.parse(text).canh[so - 1]
+    giong = lich.GiongInfo(mp3=None, giay=giay, moc_cau=[0.0, 2.0, 4.0], uoc_luong=False, nguon="may")
+    plan, _ = lich.dung_lich([canh], [giong])
+    return lich.du_lieu_canh(canh, plan[0], None, {**tai_nguyen, "meta": {}})
+
+
+@unittest.skipUnless(co_chromium(), NEED_CHROMIUM)
+class PictureMotionChromiumTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from video_ma_parts import hinh
+        cls.hinh = hinh.doc("flask")
+        cls.cm = chup.trinh_duyet()
+        cls.browser = cls.cm.__enter__()
+        cls.page = chup.trang_moi(cls.browser)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cm.__exit__(None, None, None)
+
+    def muc(self, id_muc: str) -> dict:
+        return self.page.evaluate(
+            "(id) => THI_CANH[DU_CANH.loai].muc(DU_CANH).filter((m) => m.id === id)[0]", id_muc)
+
+    def test_picture_column_scenes_fit_at_the_text_limits(self):
+        casos = {
+            "khai-niem": f"loai: khai-niem\nthuat-ngu: {vi_text(60)}\ndinh-nghia: {vi_text(220)}\n",
+            "y-tung-y": f"loai: y-tung-y\ntieu-de: {vi_text(90)}\n" + "".join(f"y: {vi_text(60)}\n" for _ in range(6)),
+            "cong-thuc": ("loai: cong-thuc\nbieu-thuc: " + vi_text(90) + "\n"
+                          + "".join(f"giai-thich: {vi_text(60)}\n" for _ in range(4))),
+            "tieu-de": f"loai: tieu-de\nchu: {vi_text(90)}\nphu: {vi_text(90)}\n",
+        }
+        for loai, noi_dung in casos.items():
+            for kieu, tai in (("hinh", {"hinh": self.hinh}), ("anh", {"anh": anh_gia(600, 1200)})):
+                with self.subTest(loai=loai, kieu=kieu):
+                    du = du_hinh(noi_dung + ("hinh: flask\n" if kieu == "hinh" else "anh: a.png\n"), tai)
+                    self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+
+    def test_minh_hoa_three_pictures_with_long_labels_fit(self):
+        nhan = vi_text(30)
+        noi_dung = "loai: minh-hoa\ntieu-de: " + vi_text(90) + "\n" + "".join(f"hinh: flask | {nhan}\n" for _ in range(3))
+        du = du_hinh(noi_dung, {"hinhs": [{**self.hinh, "nhan": nhan} for _ in range(3)]})
+        self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+
+    def test_photo_scene_keeps_the_photo_ratio_inside_its_area(self):
+        for rong, cao in ((600, 1200), (2000, 800)):
+            with self.subTest(rong=rong, cao=cao):
+                du = du_hinh(f"loai: anh\nanh: a.png\nchu-thich: {vi_text(90)}\nnguon: Tôi\n", {"anh": anh_gia(rong, cao)})
+                html = trang.dung_trang(du)
+                self.assertEqual(chup.kiem_tran(self.page, html), [])
+                m = self.muc("anh")
+                self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"])
+                r = self.page.evaluate("""() => { const i = document.querySelector('.anh img');
+                    const b = i.getBoundingClientRect();
+                    return {x: b.left, y: b.top, w: b.width, h: b.height, nw: i.naturalWidth, nh: i.naturalHeight}; }""")
+                self.assertEqual((r["nw"], r["nh"]), (rong, cao))
+                self.assertGreaterEqual(r["x"], 80 - 0.5)
+                self.assertGreaterEqual(r["y"], 70 - 0.5)
+                self.assertLessEqual(r["x"] + r["w"], 1200 + 0.5)
+                self.assertLessEqual(r["y"] + r["h"], 560 + 0.5)
+                self.assertAlmostEqual(r["w"] / r["h"], rong / cao, delta=0.01 * rong / cao)
+                nguon = self.page.evaluate("document.querySelector('.anh .nguon').textContent")
+                self.assertIn("Tác giả thử", nguon)
+                cuoi = self.page.screenshot(type="png")
+                self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 0.2)
+                self.assertNotEqual(cuoi, self.page.screenshot(type="png"), "ảnh phải chuyển động (Ken Burns)")
+
+    def test_icon_is_drawn_stroke_by_stroke(self):
+        du = du_hinh("loai: y-tung-y\ntieu-de: Dụng cụ\nhinh: flask\ny: Bình tam giác\n", {"hinh": self.hinh})
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        m = self.muc("hinh")
+        self.assertGreaterEqual(m["thoiLuong"], 1.2)
+        self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.5 * m["thoiLuong"])
+        giua = self.page.screenshot(type="png")
+        self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 0.2)
+        self.assertNotEqual(giua, self.page.screenshot(type="png"))
+        mo = self.page.evaluate("""() => Array.from(document.querySelectorAll('g.hinh > *'))
+            .map((e) => getComputedStyle(e).opacity)""")
+        self.assertEqual(set(mo), {"1"})
+
+    def test_pen_hand_sits_on_the_pen_tip_while_writing(self):
+        noi_dung = "loai: y-tung-y\ntieu-de: Ba bước\ny: Nhờ ướt nhẫm quyết định mọi thứ\ny: Hai bước nhỏ\n"
+        ngoi_chu = """(id) => {
+            const tay = document.getElementById('ban-tay');
+            const s = document.querySelector('[data-id="' + id + '"] .ngoi').getBoundingClientRect();
+            const n = document.getElementById('ngoi-but').getBoundingClientRect();
+            return {hien: getComputedStyle(tay).display !== 'none',
+                    d: Math.hypot((n.left + n.width / 2) - s.left, (n.top + n.height / 2) - (s.top + 0.8 * s.height))};
+        }"""
+        for tai, cac_muc in (({}, ("tieu-de", "y-0", "y-1")), ({"hinh": self.hinh}, ("tieu-de", "y-1"))):
+            du = du_hinh(noi_dung + ("hinh: flask\n" if tai else ""), tai)
+            chup.mo_trang(self.page, trang.dung_trang(du))
+            for id_muc in cac_muc:
+                with self.subTest(hinh=bool(tai), muc=id_muc):
+                    m = self.muc(id_muc)
+                    self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.5 * m["thoiLuong"])
+                    kq = self.page.evaluate(ngoi_chu, id_muc)
+                    self.assertTrue(kq["hien"])
+                    self.assertLess(kq["d"], 40)
+            self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 1 / 30)
+            self.assertEqual(self.page.evaluate("getComputedStyle(document.getElementById('ban-tay')).display"), "none")
+        m = self.muc("hinh")
+        self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.5 * m["thoiLuong"])
+        trong = self.page.evaluate("""() => {
+            const g = document.querySelector('g.hinh').getBoundingClientRect();
+            const n = document.getElementById('ngoi-but').getBoundingClientRect();
+            const x = n.left + n.width / 2, y = n.top + n.height / 2;
+            return x >= g.left - 10 && x <= g.right + 10 && y >= g.top - 10 && y <= g.bottom + 10; }""")
+        self.assertTrue(trong, "giữa lúc vẽ hình, ngòi bút phải nằm trên hình")
+
+    def test_board_wipe_uncovers_the_previous_scene(self):
+        import base64
+        du = du_hinh("loai: khai-niem\nthuat-ngu: Chu kì\ndinh-nghia: Thời gian.\n", {}, so=2)
+        self.assertTrue(du["co"]["lauBang"])
+        du["nenTruoc"] = "data:image/png;base64," + base64.b64encode(png(1280, 720)).decode("ascii")
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        thay = """() => { const n = document.getElementById('nen-truoc');
+            if (!n || getComputedStyle(n).display === 'none') { return 0; }
+            const m = /inset\\(0(?:px)? 0(?:px)? 0(?:px)? ([\\d.]+)px\\)/.exec(n.style.clipPath);
+            return 1280 - (m ? Number(m[1]) : 0); }"""
+        self.page.evaluate("window.datThoiDiem(0.05)")
+        self.assertGreater(self.page.evaluate(thay), 1000)
+        self.assertEqual(self.page.evaluate("document.getElementById('ban-tay').getAttribute('data-kieu')"), "gie")
+        self.page.evaluate("window.datThoiDiem(0.6)")
+        self.assertEqual(self.page.evaluate(thay), 0)
+
+    def test_camera_zooms_during_the_scene_and_is_home_on_the_last_frame(self):
+        du = du_hinh("loai: minh-hoa\ntieu-de: Dụng cụ\nhinh: flask | Bình\nhinh: flask | Bình\nhinh: flask | Bình\n",
+                     {"hinhs": [{**self.hinh, "nhan": "Bình"} for _ in range(3)]})
+        html = trang.dung_trang(du)
+        chup.mo_trang(self.page, html)
+        m = self.muc("hinh-1")
+        tf = "getComputedStyle(document.getElementById('bang')).transform"
+        self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.8 * m["thoiLuong"])
+        giua = self.page.evaluate(tf)
+        self.assertNotEqual(giua, "none")
+        self.assertGreater(float(giua[len("matrix("):].split(",")[0]), 1.05)
+        self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 1 / 30)
+        self.assertIn(self.page.evaluate(tf), ("none", "matrix(1, 0, 0, 1, 0, 0)"))
+        t = m["batDau"] + 0.5 * m["thoiLuong"]
+        self.page.evaluate("(t) => window.datThoiDiem(t)", t)
+        mot = self.page.screenshot(type="png")
+        self.page.evaluate("(t) => window.datThoiDiem(t)", 0.1)
+        self.page.evaluate("(t) => window.datThoiDiem(t)", t)
+        self.assertEqual(mot, self.page.screenshot(type="png"), "cùng t phải cho cùng khung")
+
+    def test_kiem_tran_still_catches_overflow_with_a_picture(self):
+        du = du_hinh("loai: y-tung-y\ntieu-de: T\ny: " + "A" * 60 + "\nhinh: flask\n", {"hinh": self.hinh})
+        self.assertIn("y-0", chup.kiem_tran(self.page, trang.dung_trang(du)))
+
+
 class ChromiumMissingTest(unittest.TestCase):
     def test_missing_playwright_is_a_chromium_error(self):
         import builtins

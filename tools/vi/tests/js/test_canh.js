@@ -10,7 +10,8 @@ require(path.join(TN, 'runtime', 'khung.js'));
 require(path.join(TN, 'mo_hinh', 'li-con-lac-don.js'));
 require(path.join(RT, 'khung-video.js'));
 var LOAI = ['tieu-de', 'khai-niem', 'cong-thuc', 'y-tung-y', 'quy-trinh', 'so-sanh', 'do-thi', 'thi-nghiem'];
-LOAI.forEach(function (l) { require(path.join(RT, 'canh', l + '.js')); });
+var LOAI_MOI = ['minh-hoa', 'anh'];
+LOAI.concat(LOAI_MOI).forEach(function (l) { require(path.join(RT, 'canh', l + '.js')); });
 var V = globalThis.THI_VIDEO;
 var C = globalThis.THI_CANH;
 var KHAI_BAO = JSON.parse(fs.readFileSync(path.join(TN, 'mo_hinh', 'li-con-lac-don.json'), 'utf8'));
@@ -41,7 +42,7 @@ function hienThi(html) {
 }
 
 test('catDanhDau: che chu, giu the dong mo va thoat ky tu dac biet', function () {
-  assert.strictEqual(V.catDanhDau('**ab**c', 1), '<b>a<span class="an">b</span></b><span class="an">c</span>');
+  assert.strictEqual(V.catDanhDau('**ab**c', 1), '<b>a<span class="ngoi"></span><span class="an">b</span></b><span class="an">c</span>');
   assert.strictEqual(V.catDanhDau('H~2~O', 99), 'H<sub>2</sub>O');
   assert.strictEqual(V.catDanhDau('m/s^2^', 99), 'm/s<sup>2</sup>');
   assert.strictEqual(V.catDanhDau('a < b & "c"', 99), 'a &lt; b &amp; &quot;c&quot;');
@@ -195,4 +196,171 @@ test('thi nghiem: khong co dong chu nao bat dau tai t=0 ngoai dong so do', funct
   var muc = C['thi-nghiem'].muc(tatCa(12)['thi-nghiem']);
   var dong = muc.filter(function (m) { return m.dong; });
   assert.ok(dong.length >= 2);
+});
+
+// ---------- hình, ảnh, cột hình, minh-hoa, anh, lau bảng ----------
+
+var HINH = { ten: 'flask', viewBox: '0 0 24 24', phanTu: [
+  { the: 'path', thuocTinh: { d: 'M9 3l6 0' } },
+  { the: 'path', thuocTinh: { d: 'M10 9l4 0' } },
+  { the: 'circle', thuocTinh: { cx: '12', cy: '12', r: '3' } }
+] };
+function hinhNhan(nhan) { var h = JSON.parse(JSON.stringify(HINH)); h.nhan = nhan; return h; }
+function anhGia(rong, cao) { return { dataUrl: 'data:image/png;base64,AAAA', nguon: 'Ảnh: Tác giả · CC BY 4.0', rong: rong, cao: cao }; }
+var COT = ['khai-niem', 'cong-thuc', 'y-tung-y'];
+
+function boMoi(gh) {
+  var s = gh < 3;
+  var bo = tatCa(gh);
+  bo['minh-hoa'] = du('minh-hoa', gh, s ? [1.0, 1.3, 1.6] : [1.0, 4, 7],
+    { 'tieu-de': ['Dụng cụ'], hinh: ['clock | Đồng hồ', 'ruler | Thước', 'weight | Quả nặng'] },
+    { hinhs: [hinhNhan('Đồng hồ'), hinhNhan('Thước'), hinhNhan('Quả nặng')] });
+  bo.anh = du('anh', gh, [], { anh: ['a.png'], 'chu-thich': ['Con lắc Foucault'] }, { anh: anhGia(2000, 800) });
+  Object.keys(bo).forEach(function (l) { bo[l].co = { banTay: true, mayQuay: true, lauBang: false }; });
+  return bo;
+}
+function voiHinh(bo, loai, hinhHayAnh) {
+  var d = JSON.parse(JSON.stringify(bo[loai]));
+  if (hinhHayAnh === 'hinh') { d.hinh = HINH; } else { d.anh = anhGia(600, 1200); }
+  return d;
+}
+function tim(ds, id) { return ds.filter(function (m) { return m.id === id; })[0]; }
+function dayMuc(m) {
+  if (m.kieu === 'net') {
+    return Math.max.apply(null, m.d.match(/-?\d+(\.\d+)?/g).map(Number).filter(function (_, i) { return i % 2 === 1; }));
+  }
+  if (m.kieu === 'hinh') { return m.y + m.kich; }
+  return m.y + m.cao;
+}
+
+test('catDanhDau: dung mot span.ngoi khi 0 < n < tong, khong co khi n = 0 hoac n = tong; chu hien thi khong doi', function () {
+  ['**ab**c', 'H~2~SO~4~ loãng', 'Nhờ ướt nhẫm'].forEach(function (chu) {
+    var tong = V.demKyTu(chu);
+    var chuThuan = V.catDanhDau(chu, tong).replace(/<[^>]+>/g, '');
+    for (var n = 0; n <= tong; n++) {
+      var html = V.catDanhDau(chu, n);
+      var so = (html.match(/<span class="ngoi"><\/span>/g) || []).length;
+      assert.strictEqual(so, n > 0 && n < tong ? 1 : 0, chu + ' n=' + n);
+      assert.strictEqual(hienThi(html), chuThuan.slice(0, n), chu + ' n=' + n);
+    }
+  });
+});
+
+test('B.hinh va B.anh: muc dung kieu, anh vua khung giu ti le', function () {
+  var B = V.tao({ thoiLuong: 12, co: {} });
+  var h = B.hinh('h', HINH, 100, 200, 240, 1.0);
+  assert.strictEqual(h.kieu, 'hinh');
+  assert.strictEqual(h.phanTu.length, 3);
+  assert.strictEqual(h.viewBox, '0 0 24 24');
+  assert.ok(h.thoiLuong >= 1.2);
+  var a = B.anh('a', anhGia(600, 1200), 80, 70, 1120, 490, 1.0);
+  assert.strictEqual(a.kieu, 'anh');
+  assert.ok(Math.abs(a.rong / a.cao - 0.5) < 1e-9);
+  assert.ok(a.x >= 80 && a.y >= 70 && a.x + a.rong <= 1200 + 1e-9 && a.y + a.cao <= 560 + 1e-9);
+  assert.ok(Math.abs(a.cao - 490) < 1e-9, 'anh doc chiem het chieu cao');
+  var b = B.anh('b', anhGia(2000, 800), 80, 70, 1120, 490, 1.0);
+  assert.ok(Math.abs(b.rong / b.cao - 2.5) < 1e-9);
+  assert.ok(Math.abs(b.rong - 1120) < 1e-9, 'anh ngang chiem het chieu ngang');
+});
+
+test('minh-hoa: hinh k bat dau tai moc[k], nhan k bat dau khi hinh k xong', function () {
+  var d = boMoi(12)['minh-hoa'];
+  var ds = C['minh-hoa'].muc(d);
+  [0, 1, 2].forEach(function (k) {
+    var h = tim(ds, 'hinh-' + k);
+    var n = tim(ds, 'nhan-' + k);
+    assert.strictEqual(h.kieu, 'hinh');
+    assert.strictEqual(h.batDau, d.moc[k]);
+    assert.ok(Math.abs(n.batDau - (h.batDau + h.thoiLuong)) < 1e-9);
+    assert.strictEqual(h.kich, 240);
+    assert.strictEqual(h.y, 230);
+    assert.strictEqual(n.co, 28);
+  });
+  var xs = [0, 1, 2].map(function (k) { return tim(ds, 'hinh-' + k).x + 120; });
+  assert.ok(Math.abs((xs[1] - xs[0]) - (xs[2] - xs[1])) < 1e-9, 'chia deu be ngang');
+  assert.ok(Math.abs((xs[0] + xs[2]) / 2 - 640) < 1e-9);
+});
+
+test('anh: anh trong vung 80..1200 x 70..560, chu thich co 30 o y 575..625 bat dau tai 1,0', function () {
+  var d = boMoi(12).anh;
+  var ds = C.anh.muc(d);
+  var a = tim(ds, 'anh');
+  assert.ok(a.x >= 80 && a.x + a.rong <= 1200 + 1e-9 && a.y >= 70 && a.y + a.cao <= 560 + 1e-9);
+  var c = tim(ds, 'chu-thich');
+  assert.strictEqual(c.co, 30);
+  assert.strictEqual(c.y, 575);
+  assert.strictEqual(c.y + c.cao, 625);
+  assert.strictEqual(c.batDau, 1.0);
+  d.moc = [2.5];
+  assert.strictEqual(tim(C.anh.muc(d), 'chu-thich').batDau, 2.5);
+  var dai = function (n) { d.truong['chu-thich'] = ['x'.repeat(n)]; return tim(C.anh.muc(d), 'chu-thich').co; };
+  assert.strictEqual(dai(60), 30);
+  assert.strictEqual(dai(75), 26, 'chu thich dai thu nho de vua mot dong');
+  assert.strictEqual(dai(90), 24);
+});
+
+test('cot hinh: chu thu vao x <= 860, hinh o o 900,200,320x380 bat dau tai moc[0] hoac 1,0', function () {
+  var bo = boMoi(12);
+  COT.forEach(function (l) {
+    ['hinh', 'anh'].forEach(function (kieu) {
+      var d = voiHinh(bo, l, kieu);
+      var ds = C[l].muc(d);
+      ds.forEach(function (m) {
+        if (m.kieu === 'chu') { assert.ok(m.x + m.rong <= 860, l + ':' + m.id + ' phai toi ' + (m.x + m.rong)); }
+      });
+      var h = tim(ds, kieu);
+      assert.ok(h, l + ' thieu muc ' + kieu);
+      var rong = kieu === 'hinh' ? h.kich : h.rong;
+      var cao = kieu === 'hinh' ? h.kich : h.cao;
+      assert.ok(h.x >= 900 && h.x + rong <= 1220 + 1e-9 && h.y >= 200 && h.y + cao <= 580 + 1e-9, l + ' ' + JSON.stringify([h.x, h.y, rong, cao]));
+      assert.strictEqual(h.batDau, d.moc.length ? d.moc[0] : 1.0, l);
+    });
+    var cu = C[l].muc(bo[l]);
+    assert.ok(!tim(cu, 'hinh') && !tim(cu, 'anh'), l + ' khong co hinh thi khong co cot');
+  });
+  var y = voiHinh(bo, 'y-tung-y', 'hinh');
+  y.truong.y = ['x'.repeat(60), 'ngắn', 'vừa'];
+  var co = C['y-tung-y'].muc(y).filter(function (m) { return /^y-/.test(m.id); }).map(function (m) { return m.co; });
+  assert.strictEqual(new Set(co).size, 1, 'moi y cung co chu: ' + co);
+});
+
+test('tieu-de co hinh: hinh 180x180 giua phia tren (y 40..220), tieu de doi xuong', function () {
+  var bo = boMoi(12);
+  ['hinh', 'anh'].forEach(function (kieu) {
+    var d = voiHinh(bo, 'tieu-de', kieu);
+    var ds = C['tieu-de'].muc(d);
+    var h = tim(ds, kieu);
+    var rong = kieu === 'hinh' ? h.kich : h.rong;
+    var cao = kieu === 'hinh' ? h.kich : h.cao;
+    assert.ok(h.y >= 40 && h.y + cao <= 220 + 1e-9 && rong <= 180 + 1e-9 && cao <= 180 + 1e-9);
+    assert.ok(Math.abs(h.x + rong / 2 - 640) < 1e-9, 'giua');
+    assert.ok(tim(ds, 'chu').y >= 220);
+  });
+});
+
+test('moi loai canh co lau bang, gh = 2,5667: khong muc nao bat dau truoc 0,55 hay xong sau gh - 0,2', function () {
+  [2.5667, 12].forEach(function (gh) {
+    var bo = boMoi(gh);
+    var ca = [];
+    Object.keys(bo).forEach(function (l) { ca.push([l, bo[l]]); });
+    COT.concat(['tieu-de']).forEach(function (l) {
+      ca.push([l + '+hinh', voiHinh(bo, l, 'hinh')]);
+      ca.push([l + '+anh', voiHinh(bo, l, 'anh')]);
+    });
+    ca.forEach(function (c) {
+      var d = JSON.parse(JSON.stringify(c[1]));
+      d.co.lauBang = true;
+      var ds = C[d.loai].muc(d);
+      assert.deepStrictEqual(ds, C[d.loai].muc(d), c[0] + ' xac dinh');
+      ds.forEach(function (m) {
+        if (m.dong) { return; }
+        assert.ok(m.batDau >= 0.55 - 1e-9, c[0] + ':' + m.id + ' bat dau ' + m.batDau);
+        assert.ok(m.batDau + m.thoiLuong <= gh - 0.2 + 1e-9, c[0] + ':' + m.id + ' xong ' + (m.batDau + m.thoiLuong));
+        if (m.kieu === 'hinh') { assert.ok(m.thoiLuong >= 1.2 - 1e-9, c[0] + ':' + m.id + ' ve qua nhanh ' + m.thoiLuong); }
+        assert.ok(dayMuc(m) <= 630, c[0] + ':' + m.id + ' xuong toi ' + dayMuc(m));
+      });
+      var ids = ds.map(function (m) { return m.id; });
+      assert.strictEqual(new Set(ids).size, ids.length, c[0] + ' co id trung');
+    });
+  });
 });
