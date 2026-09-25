@@ -60,6 +60,10 @@ test('demKyTu bo dau danh dau; tienDo kep 0..1', function () {
   assert.strictEqual(V.tienDo(1, 1, 0), 1);
 });
 
+test('khung-video khong giu hang dan dau rieng: du.danDau tu Python la nguon duy nhat', function () {
+  assert.strictEqual(V.DAN_DAU, undefined);
+});
+
 test('duong ve la xac dinh theo hat giong', function () {
   assert.strictEqual(V.duongQua([[0, 0], [100, 0]], 5), V.duongQua([[0, 0], [100, 0]], 5));
   assert.notStrictEqual(V.duongQua([[0, 0], [100, 0]], 5), V.duongQua([[0, 0], [100, 0]], 6));

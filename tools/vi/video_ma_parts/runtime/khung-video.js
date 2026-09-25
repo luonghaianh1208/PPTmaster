@@ -1,7 +1,6 @@
 (function (root) {
   'use strict';
 
-  var DAN_DAU = 0.7;
   var TOC_DO_VIET = 20;
   var NS = 'http://www.w3.org/2000/svg';
   var DANH_DAU = /\*\*(.+?)\*\*|~([^~]+)~|\^([^\^]+)\^/g;
@@ -177,7 +176,7 @@
 
   root.THI_CANH = root.THI_CANH || {};
   root.THI_VIDEO = {
-    DAN_DAU: DAN_DAU, kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau,
+    kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau,
     thoiGianViet: thoiGianViet, duongQua: duongQua, hopQua: hopQua, vongTron: vongTron, muiTen: muiTen,
     tao: tao, khoiDong: khoiDong, san: false
   };
