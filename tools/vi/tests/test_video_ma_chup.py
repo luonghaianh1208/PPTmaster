@@ -26,6 +26,14 @@ def co_chromium() -> bool:
 
 NEED_CHROMIUM = "máy không có Chromium hoặc playwright"
 
+_CUM_TU = "Nhờ ướt nhẫm quyết định "
+
+
+def vi_text(n: int) -> str:
+    """Chuỗi tiếng Việt có dấu, đủ khoảng trắng, đúng `n` ký tự (không phải một từ dài liền)."""
+    s = (_CUM_TU * (n // len(_CUM_TU) + 2))[:n]
+    return s[:-1] + "x" if s.endswith(" ") else s
+
 
 def du_cua(noi_dung: str, giay: float = 6.0, loi: str = "Xin chào các em. Hôm nay học bài mới. Cảm ơn các em."):
     text = f"---\n{META}---\n\n## Cảnh 1\n{noi_dung}loi: {loi}\n"
@@ -118,6 +126,27 @@ class ChromiumTest(unittest.TestCase):
         du, _ = du_cua("loai: y-tung-y\ntieu-de: Chu kì của con lắc đơn phụ thuộc vào những yếu tố nào và "
                        "không phụ thuộc vào yếu tố nào\ny: Một\n")
         self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+
+    def test_list_scenes_fit_their_boxes_at_the_new_limits(self):
+        diem = "\n".join(f"diem: {k}, {k * k % 7}" for k in range(12))
+        casos = {
+            "y-tung-y": "loai: y-tung-y\ntieu-de: Sáu ý\n" + "".join(f"y: {vi_text(60)}\n" for _ in range(6)),
+            "cong-thuc": ("loai: cong-thuc\nbieu-thuc: " + vi_text(90) + "\n"
+                          + "".join(f"giai-thich: {vi_text(60)}\n" for _ in range(4))),
+            "quy-trinh": "loai: quy-trinh\ntieu-de: Năm bước\n" + "".join(f"buoc: {vi_text(50)}\n" for _ in range(5)),
+            "so-sanh": ("loai: so-sanh\ntieu-de: So sánh\n" + f"trai: {vi_text(24)}\nphai: {vi_text(24)}\n"
+                        + "".join(f"y-trai: {vi_text(60)}\n" for _ in range(4))
+                        + "".join(f"y-phai: {vi_text(60)}\n" for _ in range(4))),
+            "do-thi": (f"loai: do-thi\ntieu-de: Đồ thị\ntruc-ngang: {vi_text(40)}\ntruc-doc: {vi_text(40)}\n"
+                       + diem + "\n"),
+            "khai-niem": f"loai: khai-niem\nthuat-ngu: {vi_text(60)}\ndinh-nghia: {vi_text(220)}\n",
+            "tieu-de": f"loai: tieu-de\nchu: {vi_text(90)}\nphu: {vi_text(90)}\n",
+        }
+        for loai, noi_dung in casos.items():
+            with self.subTest(loai=loai):
+                du, _ = du_cua(noi_dung)
+                html = trang.dung_trang(du)
+                self.assertEqual(chup.kiem_tran(self.page, html), [])
 
     def test_hostile_text_renders_as_text(self):
         du, _ = du_cua('loai: tieu-de\nchu: a < b </script><img src=x onerror=alert(1)> & "c"\n')

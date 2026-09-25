@@ -648,8 +648,8 @@ from .parse import ParseError, Scene, Video
 LIMITS = {
     ("tieu-de", "chu"): 90, ("tieu-de", "phu"): 90,
     ("khai-niem", "thuat-ngu"): 60, ("khai-niem", "dinh-nghia"): 220,
-    ("cong-thuc", "bieu-thuc"): 90, ("cong-thuc", "giai-thich"): 80,
-    ("y-tung-y", "tieu-de"): 90, ("y-tung-y", "y"): 80,
+    ("cong-thuc", "bieu-thuc"): 90, ("cong-thuc", "giai-thich"): 60,
+    ("y-tung-y", "tieu-de"): 90, ("y-tung-y", "y"): 60,
     ("quy-trinh", "tieu-de"): 90, ("quy-trinh", "buoc"): 50,
     ("so-sanh", "tieu-de"): 90, ("so-sanh", "trai"): 24, ("so-sanh", "phai"): 24,
     ("so-sanh", "y-trai"): 60, ("so-sanh", "y-phai"): 60,

@@ -17,7 +17,7 @@
       var kq = B.tieuDe(t['tieu-de'][0], 0.2);
       kq.push(B.net('truc-x', V.duongQua([[140, 540], [1140, 540]], 1), 0.3, 0.6, {}));
       kq.push(B.net('truc-y', V.duongQua([[140, 540], [140, 230]], 2), 0.4, 0.6, {}));
-      kq.push(B.chu('truc-ngang', t['truc-ngang'][0], 700, 582, 440, 40, 24, 1.0, { can: 'phai', mau: 'nhan' }));
+      kq.push(B.chu('truc-ngang', t['truc-ngang'][0], 460, 582, 680, 40, 20, 1.0, { can: 'phai', mau: 'nhan' }));
       kq.push(B.chu('truc-doc', t['truc-doc'][0], 160, 186, 700, 40, 24, 1.0, { mau: 'nhan' }));
       kq.push(B.chu('x-min', soVN(xMin), X0 - 60, 546, 120, 30, 20, 1.0, { can: 'giua' }));
       kq.push(B.chu('x-max', soVN(xMax), X1 - 60, 546, 120, 30, 20, 1.0, { can: 'giua' }));

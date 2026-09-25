@@ -118,8 +118,8 @@ loi: Bước một, đo chính xác thể tích acid. Bước hai, nhỏ từ t�
 |---|---|---|---|
 | `tieu-de` | `chu`, `phu` | `chu` ≤ 90 ký tự | chữ lớn được viết ra |
 | `khai-niem` | `thuat-ngu`, `dinh-nghia` | thuật ngữ ≤ 60, định nghĩa ≤ 220 | khung vẽ nét, chữ viết vào |
-| `cong-thuc` | `bieu-thuc`, `giai-thich` (lặp) | biểu thức ≤ 90; ≤ 4 giải thích, mỗi giải thích ≤ 80 | biểu thức viết dần, giải thích hiện sau |
-| `y-tung-y` | `tieu-de`, `y` (lặp) | ≤ 6 ý, mỗi ý ≤ 80 | mỗi ý viết ra khi lời nói tới |
+| `cong-thuc` | `bieu-thuc`, `giai-thich` (lặp) | biểu thức ≤ 90; ≤ 4 giải thích, mỗi giải thích ≤ 60 | biểu thức viết dần, giải thích hiện sau |
+| `y-tung-y` | `tieu-de`, `y` (lặp) | ≤ 6 ý, mỗi ý ≤ 60 | mỗi ý viết ra khi lời nói tới |
 | `quy-trinh` | `tieu-de`, `buoc` (lặp) | 2–5 bước, mỗi bước ≤ 50 | bước và mũi tên vẽ nối tiếp |
 | `so-sanh` | `tieu-de`, `trai`, `phai`, `y-trai`, `y-phai` (lặp) | mỗi cột ≤ 4 ý, mỗi ý ≤ 60 | hai cột viết lần lượt |
 | `do-thi` | `tieu-de`, `truc-ngang`, `truc-doc`, `diem` (lặp, dạng `x, y`) | 2–12 điểm | trục rồi từng điểm vẽ dần, nối đường |
