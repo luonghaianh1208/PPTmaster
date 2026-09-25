@@ -51,15 +51,16 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("-t") + 1], "6.000")
 
     def test_video_command_uses_15_fps_frames_and_30_fps_output(self):
-        cmd = ghep.lenh_video(Path("anh"), Path("am.txt"), Path(".khung/video.mp4"), 15, ".khung/phu-de.srt")
+        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), 15, ".khung/phu-de.srt")
         self.assertEqual(cmd[cmd.index("-framerate") + 1], "15")
+        self.assertEqual(cmd[cmd.index("-framerate") + 3], ".khung/anh/f%06d.png")
         self.assertEqual(cmd[cmd.index("-r") + 1], "30")
         self.assertIn("libx264", cmd)
         vf = cmd[cmd.index("-vf") + 1]
         self.assertTrue(vf.startswith("subtitles=.khung/phu-de.srt:force_style="), vf)
 
     def test_video_command_without_burned_subtitles_has_no_filter(self):
-        cmd = ghep.lenh_video(Path("anh"), Path("am.txt"), Path(".khung/video.mp4"), 15, None)
+        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), 15, None)
         self.assertNotIn("-vf", cmd)
 
 
@@ -114,6 +115,18 @@ class AssembleTest(unittest.TestCase):
                 self.assertEqual("phu-de.srt" in files, expect_srt)
                 joined = " ".join(calls[-1][0])
                 self.assertEqual("subtitles=" in joined, expect_burn)
+
+    def test_braces_are_escaped_only_in_burned_subtitles(self):
+        plan = [canh_lich(1, 0.0, 6.0, 4.0, ["Tập hợp A = {1; 2; 3}."], [0.0])]
+        hinh = self.project("p-ngoac-hinh")
+        ghep.ghep_video(hinh, plan, self.giong(hinh)[:1], "hinh", run=self.fake_run(hinh, []))
+        burned = (hinh / ".khung" / "phu-de.srt").read_text(encoding="utf-8")
+        self.assertIn(r"Tập hợp A = \{1; 2; 3\}.", burned)
+        tep = self.project("p-ngoac-file")
+        ghep.ghep_video(tep, plan, self.giong(tep)[:1], "file", run=self.fake_run(tep, []))
+        plain = (tep / "phu-de.srt").read_text(encoding="utf-8")
+        self.assertIn("Tập hợp A = {1; 2; 3}.", plain)
+        self.assertNotIn("\\{", plain)
 
     def test_ffmpeg_failure_is_a_dung_error(self):
         thu_muc = self.project("loi")

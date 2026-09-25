@@ -36,10 +36,10 @@ def lenh_am_canh(mp3: Path, wav: Path, thoi_luong: float) -> list:
     ]
 
 
-def lenh_video(anh_dir: Path, danh_sach_am: Path, out_mp4: Path, fps: int, phu_de_tuong_doi) -> list:
+def lenh_video(danh_sach_am: Path, out_mp4: Path, fps: int, phu_de_tuong_doi) -> list:
     cmd = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-framerate", str(fps), "-i", str(anh_dir / "f%06d.png"),
+        "-framerate", str(fps), "-i", ".khung/anh/f%06d.png",
         "-f", "concat", "-safe", "0", "-i", str(danh_sach_am),
     ]
     if phu_de_tuong_doi:
@@ -68,17 +68,20 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
         wavs.append(wav)
     danh_sach = lam / "am.txt"
     danh_sach.write_text(media.build_audio_concat_text(wavs), encoding="utf-8")
-    cues = srt.render_srt(cues_phu_de(cac_lich))
+    cac_cue = cues_phu_de(cac_lich)
+    cues = srt.render_srt(cac_cue)
     files = ["video.mp4"]
     burn = None
     if phu_de == "hinh":
-        (lam / "phu-de.srt").write_text(cues, encoding="utf-8")
+        thoat = [srt.Cue(index=c.index, start=c.start, end=c.end, text=c.text.replace("{", "\\{").replace("}", "\\}"))
+                 for c in cac_cue]
+        (lam / "phu-de.srt").write_text(srt.render_srt(thoat), encoding="utf-8")
         burn = ".khung/phu-de.srt"
     elif phu_de == "file":
         (thu_muc / "phu-de.srt").write_text(cues, encoding="utf-8")
         files.append("phu-de.srt")
     tam = lam / "video.mp4"
-    _chay(lenh_video(lam / "anh", danh_sach, tam, fps, burn), run, thu_muc)
+    _chay(lenh_video(danh_sach, tam, fps, burn), run, thu_muc)
     try:
         os.replace(tam, thu_muc / "video.mp4")
     except PermissionError as exc:
