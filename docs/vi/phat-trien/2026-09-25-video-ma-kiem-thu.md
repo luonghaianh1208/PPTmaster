@@ -76,3 +76,21 @@ Trung thực ghi nhận các mục sau **chưa** được kiểm trong các lầ
 - **Chạy trong Antigravity thật** — chủ repo cần tự thử bằng câu "Làm video giải thích bài Con lắc đơn" để xác nhận file luật (`.agents/rules/ppt-master-vi.md`) và luồng hỏi/tạo có hoạt động đúng trong môi trường đó.
 
 Các việc thẩm mỹ còn để lại, không chặn phát hành: ô `quy-trinh` trông trống khi chữ ngắn; cảnh `cong-thuc` không có tiêu đề nên đỉnh khung trống; phụ đề hơi sít chữ; con lắc nhỏ khi dây ngắn (nằm ở `thi_nghiem_parts/`, không thuộc phạm vi task này).
+
+### 2.7 Sửa sau review toàn nhánh
+
+Mỗi mục có test hỏng trước khi sửa và qua sau khi sửa.
+
+- **Giọng thầy cô đè lên giọng máy cũ** (`giong.py`): sổ `canh-N.json` ghi thêm `kich_thuoc` và `sha256` của mp3 máy tạo, và được ghi trước khi mp3 vào chỗ. File mp3 không khớp sổ (hoặc sổ thiếu hai trường đó) là file thầy cô: dùng như `co-san`, không tạo lại, không ghi đè, kể cả khi lời đã sửa. (`4892fdb1`)
+- **Giọng máy không đọc dấu `**`, `~`, `^`**: bỏ các dấu này trước khi tạo giọng; mã băm tính trên lời đã bỏ dấu. (`4892fdb1`)
+- **Ngoặc nhọn biến mất trong phụ đề in lên hình**: chỉ file phụ đề in hình thoát `{` `}`; `phu-de.srt` để riêng giữ nguyên. Đã xem ảnh dựng bằng FFmpeg thật: "{1; 2; 3}" hiện đủ. Mẫu khung hình đổi thành `.khung/anh/f%06d.png` tương đối. (`5fb99d70`)
+- **`mau` không có trong thư viện** (kể cả đường dẫn): lỗi `canh` liệt kê các mẫu thư viện, không nhắc `moi`. (`5750feff`)
+- **`video_ma.py`**: kiểm tràn chữ trước khi tạo giọng (bố cục dùng lịch tạm 8 giây); xem trước kéo giọng giả tới mốc `tham-so` cuối nên ảnh cuối cảnh hiện đúng giá trị cuối; lỗi chụp ngoài dự kiến (hết giờ chờ, trang hỏng) báo `dung` kèm nội dung lỗi; `xem-truoc/` được dọn trước khi chụp; `phu-de.srt` cũ bị xoá khi không chọn `phu-de: file`. (`540e3c1e`)
+- **Mẫu chạy một lần** (`li-nem-xien`, `hoa-toc-do`): mỗi mốc `tham-so` cho chuyển động chạy lại từ đầu; ghi vào `canh-video.md`. (`b6ab1a78`)
+- Dọn hằng `DAN_DAU` thừa trong `khung-video.js` (`143d9eab`); sửa chữ "bỏ trống" của trường `do` (`4d6e1f6a`); test dựng thật dùng thư mục có dấu nháy đơn và `%` (`23aba375`).
+
+Chạy lại sau khi sửa:
+
+- `venv\Scripts\python.exe -m unittest discover -s tools/vi/tests`: **756 test, OK, bỏ qua 12** (như trước, thiếu Chromium/FFmpeg ở venv chính).
+- `C:/Users/ADMIN/vmt/v/Scripts/python.exe -m unittest discover -s tools/vi/tests -p "test_video_ma_*.py"`: **108 test, OK, không bỏ qua test nào**.
+- `node --test tools/vi/tests/js/test_canh.js`: **12 test, pass 12, fail 0**.
