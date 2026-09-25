@@ -193,6 +193,30 @@ class GiongTest(unittest.TestCase):
         info = self.get(tts=FakeTts())
         self.assertEqual(info.nguon, "may")
 
+    def test_failed_replace_restores_the_old_ledger(self):
+        import os
+        self.get(so=1, loi="Lời cũ.")
+        ledger_before = (self.dir / "canh-1.json").read_bytes()
+        mp3_before = (self.dir / "canh-1.mp3").read_bytes()
+        real_replace = os.replace
+
+        def deny(src, dst):
+            raise PermissionError("dang mo trong trinh phat")
+
+        os.replace = deny
+        try:
+            with self.assertRaises(PermissionError):
+                self.get(so=1, loi="Lời mới.", tts=FakeTts(marks=(0.0,)))
+        finally:
+            os.replace = real_replace
+        self.assertEqual((self.dir / "canh-1.json").read_bytes(), ledger_before)
+        self.assertEqual((self.dir / "canh-1.mp3").read_bytes(), mp3_before)
+        self.assertFalse((self.dir / "canh-1.mp3.tmp").exists())
+        tts = FakeTts(marks=(0.0,))
+        info = self.get(so=1, loi="Lời mới.", tts=tts)
+        self.assertEqual(info.nguon, "may")
+        self.assertEqual(len(tts.calls), 1)
+
     def test_edge_tts_missing_message(self):
         import builtins
         real_import = builtins.__import__

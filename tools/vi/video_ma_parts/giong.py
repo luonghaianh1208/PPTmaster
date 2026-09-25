@@ -90,6 +90,7 @@ def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
             return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=moc, uoc_luong=not moc, nguon="may")
     thu_muc.mkdir(parents=True, exist_ok=True)
     tam = mp3.with_name(mp3.name + ".tmp")
+    so_giong_cu = so_giong.read_bytes() if so_giong.is_file() else None
     try:
         moc = tong_hop(doc, voice, rate, tam)
         kich_thuoc, sha = _dau_van_tay(tam)
@@ -98,5 +99,9 @@ def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
         os.replace(tam, mp3)
     except BaseException:
         tam.unlink(missing_ok=True)
+        if so_giong_cu is None:
+            so_giong.unlink(missing_ok=True)
+        else:
+            so_giong.write_bytes(so_giong_cu)
         raise
     return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=list(moc), uoc_luong=not moc, nguon="may")

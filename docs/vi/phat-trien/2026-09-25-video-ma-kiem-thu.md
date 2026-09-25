@@ -94,3 +94,5 @@ Chạy lại sau khi sửa:
 - `venv\Scripts\python.exe -m unittest discover -s tools/vi/tests`: **756 test, OK, bỏ qua 12** (như trước, thiếu Chromium/FFmpeg ở venv chính).
 - `C:/Users/ADMIN/vmt/v/Scripts/python.exe -m unittest discover -s tools/vi/tests -p "test_video_ma_*.py"`: **108 test, OK, không bỏ qua test nào**.
 - `node --test tools/vi/tests/js/test_canh.js`: **12 test, pass 12, fail 0**.
+
+Re-review lượt sửa: 14/14 mục đạt; phát hiện thêm một hồi quy của C1 (ghi sổ trước `os.replace` nên khi thay mp3 thất bại — ví dụ file đang mở trong trình phát — sổ mới còn lại làm giọng máy cũ bị coi là file thầy cô). Đã sửa: khôi phục sổ cũ (hoặc xoá sổ nếu trước đó chưa có) khi thay file thất bại; test `test_failed_replace_restores_the_old_ledger` trượt trên mã cũ, đạt trên mã mới. Dựng lại demo giọng thật bằng mã đã sửa (`projects/_video/con-lac-don-demo2/`): `ready: true`, 74,0 giây, 1,80 MB. Bộ test venv sau cùng: 757 test, OK, 12 bỏ qua.
