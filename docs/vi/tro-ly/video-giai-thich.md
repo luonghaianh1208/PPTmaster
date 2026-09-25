@@ -77,7 +77,7 @@ Cách chia bài thành cảnh:
 - Viết lời để đọc thành tiếng: số và kí hiệu viết thành chữ khi cần ("hai pi", "mười dao động"), không viết kí hiệu mà giọng máy đọc sai.
 - Mở đầu bằng một cảnh `tieu-de`; cảnh cuối nên tóm tắt điều học sinh cần nhớ.
 
-Giọng thu sẵn: thầy cô đưa file MP3 thì đặt vào `giong/canh-1.mp3`, `giong/canh-2.mp3`… trong thư mục video, đúng số cảnh. Cảnh có file thì dùng file đó và không cần mạng; công cụ không bao giờ ghi đè file thầy cô đặt. Cảnh không có file thì tạo bằng giọng máy (cần mạng). File giọng thu sẵn không có mốc câu nên các ý hiện theo ước lượng và có cảnh báo "mốc câu ước lượng".
+Giọng thu sẵn: thầy cô đưa file MP3 thì đặt vào `giong/canh-1.mp3`, `giong/canh-2.mp3`… trong thư mục video, đúng số cảnh. Cảnh có file thì dùng file đó và không cần mạng; công cụ không bao giờ ghi đè file thầy cô đặt. File thầy cô chép đè lên giọng máy cũ vẫn được nhận là file thầy cô, kể cả khi `giong/canh-N.json` của lần trước còn đó; xoá file `.json` đó cũng không sao. Cảnh không có file thì tạo bằng giọng máy (cần mạng). File giọng thu sẵn không có mốc câu nên các ý hiện theo ước lượng và có cảnh báo "mốc câu ước lượng".
 
 Ví dụ (Hoá học, bốn cảnh, có một cảnh thí nghiệm ảo):
 

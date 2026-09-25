@@ -91,6 +91,68 @@ class GiongTest(unittest.TestCase):
         self.assertEqual((self.dir / "canh-1.mp3").read_bytes(), b"ID3thay-co")
         self.assertFalse((self.dir / "canh-1.json").exists())
 
+    def test_ledger_records_size_and_sha256_of_the_machine_mp3(self):
+        self.get()
+        ledger = json.loads((self.dir / "canh-1.json").read_text(encoding="utf-8"))
+        self.assertEqual(ledger["kich_thuoc"], len(b"ID3fake"))
+        import hashlib
+        self.assertEqual(ledger["sha256"], hashlib.sha256(b"ID3fake").hexdigest())
+
+    def test_teacher_mp3_over_a_stale_ledger_is_co_san_with_same_text(self):
+        self.get()
+        (self.dir / "canh-1.mp3").write_bytes(b"ID3thay-co-moi")
+        tts = FakeTts()
+        info = self.get(tts=tts)
+        self.assertEqual(info.nguon, "co-san")
+        self.assertTrue(info.uoc_luong)
+        self.assertEqual(info.moc_cau, [])
+        self.assertEqual(tts.calls, [])
+        self.assertEqual((self.dir / "canh-1.mp3").read_bytes(), b"ID3thay-co-moi")
+
+    def test_teacher_mp3_over_a_stale_ledger_is_never_overwritten_when_text_changes(self):
+        self.get()
+        (self.dir / "canh-1.mp3").write_bytes(b"ID3thay-co-moi")
+        tts = FakeTts()
+        info = self.get(loi="Lời đã sửa hẳn.", tts=tts)
+        self.assertEqual(info.nguon, "co-san")
+        self.assertEqual(tts.calls, [])
+        self.assertEqual((self.dir / "canh-1.mp3").read_bytes(), b"ID3thay-co-moi")
+
+    def test_ledger_without_size_and_hash_means_teacher_file(self):
+        self.dir.mkdir(parents=True)
+        (self.dir / "canh-1.mp3").write_bytes(b"ID3fake")
+        ma = giong.bam("Xin chào. Tạm biệt.", "vi-VN-HoaiMyNeural", "+0%")
+        (self.dir / "canh-1.json").write_text(json.dumps({"bam": ma, "moc": [0.0, 2.0]}), encoding="utf-8")
+        tts = FakeTts()
+        info = self.get(loi="Lời khác.", tts=tts)
+        self.assertEqual(info.nguon, "co-san")
+        self.assertEqual(tts.calls, [])
+
+    def test_ledger_is_written_before_the_mp3_appears(self):
+        seen = []
+        real_replace = giong.os.replace
+
+        def replace(src, dst):
+            seen.append((self.dir / "canh-1.json").is_file())
+            real_replace(src, dst)
+
+        giong.os.replace = replace
+        try:
+            self.get()
+        finally:
+            giong.os.replace = real_replace
+        self.assertEqual(seen, [True])
+
+    def test_markup_is_stripped_before_synthesis_and_hashing(self):
+        tts = FakeTts()
+        self.get(loi="Học **H~2~SO~4~** và m/s^2^.", tts=tts)
+        self.assertEqual(tts.calls[0][0], "Học H2SO4 và m/s2.")
+        ledger = json.loads((self.dir / "canh-1.json").read_text(encoding="utf-8"))
+        self.assertEqual(ledger["bam"], giong.bam("Học H2SO4 và m/s2.", "vi-VN-HoaiMyNeural", "+0%"))
+        tts2 = FakeTts()
+        self.get(loi="Học H2SO4 và m/s2.", tts=tts2)
+        self.assertEqual(tts2.calls, [])
+
     def test_empty_supplied_file_is_a_giong_error_naming_the_file(self):
         self.dir.mkdir(parents=True)
         (self.dir / "canh-2.mp3").write_bytes(b"")

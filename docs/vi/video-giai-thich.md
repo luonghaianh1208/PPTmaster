@@ -26,7 +26,7 @@ Trước khi dựng thật, AI dựng thử mỗi cảnh một ảnh (thư mục
 
 ## Sửa một cảnh
 
-Mở `video.md`, sửa chữ hoặc lời của cảnh đó (hoặc nhờ AI sửa), rồi nhờ AI dựng lại. Chỉ cảnh bị sửa lời mới phải tạo giọng lại; các cảnh khác dùng lại giọng cũ nên dựng lại nhanh hơn. File giọng thầy cô thu sẵn không bao giờ bị ghi đè.
+Mở `video.md`, sửa chữ hoặc lời của cảnh đó (hoặc nhờ AI sửa), rồi nhờ AI dựng lại. Chỉ cảnh bị sửa lời mới phải tạo giọng lại; các cảnh khác dùng lại giọng cũ nên dựng lại nhanh hơn. File giọng thầy cô thu sẵn không bao giờ bị ghi đè, kể cả khi thầy cô chép nó đè lên giọng máy cũ mà file `giong\canh-N.json` vẫn còn (xoá file `.json` đó cũng không sao).
 
 ## Những điều cần biết
 

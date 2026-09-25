@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -18,6 +19,7 @@ RATES = {"cham": "-10%", "vua": "+0%", "nhanh": "+15%"}
 FIX_GIONG = "Có mạng rồi chạy lại, hoặc đặt sẵn file giọng giong/canh-<số>.mp3 cho từng cảnh."
 FIX_EDGE = "Cài edge-tts bằng: python -m pip install -r requirements.txt (ở thư mục gốc repo)."
 FIX_FILE = "Xoá hoặc thay file giọng đó rồi chạy lại."
+_MARKUP_RE = re.compile(r"\*\*|~|\^")
 
 
 def bam(loi: str, voice: str, rate: str) -> str:
@@ -68,15 +70,20 @@ def _so_giong(path: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _dau_van_tay(path: Path) -> tuple:
+    return path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
               tong_hop: Callable = tong_hop_edge, do_dai: Callable = media.probe_duration) -> GiongInfo:
     mp3 = thu_muc / f"canh-{so}.mp3"
     so_giong = thu_muc / f"canh-{so}.json"
     voice, rate = VOICES[giong], RATES[toc_do]
-    ma_bam = bam(loi, voice, rate)
+    doc = _MARKUP_RE.sub("", loi)
+    ma_bam = bam(doc, voice, rate)
     if mp3.is_file():
         ghi = _so_giong(so_giong)
-        if not ghi:
+        if not ghi or (ghi.get("kich_thuoc"), ghi.get("sha256")) != _dau_van_tay(mp3):
             return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=[], uoc_luong=True, nguon="co-san")
         if ghi.get("bam") == ma_bam:
             moc = [float(m) for m in ghi.get("moc", [])]
@@ -84,10 +91,12 @@ def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
     thu_muc.mkdir(parents=True, exist_ok=True)
     tam = mp3.with_name(mp3.name + ".tmp")
     try:
-        moc = tong_hop(loi, voice, rate, tam)
+        moc = tong_hop(doc, voice, rate, tam)
+        kich_thuoc, sha = _dau_van_tay(tam)
+        so_giong.write_text(json.dumps({"bam": ma_bam, "moc": moc, "kich_thuoc": kich_thuoc, "sha256": sha},
+                                       ensure_ascii=False), encoding="utf-8")
         os.replace(tam, mp3)
     except BaseException:
         tam.unlink(missing_ok=True)
         raise
-    so_giong.write_text(json.dumps({"bam": ma_bam, "moc": moc}, ensure_ascii=False), encoding="utf-8")
     return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=list(moc), uoc_luong=not moc, nguon="may")
