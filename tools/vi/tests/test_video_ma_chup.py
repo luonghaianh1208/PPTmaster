@@ -1,6 +1,8 @@
 """Test dựng trang và chụp khung. Phần Chromium tự bỏ qua nếu máy thiếu Chromium hoặc playwright."""
 
+import contextlib
 import importlib.util
+import io
 import os
 import re
 import sys
@@ -588,9 +590,13 @@ class ParallelCaptureChromiumTest(unittest.TestCase):
             page = chup.trang_moi(browser)
             page.set_content("<!doctype html><html><body></body></html>")
             # Cảnh 2 lấy nền từ khung đã ghi trong cùng tiến trình; cảnh 3 (tiến trình thứ hai) tự dựng lại khung cuối cảnh 2.
+            # Bảng trống thật: khung đầu cảnh 1 (chưa có nét nào trong một giây dẫn đầu, không lau bảng).
+            bang_trong = url(0)
             for k in (1, 2):
                 with self.subTest(canh=k + 1):
                     cuoi_truoc = dau[k] - 1
+                    self.assertGreater(page.evaluate(SO_SANH_NUA_PHAI, [url(cuoi_truoc), bang_trong]), 64,
+                                       "nửa phải khung cuối cảnh trước phải có mực, không phải bảng trống")
                     self.assertEqual(page.evaluate(SO_SANH_NUA_PHAI, [url(cuoi_truoc), url(dau[k] + 1)]), 0)
                     self.assertGreater(page.evaluate(SO_SANH_NUA_PHAI, [url(cuoi_truoc), url(dau[k] + self.so_khung[k] - 1)]), 64,
                                        "khung cuối cảnh mới phải khác nền cảnh trước")
@@ -602,6 +608,67 @@ class ParallelCaptureChromiumTest(unittest.TestCase):
             chup.chup_song_song(cac_du, {}, self.so_khung[:2], lich.FPS, Path(tmp), 2)
         self.assertEqual(caught.exception.step, "dung")
         self.assertIn("cảnh 2", caught.exception.message)
+
+
+def _dia_day(cong_viec):
+    """Thay `_chup_dai_con` trong tiến trình con: giả ổ đĩa đầy khi ghi khung."""
+    raise OSError(28, "No space left on device")
+
+
+class CaptureBookkeepingTest(unittest.TestCase):
+    """Không cần Chromium: thay trình duyệt và bước chụp bằng bản giả ghi PNG nhỏ."""
+
+    @staticmethod
+    @contextlib.contextmanager
+    def trinh_duyet_gia():
+        yield mock.MagicMock()
+
+    @staticmethod
+    def chup_canh_gia(page, html, so_khung, fps, thu_muc, so_dau, ghi_log=None):
+        thu_muc.mkdir(parents=True, exist_ok=True)
+        for i in range(so_khung):
+            (thu_muc / f"f{so_dau + i:06d}.png").write_bytes(png(4, 4))
+        return so_dau + so_khung
+
+    def test_background_of_a_finished_scene_is_released(self):
+        cac_du, so_khung = ba_canh_ngan()
+        khung_dau = [0, so_khung[0], so_khung[0] + so_khung[1]]
+        da_dung = []
+
+        def dung_trang_gia(du, model=None):
+            da_dung.append(du)
+            return "<html></html>"
+
+        viec = {"cac_du": cac_du, "models_js": {}, "dau": 0, "cuoi": 3, "khung_dau": khung_dau,
+                "so_khung": so_khung, "fps": lich.FPS}
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(chup, "trinh_duyet", self.trinh_duyet_gia), \
+                mock.patch.object(chup, "chup_canh", self.chup_canh_gia), \
+                mock.patch.object(trang, "dung_trang", dung_trang_gia), \
+                contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(chup.chup_dai({**viec, "thu_muc_anh": tmp}), sum(so_khung))
+        self.assertEqual(len(da_dung), 3)
+        self.assertEqual([du["so"] for du in da_dung], [1, 2, 3])
+        self.assertTrue(all(du.get("nenTruoc") is None for du in da_dung),
+                        "nền data: của cảnh đã chụp xong phải được bỏ, không giữ trong bộ nhớ")
+
+    def test_disk_error_while_writing_frames_is_a_write_error(self):
+        cac_du, so_khung = ba_canh_ngan()
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(chup, "chup_dai", side_effect=OSError(28, "No space left on device")), \
+                self.assertRaises(chup.MediaError) as caught:
+            chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 1)
+        self.assertEqual(caught.exception.step, "write")
+        self.assertIn("ổ đĩa", caught.exception.fix)
+        self.assertIn("No space left", caught.exception.message)
+
+    def test_disk_error_in_a_child_process_is_a_write_error(self):
+        cac_du, so_khung = ba_canh_ngan()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(chup, "_chup_dai_con", _dia_day), \
+                self.assertRaises(chup.MediaError) as caught:
+            chup.chup_song_song(cac_du, {}, so_khung, lich.FPS, Path(tmp), 2)
+        self.assertEqual(caught.exception.step, "write")
+        self.assertIn("ổ đĩa", caught.exception.fix)
 
 
 class ChromiumMissingTest(unittest.TestCase):

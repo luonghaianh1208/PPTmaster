@@ -18,6 +18,7 @@ FIX_CHROMIUM = (
     "-Action tool -Name chromium"
 )
 FIX_DUNG = "Chạy lại một lần; vẫn lỗi thì dán nguyên thông báo này cho người bảo trì."
+FIX_GHI = "Kiểm tra ổ đĩa còn chỗ trống, đóng các file đang mở trong thư mục dự án rồi chạy lại."
 VIEWPORT = {"width": 1280, "height": 720}
 
 
@@ -145,6 +146,7 @@ def chup_dai(cong_viec: dict) -> int:
             print(f"Chụp cảnh {cac_du[k]['so']} ({so_khung[k]} khung)...", file=sys.stderr, flush=True)
             chup_canh(page, html(k), so_khung[k], fps, thu_muc, khung_dau[k])
             da_ghi += so_khung[k]
+            cac_du[k]["nenTruoc"] = None  # nền data: của cảnh đã chụp xong không cần giữ nữa
             if k + 1 < cuoi and can_nen(k + 1):
                 cuoi_k = thu_muc / f"f{khung_dau[k] + so_khung[k] - 1:06d}.png"
                 cac_du[k + 1]["nenTruoc"] = _data_url(cuoi_k.read_bytes())
@@ -162,6 +164,8 @@ def _chup_dai_con(cong_viec: dict) -> int:
 def _loi_dai(cac_du: list, dau: int, cuoi: int, exc: BaseException) -> MediaError:
     a, b = cac_du[dau]["so"], cac_du[cuoi - 1]["so"]
     canh = f"cảnh {a}" if a == b else f"cảnh {a}–{b}"
+    if isinstance(exc, OSError):
+        return MediaError("write", f"Không ghi được khung hình ở {canh}: {exc}", FIX_GHI)
     return MediaError("dung", f"Chụp khung lỗi ở {canh}: {type(exc).__name__}: {exc}", FIX_DUNG)
 
 
