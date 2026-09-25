@@ -64,11 +64,14 @@ Toàn bộ 8 cảnh sau khi sửa đều giữ dấu tiếng Việt nguyên vẹ
 4. **Giới hạn ký tự không khớp kích thước khung** (phát hiện ở Task 9b khi kiểm bằng chữ tiếng Việt thật, không phải placeholder ngắn): mục `y` (y-tung-y) và `giai-thich` (cong-thuc) cho phép 80 ký tự nhưng ở cỡ chữ 30/28 px thì 80 ký tự xuống 2 dòng và tràn khung — hạ giới hạn 80→60. Ba khung khác tuy giới hạn ký tự không đổi (90/40/90) vẫn tràn khi thử chữ tiếng Việt dài thật: `bieu-thuc` (cong-thuc, cần 113px cho khung 110px), `truc-ngang` (do-thi, xuống 2 dòng trong khung 40px), `phu` (tieu-de, cần 95px cho khung 90px) — sửa bằng cách nới khung, không nới giới hạn chữ. (commit `c31df7f7`)
 5. **Ảnh xem trước cảnh thí nghiệm dừng ở trạng thái đầu, không phải cuối cảnh:** `thoiDiemCuoi()` trả về ngay sau mốc câu tĩnh cuối cùng (khoảng giây 1,4/9,3), nên xem trước hiện tham số ban đầu (l = 0,69 m) thay vì giá trị cuối cùng mà con lắc đạt tới. Sửa để trả về gần cuối thời lượng cảnh (`thoiLuong - 0.2`). (commit `797064cf`)
 
+### 2.5b Dựng demo với giọng máy thật
+
+Chạy `video_ma.py` đầy đủ trên kịch bản mẫu 8 cảnh với giọng `vi-VN-HoaiMyNeural` lấy qua mạng (edge-tts 7.2.8), thư mục `projects/_video/con-lac-don-demo/`: `ready: true`, `giong: may`, 74,0 giây, 1,77 MB, 8 file `giong/canh-N.mp3` kèm sổ `canh-N.json` có mốc câu thật. Một cảnh báo: cảnh 3 phải ước lượng mốc câu vì edge-tts trả ít mốc hơn số câu tách được. Xem ba khung giữa video (giây 12, 41, 62): chữ đang viết dở, đồ thị đang nối điểm, phụ đề đúng câu đang đọc. Lưu ý môi trường: playwright và edge-tts phải nằm trong cùng một trình thông dịch; lệnh cài Chromium của `pptmaster.ps1` cài playwright vào `venv` của repo, nơi đã có edge-tts.
+
 ### 2.6 Chưa kiểm
 
 Trung thực ghi nhận các mục sau **chưa** được kiểm trong các lần chạy trên, không suy diễn là đạt:
 
-- **Giọng edge-tts thật** — mọi test dùng mp3 có sẵn hoặc thuyết minh tổng hợp; công cụ chưa được gọi với giọng máy thật lấy qua mạng bên trong một lần chạy `video_ma.py` đầy đủ (chủ repo tự chạy demo riêng, không nằm trong biên bản này).
 - **Cài Chromium từ đầu trên máy sạch** — máy dùng để kiểm (`C:/Users/ADMIN/vmt/v/Scripts/python.exe`) đã có sẵn playwright/Chromium từ trước; chưa thử cài mới hoàn toàn bằng `pptmaster.ps1 -Action tool -Name chromium` trên máy chưa có gì.
 - **Chạy trong Antigravity thật** — chủ repo cần tự thử bằng câu "Làm video giải thích bài Con lắc đơn" để xác nhận file luật (`.agents/rules/ppt-master-vi.md`) và luồng hỏi/tạo có hoạt động đúng trong môi trường đó.
 
