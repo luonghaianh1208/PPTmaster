@@ -211,16 +211,14 @@ def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_
         except Exception as exc:  # noqa: BLE001
             raise _loi_dai(viec[0]["cac_du"], viec[0]["dau"], viec[0]["cuoi"], exc) from exc
         return
-    loi = None
     with ProcessPoolExecutor(max_workers=len(viec)) as pool:
         theo_tl = {pool.submit(_chup_dai_con, v): v for v in viec}
         xong, con_lai = wait(theo_tl, return_when=FIRST_EXCEPTION)
-        hong = [tl for tl in theo_tl if tl in xong and tl.exception() is not None]
-        if hong:
-            # Dải đầu tiên hỏng: huỷ các dải chưa chạy; dải đang chạy vẫn được chờ xong trước khi dọn thư mục.
+        if any(tl.exception() is not None for tl in xong):
+            # Có dải hỏng: huỷ các dải chưa chạy; dải đang chạy vẫn được chờ xong trước khi dọn thư mục.
             for tl in con_lai:
                 tl.cancel()
-            v = theo_tl[hong[0]]
-            loi = _loi_dai(v["cac_du"], v["dau"], v["cuoi"], hong[0].exception())
-    if loi is not None:
-        raise loi
+    # Báo lỗi của dải sớm nhất (theo thứ tự cảnh) để kết quả không phụ thuộc dải nào xong trước.
+    for tl, v in theo_tl.items():
+        if not tl.cancelled() and tl.exception() is not None:
+            raise _loi_dai(v["cac_du"], v["dau"], v["cuoi"], tl.exception())
