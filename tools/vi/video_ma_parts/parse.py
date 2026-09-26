@@ -13,7 +13,7 @@ META_CHOICES = {
     "phu-de": ("hinh", "file", "khong"),
     "ban-tay": ("co", "khong"),
     "may-quay": ("co", "khong"),
-    "chuyen-canh": ("lau-bang", "khong"),
+    "chuyen-canh": ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "luan-phien", "khong"),
     "chu-dong": ("co", "khong"),
 }
 META_DEFAULTS = {
@@ -36,6 +36,8 @@ SCENE_SPEC = {
     "anh": (("anh", "chu-thich"), ("nguon",), {}),
 }
 SCENE_TYPES = tuple(SCENE_SPEC)
+# Trường `chuyen:` (mọi loại cảnh, từ cảnh 2) ghi đè khoá đầu `chuyen-canh` cho riêng cảnh đó.
+SCENE_KIEU_CHUYEN = ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "khong")
 
 _KEY_RE = re.compile(r"^([a-z][a-z0-9-]*):\s*(.*)$")
 _SCENE_RE = re.compile(r"^##\s+Cảnh\s+(\d+)\s*$")
@@ -122,11 +124,19 @@ def _finish(so: int, dong0: int, fields: list) -> Scene:
     if loai not in SCENE_SPEC:
         raise ParseError(dong_truong["loai"][0], f"`loai` phải là một trong: {', '.join(SCENE_TYPES)}.")
     required, optional, repeated = SCENE_SPEC[loai]
-    allowed = {"loai", "loi", *required, *optional, *repeated}
+    allowed = {"loai", "loi", "chuyen", *required, *optional, *repeated}
     for key, value, no in fields:
         if key not in allowed:
             raise ParseError(no, f"Cảnh loại `{loai}` không có trường `{key}`.")
-    for key in (*required, *optional):
+    for value, no in zip(truong.get("chuyen", []), dong_truong.get("chuyen", [])):
+        if so == 1:
+            raise ParseError(no, "Cảnh 1 mở đầu video, không có cảnh trước để chuyển; bỏ dòng `chuyen:`.")
+        if value == "luan-phien":
+            raise ParseError(no, "`luan-phien` chỉ dùng ở khoá đầu `chuyen-canh: luan-phien`; "
+                                 f"trường `chuyen` của cảnh là một trong: {', '.join(SCENE_KIEU_CHUYEN)}.")
+        if value not in SCENE_KIEU_CHUYEN:
+            raise ParseError(no, f"`chuyen` phải là một trong: {', '.join(SCENE_KIEU_CHUYEN)}.")
+    for key in (*required, *optional, "chuyen"):
         if key in truong and len(truong[key]) > 1:
             raise ParseError(dong_truong[key][1], f"`{key}` bị lặp trong Cảnh {so}.")
     for key in required:

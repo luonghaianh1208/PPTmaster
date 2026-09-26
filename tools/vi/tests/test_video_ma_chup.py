@@ -810,6 +810,159 @@ class NhanChromiumTest(unittest.TestCase):
         self.assertAlmostEqual(giua[0][1], cuoi[0][1], delta=0.5)
 
 
+def hai_canh(chuyen_canh: str):
+    """Cảnh 1 (tiêu đề, có mực) và cảnh 2 với khoá đầu `chuyen-canh`."""
+    text = (f"---\n{META}chuyen-canh: {chuyen_canh}\n---\n\n"
+            "## Cảnh 1\nloai: tieu-de\nchu: Chu kì của con lắc đơn dao động nhỏ\nphu: Vật lí 11 · bài mở đầu\nloi: Chào.\n\n"
+            "## Cảnh 2\nloai: khai-niem\nthuat-ngu: Chu kì\ndinh-nghia: Thời gian vật thực hiện một dao động toàn phần.\n"
+            "loi: Một.\n")
+    video = parse.parse(text)
+    cac_giong = [lich.GiongInfo(mp3=None, giay=g, moc_cau=[0.0], uoc_luong=False, nguon="may") for g in (0.9, 1.2)]
+    plan, _ = lich.dung_lich(video.canh, cac_giong)
+    return [lich.du_lieu_canh(c, cl, None, {"meta": video.meta}) for c, cl in zip(video.canh, plan)], plan
+
+
+# So khung `b` với nền cũ `a` trong vùng giữa (x 128–1152, y 72–648): tỉ lệ điểm ảnh khớp (lệch mỗi kênh ≤ 24),
+# và tỉ lệ điểm mực của nền cũ (khác màu giấy #fbfaf5 quá 48) còn thấy trong `b` gần đúng chỗ (có điểm khớp trong
+# ô 5×5 quanh nó của `b`; chuyển động dưới 2 px ở khung đầu không tính là mất nền).
+SO_KHOP = """([a, b]) => Promise.all([a, b].map((src) => new Promise((ok, loi) => {
+        const i = new Image(); i.onload = () => ok(i); i.onerror = loi; i.src = src; })))
+    .then((imgs) => {
+        const px = imgs.map((i) => { const c = document.createElement('canvas'); c.width = 1280; c.height = 720;
+            const g = c.getContext('2d'); g.drawImage(i, 0, 0); return g.getImageData(128, 72, 1024, 576).data; });
+        const W = 1024, H = 576, giay = [0xfb, 0xfa, 0xf5];
+        const lech = (k, j) => Math.max(Math.abs(px[0][j] - px[1][k]), Math.abs(px[0][j + 1] - px[1][k + 1]),
+                                        Math.abs(px[0][j + 2] - px[1][k + 2]));
+        const laMuc = (j) => [0, 1, 2].some((c) => Math.abs(px[0][j + c] - giay[c]) > 48);
+        let tong = 0, khop = 0, muc = 0, mucKhop = 0;
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                const k = 4 * (y * W + x);
+                tong++; if (lech(k, k) <= 24) { khop++; }
+                if (!laMuc(k)) { continue; }
+                muc++;
+                let thay = false;
+                for (let dy = -2; dy <= 2 && !thay; dy++) {
+                    for (let dx = -2; dx <= 2 && !thay; dx++) {
+                        const xx = x + dx, yy = y + dy, j = 4 * (yy * W + xx);
+                        if (xx >= 0 && yy >= 0 && xx < W && yy < H && lech(j, k) <= 24) { thay = true; }
+                    }
+                }
+                if (thay) { mucKhop++; }
+            }
+        }
+        return {khop: khop / tong, muc: muc, mucKhop: mucKhop / Math.max(1, muc)}; })"""
+
+
+@unittest.skipUnless(co_chromium(), NEED_CHROMIUM)
+class TransitionChromiumTest(unittest.TestCase):
+    """Năm kiểu chuyển cảnh trên khung cuối thật của cảnh trước."""
+
+    @classmethod
+    def setUpClass(cls):
+        import base64
+
+        cls.cm = chup.trinh_duyet()
+        cls.browser = cls.cm.__enter__()
+        cls.page = chup.trang_moi(cls.browser)
+        cac_du, plan = hai_canh("lau-bang")
+        chup.mo_trang(cls.page, trang.dung_trang(cac_du[0]))
+        cls.page.evaluate("(t) => window.datThoiDiem(t)", (plan[0].so_khung - 1) / lich.FPS)
+        cls.nen = "data:image/png;base64," + base64.b64encode(cls.page.screenshot(type="png")).decode("ascii")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cm.__exit__(None, None, None)
+
+    def khung(self, du: dict, t: float) -> str:
+        import base64
+
+        self.page.evaluate("(t) => window.datThoiDiem(t)", t)
+        return "data:image/png;base64," + base64.b64encode(self.page.screenshot(type="png")).decode("ascii")
+
+    def so(self, khung: str) -> dict:
+        return self.page.evaluate(SO_KHOP, [self.nen, khung])
+
+    def test_every_kind_starts_on_the_previous_frame_and_ends_without_it(self):
+        for kieu in ("lau-bang", "lat-trang", "truot", "phong", "mo-man"):
+            with self.subTest(kieu=kieu):
+                du = hai_canh(kieu)[0][1]
+                self.assertEqual(du["co"]["chuyen"], kieu)
+                du["nenTruoc"] = self.nen
+                chup.mo_trang(self.page, trang.dung_trang(du))
+                dau = self.so(self.khung(du, 1 / 30))
+                self.assertGreater(dau["muc"], 2000, "nền cũ phải có mực")
+                self.assertGreaterEqual(dau["khop"], 0.9, dau)
+                self.assertGreaterEqual(dau["mucKhop"], 0.9, dau)
+                sau = self.so(self.khung(du, 0.55))
+                self.assertLess(sau["mucKhop"], 0.1, sau)
+                an = self.page.evaluate("""() => Array.from(document.querySelectorAll('#nen-truoc, #nen-truoc-2'))
+                    .every((n) => getComputedStyle(n).display === 'none')""")
+                self.assertTrue(an)
+                loe = self.page.evaluate("() => { const l = document.getElementById('loe-chuyen'); "
+                                         "return l ? Number(getComputedStyle(l).opacity) : 0; }")
+                self.assertEqual(loe, 0)
+
+    def test_only_the_board_wipe_has_the_eraser_hand(self):
+        for kieu in ("lau-bang", "lat-trang", "truot", "phong", "mo-man"):
+            with self.subTest(kieu=kieu):
+                du = hai_canh(kieu)[0][1]
+                du["nenTruoc"] = self.nen
+                chup.mo_trang(self.page, trang.dung_trang(du))
+                self.page.evaluate("window.datThoiDiem(0.25)")
+                tay = self.page.evaluate("""() => { const t = document.getElementById('ban-tay');
+                    return {hien: getComputedStyle(t).display !== 'none', kieu: t.getAttribute('data-kieu')}; }""")
+                if kieu == "lau-bang":
+                    self.assertEqual(tay, {"hien": True, "kieu": "gie"})
+                else:
+                    self.assertFalse(tay["hien"], tay)
+
+    def test_no_transition_for_khong_or_scene_one_even_with_a_background(self):
+        cac_du, _ = hai_canh("khong")
+        for du in (cac_du[1], hai_canh("truot")[0][0]):
+            with self.subTest(so=du["so"]):
+                self.assertIsNone(du["co"]["chuyen"])
+                du["nenTruoc"] = self.nen
+                chup.mo_trang(self.page, trang.dung_trang(du))
+                self.assertIsNone(self.page.evaluate("document.getElementById('nen-truoc')"))
+                self.assertLess(self.so(self.khung(du, 1 / 30))["mucKhop"], 0.1)
+
+
+class TransitionBookkeepingTest(unittest.TestCase):
+    """Mọi kiểu chuyển cảnh nhận khung cuối cảnh trước; không chuyển cảnh thì không."""
+
+    def nen_luc_dung(self, chuyen_canh: str) -> list:
+        text = (f"---\n{META}chuyen-canh: {chuyen_canh}\n---\n\n" + "".join(
+            f"## Cảnh {k}\nloai: tieu-de\nchu: C{k}\nloi: Chào.\n\n" for k in (1, 2, 3)))
+        video = parse.parse(text)
+        plan, _ = lich.dung_lich(video.canh, [lich.GiongInfo(None, 0.9, [0.0], False, "may")] * 3)
+        cac_du = [lich.du_lieu_canh(c, cl, None, {"meta": video.meta}) for c, cl in zip(video.canh, plan)]
+        so_khung = [cl.so_khung for cl in plan]
+        thay = []
+
+        def dung_trang_gia(du, model=None):
+            thay.append(du.get("nenTruoc") is not None)
+            return "<html></html>"
+
+        viec = {"cac_du": cac_du, "models_js": {}, "dau": 0, "cuoi": 3,
+                "khung_dau": [0, so_khung[0], so_khung[0] + so_khung[1]], "so_khung": so_khung, "fps": lich.FPS}
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(chup, "trinh_duyet", CaptureBookkeepingTest.trinh_duyet_gia), \
+                mock.patch.object(chup, "chup_canh", CaptureBookkeepingTest.chup_canh_gia), \
+                mock.patch.object(trang, "dung_trang", dung_trang_gia), \
+                contextlib.redirect_stderr(io.StringIO()):
+            chup.chup_dai({**viec, "thu_muc_anh": tmp})
+        return thay
+
+    def test_every_kind_gets_the_previous_frame(self):
+        for kieu in ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "luan-phien"):
+            with self.subTest(kieu=kieu):
+                self.assertEqual(self.nen_luc_dung(kieu), [False, True, True])
+
+    def test_khong_gets_no_background(self):
+        self.assertEqual(self.nen_luc_dung("khong"), [False, False, False])
+
+
 class ChiaDaiTest(unittest.TestCase):
     def kiem_phu(self, so_khung, so_tt, dai):
         self.assertTrue(dai)

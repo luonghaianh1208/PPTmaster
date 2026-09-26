@@ -35,8 +35,10 @@
   function viTri(ds, t, ngoi, nghi, tuy) {
     tuy = tuy || {};
     var lau = typeof tuy.giayLau === 'number' ? tuy.giayLau : LAU_BANG;
-    if (tuy.lauBang && t >= 0 && t <= lau) {
-      return { x: -120 + 1400 * t / lau, y: 380, hien: true, kieu: 'gie' };
+    // Chuyển cảnh (tuy.chuyen, hoặc tuy.lauBang kiểu cũ): chỉ lau bảng có tay cầm giẻ; kiểu khác tay ẩn tới hết chuyển cảnh.
+    var chuyen = tuy.chuyen || (tuy.lauBang ? 'lau-bang' : null);
+    if (chuyen && t >= 0 && t <= lau) {
+      return chuyen === 'lau-bang' ? { x: -120 + 1400 * t / lau, y: 380, hien: true, kieu: 'gie' } : but(nghi, false);
     }
     var het = typeof tuy.gh === 'number' ? tuy.gh - CUOI : Infinity;
     if (t >= het) { return but(nghi, false); }
@@ -57,7 +59,7 @@
     var ra = truoc ? Math.min(LUOT, het - te) : 0;
     if (truoc && t < te + ra) { return but(noi(ngoi(truoc, 1), nghi, (t - te) / ra), true); }
     if (sau && sau.batDau < het) {
-      var vao = Math.max(sau.batDau - LUOT, truoc ? te + ra : 0, tuy.lauBang ? lau : 0);
+      var vao = Math.max(sau.batDau - LUOT, truoc ? te + ra : 0, chuyen ? lau : 0);
       if (t >= vao && vao < sau.batDau) { return but(noi(nghi, ngoi(sau, 0), (t - vao) / (sau.batDau - vao)), true); }
     }
     return but(nghi, false);

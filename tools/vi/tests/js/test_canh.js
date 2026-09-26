@@ -74,6 +74,15 @@ test('lau bang: do dai lay tu du.giayLauBang cua Python, mac dinh 0,5 khi thieu'
   assert.ok(Math.abs(macDinh.batDau - 0.55) < 1e-9, String(macDinh.batDau));
 });
 
+test('moi kieu chuyen canh: muc dau tien doi het chuyen canh; khong chuyen canh thi khong doi', function () {
+  ['lau-bang', 'lat-trang', 'truot', 'phong', 'mo-man'].forEach(function (k) {
+    var m = V.tao({ thoiLuong: 6, co: { chuyen: k }, giayLauBang: 0.5 }).chu('a', 'x', 0, 0, 100, 50, 30, 0.2, {});
+    assert.ok(Math.abs(m.batDau - 0.55) < 1e-9, k + ' ' + m.batDau);
+  });
+  var khong = V.tao({ thoiLuong: 6, co: { chuyen: null, lauBang: false }, giayLauBang: 0.5 }).chu('a', 'x', 0, 0, 100, 50, 30, 0.2, {});
+  assert.strictEqual(khong.batDau, 0.2);
+});
+
 test('duong ve la xac dinh theo hat giong', function () {
   assert.strictEqual(V.duongQua([[0, 0], [100, 0]], 5), V.duongQua([[0, 0], [100, 0]], 5));
   assert.notStrictEqual(V.duongQua([[0, 0], [100, 0]], 5), V.duongQua([[0, 0], [100, 0]], 6));

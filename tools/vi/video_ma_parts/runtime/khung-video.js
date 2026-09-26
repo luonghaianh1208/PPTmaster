@@ -218,9 +218,14 @@
     return { x: x + (o - w) / 2, y: y + (c - h) / 2, rong: w, cao: h };
   }
   function giayLau(du) { return typeof du.giayLauBang === 'number' ? du.giayLauBang : LAU_BANG; }
+  // Kiểu chuyển cảnh đầu cảnh: du.co.chuyen, hoặc du.co.lauBang của dữ liệu kiểu cũ; không có thì null.
+  function kieuChuyen(du) {
+    var co = du.co || {};
+    return co.chuyen || (co.lauBang ? 'lau-bang' : null);
+  }
   function tao(du) {
     var gh = du.thoiLuong;
-    var sau = du.co && du.co.lauBang ? giayLau(du) + 0.05 : 0;
+    var sau = kieuChuyen(du) ? giayLau(du) + 0.05 : 0;
     function dau(batDau, lui) { return Math.min(Math.max(batDau, sau), gh - lui); }
     function chu(id, noiDung, x, y, rong, cao, co, batDau, tuy) {
       batDau = dau(batDau, 0.6);
@@ -285,12 +290,33 @@
     var gh = du.thoiLuong;
     var thiNghiem = du.loai === 'thi-nghiem';
     var lau = giayLau(du);
-    var nen = null;
-    if (co.lauBang && du.nenTruoc) {
-      nen = document.createElement('img');
-      nen.id = 'nen-truoc';
-      nen.src = du.nenTruoc;
-      khung.appendChild(nen);
+    var kieu = kieuChuyen(du);
+    // Lớp ảnh cảnh trước: div.nen-bao (bóng đổ, thứ tự lớp) chứa img và lớp phủ div.nen-phu (cùng biến đổi, độ mờ,
+    // cắt). Lau bảng nằm dưới lớp bảng để giẻ (trong lớp bảng) đè lên; kiểu khác nằm trên lớp bảng cảnh mới.
+    var nen = [];
+    var loe = null;
+    function lopNen(id) {
+      var bao = document.createElement('div');
+      bao.className = 'nen-bao';
+      if (kieu !== 'lau-bang') { bao.style.zIndex = '1'; }
+      var img = document.createElement('img');
+      img.id = id;
+      img.src = du.nenTruoc;
+      var phu = document.createElement('div');
+      phu.className = 'nen-phu';
+      bao.appendChild(img);
+      bao.appendChild(phu);
+      khung.appendChild(bao);
+      return { bao: bao, img: img, phu: phu };
+    }
+    if (kieu && du.nenTruoc) {
+      nen.push(lopNen('nen-truoc'));
+      if (kieu === 'mo-man') { nen.push(lopNen('nen-truoc-2')); }
+      if (kieu === 'phong') {
+        loe = document.createElement('div');
+        loe.id = 'loe-chuyen';
+        khung.appendChild(loe);
+      }
     }
     if (co.chuDong) { khung.className = 'chu-dong'; }
     var goc = document.createElement('div');
@@ -516,21 +542,46 @@
       };
     }
 
+    // Trạng thái chuyển cảnh tại t (null khi không có ảnh cảnh trước hoặc đã chuyển xong): đặt các lớp ảnh cũ, lớp loé,
+    // và trả biến đổi của lớp bảng mới để ghép với máy quay.
     function datNen(t) {
-      if (!nen) { return; }
-      if (t > lau) { nen.style.display = 'none'; return; }
-      nen.style.display = 'block';
-      nen.style.clipPath = 'inset(0 0 0 ' + kep(-120 + 1400 * t / lau, 0, 1280) + 'px)';
+      if (!nen.length) { return null; }
+      var s = t >= 0 && t < lau ? root.THI_CHUYEN.trangThai(kieu, t, lau) : null;
+      [s && s.nen, s && s.nen2].forEach(function (l, i) {
+        var o = nen[i];
+        if (!o) { return; }
+        if (!l || l.opacity <= 0) {
+          o.img.style.display = 'none';
+          o.phu.style.display = 'none';
+          o.bao.style.filter = '';
+          return;
+        }
+        [o.img, o.phu].forEach(function (el) {
+          el.style.transform = l.transform;
+          el.style.opacity = String(l.opacity);
+          el.style.clipPath = l.clipPath;
+        });
+        o.img.style.display = 'block';
+        o.phu.style.display = l.phu ? 'block' : 'none';
+        o.phu.style.background = l.phu || '';
+        o.bao.style.filter = l.filter || '';
+      });
+      if (loe) { loe.style.opacity = s ? String(s.loe) : '0'; }
+      return s ? s.moi : null;
     }
 
     function dat(t, noiBo) {
       if (!noiBo && !hop) { hop = doHop(); }
       datMuc(t);
-      datNen(t);
+      var moi = datNen(t);
       var cam = noiBo ? { z: 1, tx: 0, ty: 0 } : Q.tinh(muc, hop, t, gh, { mayQuay: co.mayQuay === true, day: thiNghiem });
-      goc.style.transform = matTran(cam);
+      var bd = matTran(cam);
+      if (moi && moi.transform !== 'none') { bd = moi.transform + (bd === 'none' ? '' : ' ' + bd); }
+      goc.style.transform = bd;
+      goc.style.opacity = moi && moi.opacity !== 1 ? String(moi.opacity) : '';
+      goc.style.clipPath = moi && moi.clipPath !== 'none' ? moi.clipPath : '';
       if (!tay) { return; }
-      var v = noiBo ? { hien: false } : T.viTri(muc, t, ngoiCua(cam), T.NGHI, { lauBang: !!co.lauBang, giayLau: lau, gh: gh });
+      var v = noiBo ? { hien: false } : T.viTri(muc, t, ngoiCua(cam), T.NGHI, { chuyen: kieu, giayLau: lau, gh: gh });
       tay.style.display = v.hien ? 'block' : 'none';
       if (!v.hien) { return; }
       tay.setAttribute('data-kieu', v.kieu);
@@ -546,7 +597,8 @@
       dat(1e6, false);
       goc.style.transform = 'none';
       if (tay) { tay.style.display = 'none'; }
-      if (nen) { nen.style.display = 'none'; }
+      nen.forEach(function (o) { o.img.style.display = 'none'; o.phu.style.display = 'none'; });
+      if (loe) { loe.style.opacity = '0'; }
       var loi = [];
       var cacO = goc.querySelectorAll('.chu');
       for (var i = 0; i < cacO.length; i++) {

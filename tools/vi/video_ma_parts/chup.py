@@ -147,7 +147,9 @@ def chup_dai(cong_viec: dict) -> int:
         return trang.dung_trang(cac_du[k], models.get(cac_du[k]["so"]))
 
     def can_nen(k: int) -> bool:
-        return k < len(cac_du) and bool(cac_du[k]["co"].get("lauBang"))
+        # Mọi kiểu chuyển cảnh cần khung cuối cảnh trước; `lauBang` giữ cho dữ liệu kiểu cũ.
+        co = cac_du[k]["co"] if k < len(cac_du) else {}
+        return bool(co.get("chuyen") or co.get("lauBang"))
 
     da_ghi = 0
     with trinh_duyet() as browser:

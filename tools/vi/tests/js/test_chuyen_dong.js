@@ -145,6 +145,167 @@ test('ban tay: o khung cuoi canh ngan tay da nghi', function () {
   assert.strictEqual(T.viTri(ds, gh - 0.2, ngoi, NGHI, { gh: gh }).hien, false);
 });
 
+test('ban tay: chuyen canh khac lau bang thi khong co gie va tay an, but vao sau khi chuyen xong', function () {
+  var ds = [muc('a', 0.55, 1)];
+  ['lat-trang', 'truot', 'phong', 'mo-man'].forEach(function (k) {
+    for (var i = 0; i <= 10; i++) {
+      var v = T.viTri(ds, 0.5 * i / 10, ngoi, NGHI, { chuyen: k, giayLau: 0.5 });
+      assert.strictEqual(v.hien, false, k + ' t=' + 0.05 * i + ' ' + JSON.stringify(v));
+      assert.strictEqual(v.kieu, 'but', k);
+    }
+    assert.strictEqual(T.viTri(ds, 0.52, ngoi, NGHI, { chuyen: k, giayLau: 0.5 }).hien, true, k + ': but luot vao sau chuyen canh');
+  });
+  var v = T.viTri(ds, 0.25, ngoi, NGHI, { chuyen: 'lau-bang', giayLau: 0.5 });
+  assert.strictEqual(v.kieu, 'gie');
+  assert.ok(gan(v.x, -120 + 1400 * 0.5));
+});
+
+// ---------- chuyển cảnh ----------
+
+require(path.join(RT, 'chuyen-canh.js'));
+var CH = globalThis.THI_CHUYEN;
+var KIEU = ['lau-bang', 'lat-trang', 'truot', 'phong', 'mo-man'];
+var LOP = ['nen', 'moi'];
+function laDongNhat(tf) { return tf === 'none'; }
+
+test('chuyen canh: nam kieu, xac dinh theo t', function () {
+  assert.deepStrictEqual(CH.KIEU, KIEU);
+  KIEU.forEach(function (k) {
+    for (var t = -0.1; t < 0.8; t += 0.013) {
+      assert.deepStrictEqual(CH.trangThai(k, t, 0.5), CH.trangThai(k, t, 0.5), k + ' t=' + t);
+    }
+  });
+});
+
+test('chuyen canh: t = 0 la nen cu nguyen ven, lop moi chua bien doi', function () {
+  KIEU.forEach(function (k) {
+    var s = CH.trangThai(k, 0, 0.5);
+    assert.strictEqual(s.nen.opacity, 1, k);
+    assert.ok(laDongNhat(s.nen.transform), k + ' ' + s.nen.transform);
+    assert.strictEqual(s.nen.filter, '', k + ': khong bong');
+    assert.strictEqual(s.nen.phu, '', k + ': khong lop phu');
+    assert.strictEqual(s.loe, 0, k);
+    assert.deepStrictEqual(s.moi, { transform: 'none', opacity: 1, clipPath: 'none' }, k);
+    if (k === 'lau-bang') {
+      assert.strictEqual(s.nen.clipPath, 'inset(0 0 0 0px)');
+    } else if (k === 'mo-man') {
+      // Hai nửa ghép khít: nửa trái cắt bỏ 640 px bên phải, nửa phải cắt bỏ 640 px bên trái.
+      assert.strictEqual(s.nen.clipPath, 'inset(0 640px 0 0)');
+      assert.strictEqual(s.nen2.clipPath, 'inset(0 0 0 640px)');
+      assert.strictEqual(s.nen2.opacity, 1);
+      assert.ok(laDongNhat(s.nen2.transform), s.nen2.transform);
+    } else {
+      assert.strictEqual(s.nen.clipPath, 'none', k);
+    }
+    if (k !== 'mo-man') { assert.strictEqual(s.nen2, null, k); }
+  });
+});
+
+test('chuyen canh: tu t >= dai khong con nen cu, lop moi ve nguyen trang', function () {
+  KIEU.forEach(function (k) {
+    [0.5, 0.55, 1, 30].forEach(function (t) {
+      var s = CH.trangThai(k, t, 0.5);
+      assert.strictEqual(s.nen.opacity, 0, k + ' t=' + t);
+      if (s.nen2) { assert.strictEqual(s.nen2.opacity, 0, k + ' t=' + t); }
+      assert.deepStrictEqual(s.moi, { transform: 'none', opacity: 1, clipPath: 'none' }, k + ' t=' + t);
+      assert.strictEqual(s.loe, 0, k + ' t=' + t);
+    });
+  });
+});
+
+test('chuyen canh: do dai theo dai (du.giayLauBang)', function () {
+  var a = CH.trangThai('truot', 0.5, 1.0);
+  var b = CH.trangThai('truot', 0.25, 0.5);
+  assert.deepStrictEqual(a, b);
+  assert.notStrictEqual(a.nen.opacity, 0);
+});
+
+test('chuyen canh: loe trong [0, 1]; phong loe dinh 0,6 o giua, kieu khac khong loe', function () {
+  KIEU.forEach(function (k) {
+    var lon = 0;
+    for (var i = 0; i <= 100; i++) {
+      var s = CH.trangThai(k, 0.5 * i / 100, 0.5);
+      assert.ok(s.loe >= 0 && s.loe <= 1, k + ' ' + s.loe);
+      LOP.forEach(function (l) { assert.ok(s[l].opacity >= 0 && s[l].opacity <= 1, k + ' ' + l); });
+      lon = Math.max(lon, s.loe);
+    }
+    if (k === 'phong') {
+      assert.ok(gan(lon, 0.6, 1e-9), 'dinh ' + lon);
+      assert.ok(gan(CH.trangThai(k, 0.25, 0.5).loe, 0.6, 1e-9));
+    } else {
+      assert.strictEqual(lon, 0, k);
+    }
+  });
+});
+
+function so(chuoi, ten) {
+  var m = new RegExp(ten + '\\((-?[\\d.]+)').exec(chuoi);
+  return m ? Number(m[1]) : null;
+}
+
+test('chuyen canh: lau bang giu dung duong lau cua vi.10', function () {
+  for (var i = 0; i <= 10; i++) {
+    var t = 0.05 * i;
+    var s = CH.trangThai('lau-bang', t, 0.5);
+    var x = Math.min(1280, Math.max(0, -120 + 1400 * t / 0.5));
+    assert.strictEqual(s.nen.clipPath, 'inset(0 0 0 ' + x + 'px)', 't=' + t);
+  }
+});
+
+test('chuyen canh: lat trang xoay quanh mep trai 0 -> -100 do, toi dan', function () {
+  var truocGoc = 1;
+  var truocToi = 0;
+  for (var i = 1; i < 10; i++) {
+    var s = CH.trangThai('lat-trang', 0.05 * i, 0.5);
+    var goc = so(s.nen.transform, 'rotateY');
+    assert.ok(goc < truocGoc && goc > -100, 'goc ' + goc);
+    // Độ tối ở mép tự do (điểm dừng cuối của lớp phủ) tăng dần; có bóng đổ.
+    var toi = Number(/rgba\(0,0,0,([\d.]+)\)\)$/.exec(s.nen.phu)[1]);
+    assert.ok(toi > truocToi && toi <= 1, 'toi ' + toi);
+    assert.ok(/drop-shadow/.test(s.nen.filter), s.nen.filter);
+    truocGoc = goc;
+    truocToi = toi;
+  }
+  assert.ok(gan(so(CH.trangThai('lat-trang', 0.4999999, 0.5).nen.transform, 'rotateY'), -100, 1e-3));
+});
+
+test('chuyen canh: truot, nen sang trai 0 -> -1280, moi tu +1280 -> 0, khit nhau', function () {
+  for (var i = 1; i < 10; i++) {
+    var s = CH.trangThai('truot', 0.05 * i, 0.5);
+    var a = so(s.nen.transform, 'translateX');
+    var b = so(s.moi.transform, 'translateX');
+    assert.ok(a < 0 && a > -1280, String(a));
+    assert.ok(gan(b - a, 1280, 1e-6), a + ' ' + b);
+  }
+});
+
+test('chuyen canh: phong, nen phong 1 -> 1,6 va mo dan', function () {
+  var truoc = 1;
+  for (var i = 1; i < 10; i++) {
+    var s = CH.trangThai('phong', 0.05 * i, 0.5);
+    var k = so(s.nen.transform, 'scale');
+    assert.ok(k > truoc && k < 1.6, String(k));
+    assert.ok(s.nen.opacity < 1 && s.nen.opacity > 0);
+    truoc = k;
+  }
+});
+
+test('chuyen canh: mo man, hai nua tach doi xung sang hai ben', function () {
+  for (var i = 1; i < 10; i++) {
+    var s = CH.trangThai('mo-man', 0.05 * i, 0.5);
+    var a = so(s.nen.transform, 'translateX');
+    var b = so(s.nen2.transform, 'translateX');
+    assert.ok(a < 0 && gan(a, -b, 1e-9), a + ' ' + b);
+    assert.strictEqual(s.nen.clipPath, 'inset(0 640px 0 0)');
+    assert.strictEqual(s.nen2.clipPath, 'inset(0 0 0 640px)');
+  }
+});
+
+test('chuyen canh: kieu la hoac null thi nem loi', function () {
+  assert.throws(function () { CH.trangThai('xoay', 0.1, 0.5); });
+  assert.throws(function () { CH.trangThai(null, 0.1, 0.5); });
+});
+
 // ---------- máy quay ----------
 
 var HOP = {

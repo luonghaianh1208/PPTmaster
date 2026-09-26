@@ -174,10 +174,10 @@ class ResourceDataTest(unittest.TestCase):
         meta = {"ban-tay": "co", "may-quay": "khong", "chuyen-canh": "lau-bang"}
         plan1, _ = lich.dung_lich([scene1], [giong(2.0, [0.0])])
         du1 = lich.du_lieu_canh(scene1, plan1[0], tai_nguyen={"meta": meta})
-        self.assertEqual(du1["co"], {"banTay": True, "mayQuay": False, "lauBang": False, "chuDong": True})
+        self.assertEqual(du1["co"], {"banTay": True, "mayQuay": False, "lauBang": False, "chuDong": True, "chuyen": None})
         plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
         du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
-        self.assertEqual(du2["co"], {"banTay": True, "mayQuay": False, "lauBang": True, "chuDong": True})
+        self.assertEqual(du2["co"], {"banTay": True, "mayQuay": False, "lauBang": True, "chuDong": True, "chuyen": "lau-bang"})
 
     def test_lau_bang_off_when_meta_says_khong(self):
         scene2 = canh_dau("loai: tieu-de\nchu: B\n", "Tiếp theo.")
@@ -186,6 +186,45 @@ class ResourceDataTest(unittest.TestCase):
         plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
         du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
         self.assertFalse(du2["co"]["lauBang"])
+        self.assertIsNone(du2["co"]["chuyen"])
+
+
+def video_nhieu_canh(meta_them: str, so_canh: int, chuyen_rieng: dict | None = None):
+    chuyen_rieng = chuyen_rieng or {}
+    text = f"---\n{META}{meta_them}---\n\n" + "".join(
+        f"## Cảnh {k}\nloai: tieu-de\nchu: C{k}\n" + (f"chuyen: {chuyen_rieng[k]}\n" if k in chuyen_rieng else "")
+        + "loi: Chào.\n\n" for k in range(1, so_canh + 1))
+    video = parse.parse(text)
+    plan, _ = lich.dung_lich(video.canh, [giong(1.0, [0.0]) for _ in video.canh])
+    return [lich.du_lieu_canh(c, cl, tai_nguyen={"meta": video.meta}) for c, cl in zip(video.canh, plan)]
+
+
+class TransitionKindTest(unittest.TestCase):
+    def test_each_meta_kind_applies_from_scene_two(self):
+        for kieu in ("lau-bang", "lat-trang", "truot", "phong", "mo-man"):
+            with self.subTest(kieu=kieu):
+                cac_du = video_nhieu_canh(f"chuyen-canh: {kieu}\n", 3)
+                self.assertEqual([du["co"]["chuyen"] for du in cac_du], [None, kieu, kieu])
+                self.assertEqual([du["co"]["lauBang"] for du in cac_du], [False, kieu == "lau-bang", kieu == "lau-bang"])
+
+    def test_old_scripts_without_the_key_keep_the_board_wipe(self):
+        cac_du = video_nhieu_canh("", 2)
+        self.assertEqual([du["co"]["chuyen"] for du in cac_du], [None, "lau-bang"])
+        self.assertEqual([du["co"]["lauBang"] for du in cac_du], [False, True])
+
+    def test_luan_phien_cycles_the_five_kinds_by_scene_number(self):
+        cac_du = video_nhieu_canh("chuyen-canh: luan-phien\n", 12)
+        self.assertEqual([du["co"]["chuyen"] for du in cac_du], [
+            None, "lau-bang", "lat-trang", "truot", "phong", "mo-man",
+            "lau-bang", "lat-trang", "truot", "phong", "mo-man", "lau-bang"])
+        self.assertEqual(lich.CHUYEN_XOAY, ("lau-bang", "lat-trang", "truot", "phong", "mo-man"))
+
+    def test_scene_field_overrides_the_meta_key(self):
+        cac_du = video_nhieu_canh("chuyen-canh: luan-phien\n", 5, {2: "mo-man", 3: "khong", 5: "lau-bang"})
+        self.assertEqual([du["co"]["chuyen"] for du in cac_du], [None, "mo-man", None, "truot", "lau-bang"])
+        cac_du = video_nhieu_canh("chuyen-canh: khong\n", 3, {3: "phong"})
+        self.assertEqual([du["co"]["chuyen"] for du in cac_du], [None, None, "phong"])
+        self.assertEqual([du["co"]["lauBang"] for du in cac_du], [False, False, False])
 
 
 class WordMarkEstimateTest(unittest.TestCase):

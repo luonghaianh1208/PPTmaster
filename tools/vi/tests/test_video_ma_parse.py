@@ -205,7 +205,7 @@ class NewFieldsTest(unittest.TestCase):
         for key, choices, default in (
             ("ban-tay", ("co", "khong"), "co"),
             ("may-quay", ("co", "khong"), "co"),
-            ("chuyen-canh", ("lau-bang", "khong"), "lau-bang"),
+            ("chuyen-canh", ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "luan-phien", "khong"), "lau-bang"),
         ):
             self.assertEqual(parse.META_CHOICES[key], choices)
             self.assertEqual(parse.META_DEFAULTS[key], default)
@@ -250,6 +250,60 @@ class NewFieldsTest(unittest.TestCase):
         text = doc(f"## Cảnh 1\nloai: minh-hoa\ntieu-de: A\n{hinhs}loi: Xin chào.\n")
         with self.assertRaises(parse.ParseError):
             parse.parse(text)
+
+
+CANH_1 = "## Cảnh 1\nloai: tieu-de\nchu: A\nloi: Xin chào.\n\n"
+
+
+class TransitionFieldTest(unittest.TestCase):
+    def loi(self, text: str, needle: str, fragment: str):
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, needle))
+        self.assertIn(fragment, caught.exception.message)
+
+    def test_every_new_meta_value_parses(self):
+        for kieu in ("lat-trang", "truot", "phong", "mo-man", "luan-phien"):
+            with self.subTest(kieu=kieu):
+                video = parse.parse(doc(CANH_1, META + f"chuyen-canh: {kieu}\n"))
+                self.assertEqual(video.meta["chuyen-canh"], kieu)
+
+    def test_chuyen_field_is_allowed_on_every_scene_type_after_the_first(self):
+        mau = parse.parse(MAU.read_text(encoding="utf-8"))
+        self.assertTrue(all(c.so == 1 or "chuyen" not in c.truong for c in mau.canh))
+        self.assertEqual(parse.SCENE_KIEU_CHUYEN, ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "khong"))
+        toi_thieu = {
+            "tieu-de": "chu: B\n",
+            "khai-niem": "thuat-ngu: B\ndinh-nghia: C\n",
+            "cong-thuc": "bieu-thuc: v = s/t\n",
+            "y-tung-y": "tieu-de: B\ny: C\n",
+            "quy-trinh": "tieu-de: B\nbuoc: C\nbuoc: D\n",
+            "so-sanh": "tieu-de: B\ntrai: C\nphai: D\ny-trai: E\ny-phai: F\n",
+            "do-thi": "tieu-de: B\ntruc-ngang: t\ntruc-doc: v\ndiem: 0, 0\ndiem: 1, 2\n",
+            "thi-nghiem": "mau: li-con-lac-don\n",
+            "minh-hoa": "tieu-de: B\nhinh: clock | Đồng hồ\n",
+            "anh": "anh: a.png\nchu-thich: C\n",
+        }
+        for loai, truong in toi_thieu.items():
+            with self.subTest(loai=loai):
+                video = parse.parse(doc(CANH_1 + f"## Cảnh 2\nloai: {loai}\n{truong}chuyen: phong\nloi: Ok.\n"))
+                self.assertEqual(video.canh[1].truong["chuyen"], ["phong"])
+
+    def test_bad_value_points_at_the_line(self):
+        text = doc(CANH_1 + "## Cảnh 2\nloai: tieu-de\nchu: B\nchuyen: xoay-tron\nloi: Ok.\n")
+        self.loi(text, "chuyen: xoay-tron", "lat-trang")
+
+    def test_luan_phien_is_only_a_meta_value(self):
+        text = doc(CANH_1 + "## Cảnh 2\nloai: tieu-de\nchu: B\nchuyen: luan-phien\nloi: Ok.\n")
+        self.loi(text, "chuyen: luan-phien", "chuyen-canh: luan-phien")
+
+    def test_repeated_field_points_at_the_second_line(self):
+        text = doc(CANH_1 + "## Cảnh 2\nloai: tieu-de\nchu: B\nchuyen: truot\nchuyen: phong\nloi: Ok.\n")
+        self.loi(text, "chuyen: phong", "bị lặp")
+
+    def test_first_scene_has_no_previous_scene_to_leave(self):
+        text = doc("## Cảnh 1\nloai: tieu-de\nchu: A\nchuyen: truot\nloi: Xin chào.\n")
+        self.loi(text, "chuyen: truot", "Cảnh 1")
 
 
 class NhanTest(unittest.TestCase):

@@ -147,9 +147,23 @@ def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = 
     return plan, warnings
 
 
+CHUYEN_XOAY = ("lau-bang", "lat-trang", "truot", "phong", "mo-man")
+
+
+def kieu_chuyen(scene: Scene, meta: dict):
+    """Kiểu chuyển cảnh vào cảnh này: trường `chuyen:` của cảnh, không có thì khoá đầu; cảnh 1 và `khong` là None."""
+    if scene.so <= 1:
+        return None
+    kieu = scene.truong.get("chuyen", [None])[0] or meta.get("chuyen-canh", "lau-bang")
+    if kieu == "luan-phien":
+        return CHUYEN_XOAY[(scene.so - 2) % len(CHUYEN_XOAY)]
+    return None if kieu == "khong" else kieu
+
+
 def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None = None) -> dict:
     tai_nguyen = tai_nguyen or {}
     meta = tai_nguyen.get("meta", {})
+    chuyen = kieu_chuyen(scene, meta)
     du = {
         "so": scene.so,
         "loai": scene.loai,
@@ -165,8 +179,9 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None
         "co": {
             "banTay": meta.get("ban-tay", "co") == "co",
             "mayQuay": meta.get("may-quay", "co") == "co",
-            "lauBang": meta.get("chuyen-canh", "lau-bang") == "lau-bang" and scene.so > 1,
+            "lauBang": chuyen == "lau-bang",
             "chuDong": meta.get("chu-dong", "co") == "co",
+            "chuyen": chuyen,
         },
         "nenTruoc": None,
     }
