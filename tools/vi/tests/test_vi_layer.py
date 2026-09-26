@@ -1574,6 +1574,35 @@ def _anh_gia(thu_muc: Path, video) -> None:
     (thu_muc / "anh" / "image_sources.json").write_text(json.dumps({"items": items}), encoding="utf-8")
 
 
+def _nhac_gia(thu_muc: Path, video) -> None:
+    """Tạo file nhạc WAV rất ngắn cho `nhac-nen:` của kịch bản, kèm `nhac/nguon.json` khi kịch bản không ghi `nguon-nhac:`."""
+    import wave
+
+    ten = video.meta.get("nhac-nen")
+    if not ten:
+        return
+    (thu_muc / "nhac").mkdir()
+    with wave.open(str(thu_muc / "nhac" / ten), "wb") as tep:
+        tep.setnchannels(1)
+        tep.setsampwidth(1)
+        tep.setframerate(8000)
+        tep.writeframes(bytes([128]) * 4000)
+    if "nguon-nhac" not in video.meta:
+        items = [{"filename": ten, "title": "Nhạc thử", "creator": "Tác giả thử", "license": "CC0 1.0"}]
+        (thu_muc / "nhac" / "nguon.json").write_text(json.dumps({"items": items}), encoding="utf-8")
+
+
+def _kiem_kich_ban(test: unittest.TestCase, block: str) -> None:
+    """Đọc kịch bản bằng bộ đọc thật và kiểm bằng `kiem` thật, với ảnh và nhạc giả tạo theo kịch bản."""
+    from video_ma_parts import kiem, parse
+
+    video = parse.parse(block)
+    with tempfile.TemporaryDirectory() as tmp:
+        _anh_gia(Path(tmp), video)
+        _nhac_gia(Path(tmp), video)
+        test.assertEqual(kiem.kiem(video, Path(tmp)), [])
+
+
 class ExplainerVideoGuideTest(unittest.TestCase):
     def test_guide_has_its_own_sections_in_order(self):
         self.assertEqual(h2_headings(read(EXPLAINER_GUIDE)), list(EXPLAINER_GUIDE_HEADINGS))
@@ -1587,16 +1616,11 @@ class ExplainerVideoGuideTest(unittest.TestCase):
         self.assertTrue(2 <= len(quick) <= 3, f"{len(quick)} câu")
 
     def test_guide_example_parses_with_the_real_reader(self):
-        from video_ma_parts import kiem, parse
-
         body = section(read(EXPLAINER_GUIDE), "## Cấu trúc video.md")
         blocks = re.findall(r"```[a-z]*\n(---\n.*?)```", body, re.S)
         self.assertGreaterEqual(len(blocks), 1)
         for block in blocks:
-            video = parse.parse(block)
-            with tempfile.TemporaryDirectory() as tmp:
-                _anh_gia(Path(tmp), video)
-                self.assertEqual(kiem.kiem(video, Path(tmp)), [])
+            _kiem_kich_ban(self, block)
 
     def test_guide_example_shows_pictures_photos_and_motion_keys(self):
         from video_ma_parts import parse
@@ -1706,6 +1730,153 @@ class ExplainerVideoGuideTest(unittest.TestCase):
         for phrase in ("10 loại", "Video giải thích", "video_ma.py", "Thầy cô muốn làm video từ bài giảng slide đã có"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, rule)
+
+
+TEACHER_EXPLAINER_DOC = "docs/vi/video-giai-thich.md"
+EFFECT_PHRASES = ("==", "((", "__", "{{", "cau-hoi", "bieu-do", "so-do", "dong-thoi-gian", "tim_nhac.py", "nhac-nen",
+                  "am-thanh", "karaoke", "luan-phien")
+_KICH_BAN_RE = re.compile(r"```[a-z]*\n(---\n.*?)```", re.S)
+_CANH_MAU_RE = re.compile(r"```[a-z]*\n(## Cảnh \d+\n.*?)```", re.S)
+_DAU_CANH_MAU = "---\ntieu-de: Thử\nmon: Vật lí\nlop: 11\n---\n\n## Cảnh 1\nloai: tieu-de\nchu: Mở đầu\nloi: Mở đầu.\n\n"
+
+
+class ExplainerEffectsDocsTest(unittest.TestCase):
+    """Tài liệu vi.11: nhấn ý, số chạy, bốn loại cảnh mới, chuyển cảnh, karaoke, tiếng hiệu ứng, nhạc nền."""
+
+    def test_guides_name_every_effect(self):
+        for name in (EXPLAINER_GUIDE, SCENE_GUIDE):
+            text = read(name)
+            for phrase in EFFECT_PHRASES:
+                with self.subTest(file=name, phrase=phrase):
+                    self.assertIn(phrase, text)
+
+    def test_guide_meta_table_lists_every_key_and_value(self):
+        from video_ma_parts import parse
+
+        body = section(read(EXPLAINER_GUIDE), "## Cấu trúc video.md")
+        rows = {line.split(" | ")[0]: line for line in body.splitlines() if line.startswith("| `")}
+        bang = "\n".join(rows)
+        for key in (*parse.META_REQUIRED, *parse.META_CHOICES, *parse.META_FREE):
+            with self.subTest(key=key):
+                self.assertIn(f"`{key}`", bang)
+        for key, values in parse.META_CHOICES.items():
+            row = rows.get(f"| `{key}`", "")
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    self.assertIn(f"`{value}`", row)
+        self.assertIn("`karaoke` (mặc định", rows["| `phu-de`"])
+        self.assertEqual(parse.META_DEFAULTS["phu-de"], "karaoke")
+
+    def test_scene_guide_lists_every_transition_and_the_scene_field(self):
+        from video_ma_parts import parse
+
+        body = section(read(SCENE_GUIDE), "## Chuyển cảnh")
+        for kieu in parse.META_CHOICES["chuyen-canh"]:
+            with self.subTest(kieu=kieu):
+                self.assertIn(f"| `{kieu}` |", body)
+        self.assertEqual(set(parse.SCENE_KIEU_CHUYEN), set(parse.META_CHOICES["chuyen-canh"]) - {"luan-phien"})
+        for phrase in ("`chuyen:`", "Cảnh 1", "lỗi `parse`"):
+            self.assertIn(phrase, body)
+
+    def test_scene_guide_states_the_emphasis_grammar(self):
+        from video_ma_parts import kiem
+
+        body = section(read(SCENE_GUIDE), "## Nhấn ý chính và số chạy")
+        for phrase in ("`==chữ==`", "`((chữ))`", "`__chữ__`", "`{{số}}`", f"Tối đa {kiem.MAX_CUM} cụm", "giữ dấu thanh",
+                       "0,3 giây", "`____`", "`bieu-thuc`", "dấu chấm", "dấu phẩy", "`chu-dong: co`"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+
+    def test_every_example_script_passes_the_real_reader(self):
+        found = 0
+        for name in (EXPLAINER_GUIDE, SCENE_GUIDE, TEACHER_EXPLAINER_DOC):
+            for block in _KICH_BAN_RE.findall(read(name)):
+                found += 1
+                with self.subTest(file=name, block=block[:60]):
+                    _kiem_kich_ban(self, block)
+        self.assertGreaterEqual(found, 3)
+
+    def test_every_scene_example_passes_the_real_reader(self):
+        from video_ma_parts import parse
+
+        blocks = _CANH_MAU_RE.findall(read(SCENE_GUIDE))
+        loai = set()
+        for block in blocks:
+            with self.subTest(block=block[:40]):
+                kich_ban = _DAU_CANH_MAU + re.sub(r"^## Cảnh \d+", "## Cảnh 2", block)
+                _kiem_kich_ban(self, kich_ban)
+                loai.add(parse.parse(kich_ban).canh[1].loai)
+        self.assertEqual(loai, set(parse.SCENE_SPEC))
+
+    def test_guide_example_uses_the_new_effects(self):
+        from video_ma_parts import parse
+
+        body = section(read(EXPLAINER_GUIDE), "## Cấu trúc video.md")
+        videos = [parse.parse(block) for block in _KICH_BAN_RE.findall(body)]
+        scenes = [scene for video in videos for scene in video.canh]
+        chu = "\n".join(value for scene in scenes for values in scene.truong.values() for value in values)
+        for loai in ("cau-hoi", "bieu-do", "so-do", "dong-thoi-gian"):
+            with self.subTest(loai=loai):
+                self.assertTrue(any(s.loai == loai for s in scenes))
+        for dau in ("==", "((", "__", "{{"):
+            with self.subTest(dau=dau):
+                self.assertIn(dau, chu)
+        self.assertTrue(any("chuyen" in s.truong for s in scenes))
+        self.assertTrue(any(v.meta.get("nhac-nen") for v in videos))
+        self.assertTrue(any(v.meta["chuyen-canh"] == "luan-phien" for v in videos))
+
+    def test_guide_asks_about_quiz_effects_and_music(self):
+        items = numbered_items(section(read(EXPLAINER_GUIDE), "## Câu hỏi bắt buộc"))
+        joined = "\n".join(items)
+        for phrase in ("câu hỏi nhanh", "nhạc nền", "tiếng hiệu ứng", "giọng thu sẵn", "tô vàng"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, joined)
+        output = section(read(EXPLAINER_GUIDE), "## Đầu ra")
+        for phrase in (r"python tools\vi\tim_nhac.py", r"projects\_video\<tên_video>\nhac", "nhac/nguon.json",
+                       "nghe thử", "`mang`", "`input`", "`write`", "am-thanh: khong", "canh-N-giai.mp3"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, output)
+
+    def test_agents_rule_and_troubleshooting_cover_the_music_finder(self):
+        agents = section(read("AGENTS.vi.md"), AGENTS_VI_EXPLAINER_HEADING)
+        for phrase in (r"python tools\vi\tim_nhac.py", "nhac-nen", "nguon-nhac", "nghe thử", "`mang`", "am-thanh: khong",
+                       "karaoke", "luan-phien", "cau-hoi", "canh-N-giai.mp3", "nhac/nguon.json"):
+            with self.subTest(file="AGENTS.vi.md", phrase=phrase):
+                self.assertIn(phrase, agents)
+        rule = read(".agents/rules/ppt-master-vi.md")
+        for phrase in ("tim_nhac.py", "nhac-nen", "nghe thử", "`mang`", "cau-hoi"):
+            with self.subTest(file="rule", phrase=phrase):
+                self.assertIn(phrase, rule)
+        self.assertLess(len(rule), ANTIGRAVITY_RULE_LIMIT)
+        text = read("docs/vi/xu-ly-loi.md")
+        headings = h2_headings(text)
+        self.assertEqual(headings.index("## Tìm nhạc nền thất bại"), headings.index("## Dựng video giải thích thất bại") + 1)
+        body = section(text, "## Tìm nhạc nền thất bại")
+        for phrase in ("tim_nhac.py", "`mang`", "`input`", "`write`", "Openverse", "CC0", "CC BY"):
+            with self.subTest(file="xu-ly-loi.md", phrase=phrase):
+                self.assertIn(phrase, body)
+        self.assertIn("nhạc nền", section(text, "## Dựng video giải thích thất bại"))
+
+    def test_music_finder_error_steps_match_the_docs(self):
+        import tim_nhac
+
+        source = (REPO_ROOT / "tools" / "vi" / "tim_nhac.py").read_text(encoding="utf-8")
+        steps = set(re.findall(r'Loi\("([a-z]+)"', source)) | set(re.findall(r'"step": "([a-z]+)"', source))
+        self.assertEqual(steps, {"mang", "input", "write"})
+        self.assertEqual(tim_nhac.GIAY_TOI_THIEU, 60)
+        body = section(read("docs/vi/xu-ly-loi.md"), "## Tìm nhạc nền thất bại")
+        for step in steps:
+            self.assertIn(f"`{step}`", body)
+
+    def test_teacher_doc_explains_the_effects(self):
+        text = read(TEACHER_EXPLAINER_DOC)
+        self.assertIn("## Hiệu ứng giúp học sinh nhớ bài", h2_headings(text))
+        body = section(text, "## Hiệu ứng giúp học sinh nhớ bài")
+        for phrase in ("Nhấn ý chính", "Số chạy", "Biểu đồ", "Sơ đồ tư duy", "dòng thời gian", "Câu hỏi nhanh", "Chuyển cảnh",
+                       "karaoke", "Tiếng hiệu ứng", "Nhạc nền", "Openverse", "CC0", "CC BY", "nghe thử", "4 giây cuối"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, body)
+        self.assertNotIn("không có nhạc nền", text)
 
 
 if __name__ == "__main__":

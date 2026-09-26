@@ -97,14 +97,28 @@ Xem dòng kết quả AI đọc được, phần `error`:
   - **ảnh chưa có nguồn**: ảnh thầy cô tự chụp cần ghi ai chụp; ảnh tải về thì AI tải lại để có bản ghi nguồn.
   - **`anh\image_sources.json` sai cấu trúc** hoặc không phải JSON: AI sửa file theo dạng nêu trong thông báo.
   - **thiếu file ảnh** hoặc sai định dạng: chỉ nhận `.jpg`, `.jpeg`, `.png`, `.webp` đặt trong thư mục `anh\` của video.
-- `giong`: không tạo được giọng đọc. Giọng máy **cần mạng**: kiểm tra mạng rồi nhờ AI chạy lại. Không có mạng thì thu giọng từng cảnh thành `giong\canh-1.mp3`, `giong\canh-2.mp3`… trong thư mục video; cảnh có file sẵn không cần mạng.
+  - **nhạc nền** (thông báo bắt đầu bằng "Cảnh 0: nhạc nền"): thiếu file trong thư mục `nhac\`, file không phải `.mp3`, `.m4a`, `.wav`, `.ogg`, file hỏng, hoặc nhạc **chưa có nguồn**. Nhạc AI tải bằng `tim_nhac.py` có nguồn sẵn trong `nhac\nguon.json`; nhạc thầy cô gửi thì cho AI biết tên bài, người sáng tác và giấy phép để ghi `nguon-nhac:`.
+  - **dấu nhấn** sai (lỗi `parse` nêu **Dòng**): cụm `==…==`, `((…))`, `__…__` chưa đóng, lồng nhau hoặc quá 3 cụm một dòng; `{{…}}` không phải số (số trong kịch bản dùng dấu chấm thập phân).
+- `giong`: không tạo được giọng đọc. Giọng máy **cần mạng**: kiểm tra mạng rồi nhờ AI chạy lại. Không có mạng thì thu giọng từng cảnh thành `giong\canh-1.mp3`, `giong\canh-2.mp3`… trong thư mục video; cảnh có file sẵn không cần mạng. Cảnh câu hỏi nhanh cần thêm giọng lời giải `giong\canh-N-giai.mp3`; `error.message` nêu đúng file đang thiếu.
 - `chromium`: máy chưa có Chromium để vẽ cảnh. Cho AI chạy `powershell -NoProfile -ExecutionPolicy Bypass -File tools\vi\pptmaster.ps1 -Action tool -Name chromium` (tải 150–300 MB, một lần). Bước cài `playwright` báo `FileNotFoundError` hay lỗi đường dẫn thì xem mục **Đường dẫn quá dài**.
 - `ffmpeg`: máy chưa có FFmpeg. Cho AI chạy lệnh trên với `-Name ffmpeg`.
 - `dung`: chụp khung hoặc ghép video hỏng giữa chừng. Hỏng lúc chụp khung thì `error.message` nêu cảnh (hoặc dải cảnh) đang chụp; hỏng lúc ghép thì `error.message` là thông báo lỗi của FFmpeg. Dán nguyên dòng `error.message` gửi người bảo trì.
 - `write`: **`video.mp4` đang mở** trong trình phát video — đóng lại rồi chạy lại; hoặc ổ đĩa hết dung lượng (khung hình tạm được ghi ra đĩa trong lúc dựng).
 - `internal`: lỗi ngoài dự kiến. Dán nguyên dòng `error.message` gửi người bảo trì.
 
-Các dòng `warnings` không chặn video, chỉ gợi ý: cảnh dài quá 40 giây, video dài quá 8 phút, lời một cảnh quá 700 ký tự, hoặc "mốc câu ước lượng" khi dùng giọng thu sẵn (chữ có thể hiện lệch tiếng một chút).
+Các dòng `warnings` không chặn video, chỉ gợi ý: cảnh dài quá 40 giây, video dài quá 8 phút, lời hoặc lời giải một cảnh quá 700 ký tự, hoặc "mốc câu … ước lượng", "mốc từng từ ước lượng" khi dùng giọng thu sẵn hay khi chữ không khớp được với giọng máy (chữ, chỗ nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây).
+
+Video có tiếng hiệu ứng hay nhạc nền nghe ồn: nhờ AI ghi `am-thanh: khong` (tắt tiếng hiệu ứng) hoặc bỏ dòng `nhac-nen` (bỏ nhạc) rồi dựng lại.
+
+## Tìm nhạc nền thất bại
+
+Lệnh `tools\vi\tim_nhac.py` tìm và tải nhạc nền giấy phép mở (CC0, CC BY) trên Openverse cho video giải thích. Xem dòng kết quả AI đọc được, phần `error`:
+
+- `mang`: không kết nối được Openverse, hết thời gian chờ, hoặc Openverse trả dữ liệu lạ. Kiểm tra mạng rồi nhờ AI chạy lại; Openverse bận thì thử lại sau vài phút. Máy trường chặn trang ngoài thì thầy cô tự gửi một file nhạc có giấy phép rõ ràng.
+- `input`: sai tham số lệnh; từ khoá không có chữ cái hay chữ số; không có bản CC0/CC BY dạng mp3 dài từ 60 giây cho từ khoá đó (nhờ AI thử từ khoá tiếng Anh khác, ngắn hơn, ví dụ "calm piano"); hoặc `nhac\nguon.json` đang có sai cấu trúc (sửa lại hoặc xoá file đó rồi chạy lại).
+- `write`: không ghi được thư mục `nhac\` hay file nhạc: kiểm ổ đĩa còn chỗ, đóng file đang mở rồi chạy lại.
+
+Lệnh không bao giờ ghi đè file nhạc đã có; bản tải về không phải mp3 hoặc quá 40 MB thì bị bỏ qua và có một dòng `warnings`.
 
 ## Tạo thí nghiệm ảo thất bại
 

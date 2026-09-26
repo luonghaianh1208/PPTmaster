@@ -70,6 +70,8 @@ Bài mới thuộc Bài giảng, Báo cáo – tổng kết, Hoạt động Đo�
 - Chạy `tools\vi\video_ma.py <thư_mục> --plan-only`, rồi `--xem-truoc` và xem ảnh từng cảnh, rồi mới dựng thật bằng `tools\vi\video_ma.py <thư_mục>`; báo trước thầy cô là dựng mất khoảng 1,5 lần thời lượng video.
 - Không viết HTML hay ảnh cảnh bằng tay, không tự chạy FFmpeg. `error.step` là `chromium` thì hỏi thầy cô trước khi tải Chromium (150–300 MB).
 - Ảnh thật (thầy cô đồng ý): tải bằng `skills/ppt-master/scripts/image_search.py "<từ khoá>" --filename <tên>.jpg -o projects\_video\<tên>\anh` trước `--plan-only`; có ảnh thật thì bắt buộc chạy `--xem-truoc` và cho thầy cô xem ảnh trước khi dựng thật.
+- Nhạc nền (thầy cô đồng ý): tải bằng `tools\vi\tim_nhac.py "<từ khoá>" -o projects\_video\<tên>\nhac` (CC0/CC BY, nguồn tự ghi vào `nhac/nguon.json`), ghi `nhac-nen: <file>`, gửi thầy cô nghe thử trước khi dựng. `error.step` là `mang` thì kiểm mạng, chạy lại tối đa một lần. Không dùng nhạc không rõ nguồn.
+- Câu hỏi và đáp án của cảnh `cau-hoi` phải được thầy cô duyệt. Sau khi dựng, nhắc thầy cô nghe thử tiếng hiệu ứng và nhạc; ồn thì ghi `am-thanh: khong` hoặc bỏ `nhac-nen`.
 
 ## Các việc khác
 

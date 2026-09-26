@@ -1,10 +1,10 @@
 # Cảnh video giải thích: danh mục mười bốn loại cảnh
 
-File dành cho AI. Đọc cùng `docs/vi/tro-ly/video-giai-thich.md`. Mỗi cảnh trong `video.md` có `loai:`, `loi:` và các trường của loại cảnh dưới đây; trường không có trong danh sách của loại cảnh là lỗi `parse`.
+File dành cho AI. Đọc cùng `docs/vi/tro-ly/video-giai-thich.md`. Mỗi cảnh trong `video.md` có `loai:`, `loi:` và các trường của loại cảnh dưới đây; trường không có trong danh sách của loại cảnh là lỗi `parse`. Mọi loại cảnh có thêm trường tuỳ chọn `chuyen:` (kiểu chuyển cảnh riêng của cảnh đó, xem mục "Chuyển cảnh").
 
 Quy ước chung:
 
-- Giới hạn tính theo số ký tự hiện ra, không tính dấu quy ước `~`, `^`, `**`. Vượt giới hạn là lỗi `canh`.
+- Giới hạn tính theo số ký tự hiện ra, không tính dấu quy ước `~`, `^`, `**` và dấu nhấn `==`, `((`, `))`, `__`, `{{`, `}}`; số chạy `{{2.01}}` tính theo chữ hiện ra ("2,01"). Vượt giới hạn là lỗi `canh`.
 - Trường lặp viết nhiều dòng cùng khoá, theo đúng thứ tự muốn hiện.
 - Cảnh có danh sách: ý thứ k hiện khi câu thứ k của `loi` bắt đầu; lời ít câu hơn số ý thì các ý hiện đều nhau theo thời lượng giọng.
 - Không chèn địa chỉ web vào bất kỳ trường nào.
@@ -12,7 +12,56 @@ Quy ước chung:
 - Cảnh `tieu-de` có hình: hình 180×180 được vẽ dần ở giữa phía trên, rồi tiêu đề viết bên dưới. Ba loại còn lại: hình hoặc ảnh nằm ở cột phải, chữ thu hẹp về bên trái; giới hạn ký tự giữ nguyên, chữ dài thì cỡ chữ nhỏ lại một chút và công cụ vẫn bắt lỗi tràn khung.
 - Tên biểu tượng là tiếng Anh, không có tiền tố thư viện: tra ở mục "Bảng tra biểu tượng" cuối file. Viết `tabler-outline/flask`, `Flask` hay `flask.svg` vẫn được nhận; tên sai hay tên tiếng Việt là lỗi `canh`: lỗi nhắc tên phải là tiếng Anh, chỉ tới bảng tra, và gợi ý tối đa 5 tên (tên tiếng Việt được đối chiếu với cột khái niệm của bảng tra trước; không bao giờ gợi ý biểu tượng thương hiệu `brand-*`).
 - Ảnh thật do AI tải về `anh/` của thư mục video bằng `image_search.py` trước khi dựng: xem mục "Ảnh thật".
-- Mỗi hình được vẽ dần từng nét như bút vẽ trên bảng; bàn tay cầm bút đi theo nét và chữ đang viết, máy quay phóng vào phần đang nói rồi thu về toàn cảnh trước khi hết cảnh. Tắt được bằng khoá đầu `ban-tay`, `may-quay`, `chuyen-canh` (xem `docs/vi/tro-ly/video-giai-thich.md`).
+- Mỗi hình được vẽ dần từng nét như bút vẽ trên bảng; bàn tay cầm bút đi theo nét và chữ đang viết, máy quay phóng vào phần đang nói rồi thu về toàn cảnh trước khi hết cảnh. Tắt được bằng khoá đầu `ban-tay`, `may-quay`, `chuyen-canh`; chữ nảy, tiếng hiệu ứng và phụ đề karaoke tắt bằng `chu-dong`, `am-thanh`, `phu-de` (xem `docs/vi/tro-ly/video-giai-thich.md`).
+- Khoá đầu mới của bản này: `chu-dong` và `am-thanh` (mặc định `co`), `phu-de` thêm giá trị `karaoke` (mặc định), `chuyen-canh` thêm bốn kiểu và `luan-phien` (mục "Chuyển cảnh"), `nhac-nen` và `nguon-nhac` cho nhạc nền. Nhạc nền đặt trong `nhac/` của video; AI tải bằng `tim_nhac.py` theo mục "Đầu ra" của `docs/vi/tro-ly/video-giai-thich.md`. Tiếng hiệu ứng gắn với cảnh tự động: tiếng bút khi viết và vẽ, "ting" khi một ý, bước, nhánh, mốc, cột hay lựa chọn hiện ra, tiếng chuyển cảnh, tích tắc và chuông ở cảnh `cau-hoi`, tiếng nhỏ khi nhấn ý; không cần ghi gì trong cảnh.
+
+## Nhấn ý chính và số chạy
+
+Viết ngay trong chữ của các trường hiện trên hình (tiêu đề, định nghĩa, ý, bước, nhánh, mốc, lựa chọn, giải thích…), không thêm trường mới:
+
+| Viết | Hiện ra |
+|---|---|
+| `==chữ==` | tô nền vàng như bút dạ quang, quét từ trái sang phải |
+| `((chữ))` | khoanh bằng một vòng elip đỏ vẽ tay |
+| `__chữ__` | gạch chân đỏ vẽ dần |
+| `{{số}}` | số chạy từ 0 lên giá trị đó trong 0,8 giây, bắt đầu khi bút viết tới chỗ số |
+
+Cụm nhấn nổ khi giọng đọc tới từ đầu tiên của cụm trong `loi` (hoặc trong `loi-giai` với cảnh `cau-hoi`), không bao giờ trước khi cụm được viết xong. So khớp không phân biệt hoa thường, bỏ dấu câu nhưng **giữ dấu thanh**: `((chu kì))` khớp "Chu kì" trong lời, nhưng không khớp "chu kỳ". Cụm không có trong lời thì nổ 0,3 giây sau khi được viết xong. Vì vậy viết cụm đúng như trong lời, cùng một cách viết dấu. Khoá đầu `chu-dong: co` (mặc định) làm cụm nảy nhẹ khi nổ; `am-thanh: co` thêm một tiếng nhỏ.
+
+Luật:
+
+- Tối đa 3 cụm nhấn mỗi trường (mỗi dòng); không lồng cụm trong cụm; cụm mở thì phải đóng. Sai là lỗi `parse` nêu đúng dòng.
+- `**`, `~`, `^` phải nằm trọn trong cụm hoặc trọn ngoài cụm; ngoặc trong `((…))` phải đủ cặp (công thức có ngoặc thì dùng `==…==`).
+- Chữ thường, không phải dấu nhấn: `____` (từ ba dấu gạch dưới liền nhau, ô trống để điền) và `==` hay `__` có khoảng trắng hai bên (ví dụ `a == b`). Trong `bieu-thuc` của `cong-thuc`, `==`, `((`, `__` luôn là chữ thường của công thức; chỉ `{{số}}` có tác dụng.
+- `{{…}}` chỉ chứa một số, dấu thập phân là **dấu chấm** trong kịch bản (`{{2.01}}`, `{{-40}}`, `{{1500}}`); trên hình số hiện kiểu Việt với dấu phẩy ("2,01"), giữ đúng số chữ số thập phân đã viết, không có dấu phân cách hàng nghìn. Chữ không phải số hay `{{` thiếu `}}` là lỗi `parse`.
+- Không cần đánh dấu trong `loi` và `loi-giai`: công cụ bỏ mọi dấu nhấn trước khi đọc.
+- Dùng tiết kiệm: 1–2 cụm cho ý quan trọng nhất của cảnh, `{{số}}` cho con số học sinh cần nhớ.
+
+```
+## Cảnh 2
+loai: khai-niem
+thuat-ngu: ((Chu kì)) T
+dinh-nghia: Khoảng thời gian ==ngắn nhất== để con lắc thực hiện __một dao động toàn phần__, khoảng {{2.01}} giây với dây dài 1 m.
+loi: Chu kì là khoảng thời gian ngắn nhất để con lắc thực hiện một dao động toàn phần. Với dây dài một mét, chu kì khoảng hai giây.
+```
+
+## Chuyển cảnh
+
+Từ cảnh 2, nửa giây đầu mỗi cảnh chuyển từ khung cuối của cảnh trước sang cảnh mới. Khoá đầu `chuyen-canh` chọn kiểu cho cả video; trường `chuyen:` trong một cảnh ghi đè kiểu của riêng cảnh đó.
+
+| Giá trị | Cách chuyển |
+|---|---|
+| `lau-bang` | mặc định: bàn tay cầm giẻ lau sạch bảng cũ |
+| `lat-trang` | trang cũ lật sang trái như trang sách |
+| `truot` | trang cũ trượt ra bên trái, trang mới trượt vào từ bên phải |
+| `phong` | phóng xuyên qua trang cũ, có một chớp sáng trắng ở giữa |
+| `mo-man` | trang cũ tách làm hai nửa kéo sang hai bên như mở màn |
+| `khong` | không chuyển, cảnh mới hiện ngay |
+| `luan-phien` | chỉ dùng ở khoá đầu: xoay vòng từ cảnh 2 theo thứ tự `lau-bang`, `lat-trang`, `truot`, `phong`, `mo-man`, rồi lặp lại |
+
+- `chuyen:` nhận năm kiểu trên hoặc `khong`, không nhận `luan-phien`. Cảnh 1 mở đầu video nên không có `chuyen:`; ghi vào cảnh 1 là lỗi `parse`.
+- Chỉ `lau-bang` có bàn tay trong lúc chuyển; bốn kiểu kia ẩn bàn tay, bút vào sau khi chuyển xong.
+- Nên dùng `luan-phien` cho video nhiều cảnh, hoặc giữ một kiểu và dùng `chuyen:` để đánh dấu lúc sang phần mới (ví dụ `chuyen: lat-trang` trước cảnh câu hỏi).
 
 ## Tiêu đề
 
@@ -26,7 +75,7 @@ Mã loại: `tieu-de`.
 | `anh` | không | tên file trong `anh/` |
 | `nguon` | không | dòng nguồn của ảnh ở `anh`; chỉ ghi khi cảnh có `anh` |
 
-Cách hiện: chữ lớn được viết ra giữa khung, dòng phụ hiện bên dưới. Dùng cho cảnh mở đầu hoặc mở một phần mới.
+Cách hiện: chữ lớn hiện ra giữa khung, dòng phụ hiện bên dưới. Với `chu-dong: co` (mặc định) chữ lớn nảy vào từng chữ cái, không có bàn tay; với `chu-dong: khong` chữ lớn được bút viết ra như các chữ khác. Dùng cho cảnh mở đầu hoặc mở một phần mới.
 
 ```
 ## Cảnh 1
@@ -72,7 +121,7 @@ Mã loại: `cong-thuc`.
 
 Cách hiện: biểu thức được viết dần, các dòng giải thích hiện lần lượt theo từng câu của lời.
 
-Công thức hiện từng phần: tách `bieu-thuc` bằng ` | ` (gạch đứng có khoảng trắng hai bên), ví dụ `bieu-thuc: T = 2π√(l/g) | = 2π√(1/9,8) | ≈ {{2.01}} s`. Phần thứ k được viết nối tiếp trên cùng dòng khi câu thứ k của `loi` bắt đầu; dòng giải thích thứ k khi đó hiện ở câu (số phần + k). Không có ` | ` thì như cũ; `|x|` (không có khoảng trắng hai bên) vẫn là chữ thường. Phần trống, quá 4 phần, hoặc `**`, `~`, `^`, `{{…}}` mở ở phần này đóng ở phần khác là lỗi `parse`.
+Công thức hiện từng phần: tách `bieu-thuc` bằng ` | ` (gạch đứng có khoảng trắng hai bên), ví dụ `bieu-thuc: T = 2π√(l/g) | = 2π√(1/9,8) | ≈ {{2.01}} s`. Phần thứ k được viết nối tiếp trên cùng dòng khi câu thứ k của `loi` bắt đầu; dòng giải thích thứ k khi đó hiện ở câu (số phần + k). Không có ` | ` thì như cũ; `|x|` (không có khoảng trắng hai bên) vẫn là chữ thường. Phần trống, quá 4 phần, hoặc `**`, `~`, `^`, `{{…}}` mở ở phần này đóng ở phần khác là lỗi `parse`. Trong `bieu-thuc`, `==`, `((`, `__` là chữ của công thức, không phải dấu nhấn; dấu nhấn dùng được ở `giai-thich`.
 
 ```
 ## Cảnh 3
@@ -81,6 +130,16 @@ bieu-thuc: T = 2π√(l/g)
 giai-thich: l là chiều dài dây, đơn vị mét
 giai-thich: g là gia tốc trọng trường, khoảng 9,8 m/s^2^
 loi: Chu kì bằng hai pi nhân căn của l chia g. Chữ l là chiều dài dây. Chữ g là gia tốc trọng trường.
+```
+
+Cùng công thức, hiện từng phần (ba phần ứng với ba câu đầu, rồi dòng giải thích ứng với câu thứ tư):
+
+```
+## Cảnh 3
+loai: cong-thuc
+bieu-thuc: T = 2π√(l/g) | = 2π√(1/9,8) | ≈ {{2.01}} s
+giai-thich: __l__ là chiều dài dây, đơn vị mét
+loi: Chu kì bằng hai pi căn l chia g. Thay dây dài một mét. Được khoảng hai giây. Chữ l là chiều dài dây.
 ```
 
 ## Ý từng ý
@@ -292,7 +351,12 @@ Mã loại: `bieu-do`.
 | `don-vi` | không | 12 ký tự; không dùng với `tron` |
 | `truc-ngang`, `truc-doc` | không | tên trục, mỗi tên 40 ký tự; không dùng với `tron` |
 
-Cách hiện: trục và thang số tròn (bước 1, 2, 5 × 10ⁿ, 4–6 vạch) vẽ trước cùng nhãn các mục. Mục thứ k hiện khi câu thứ k của `loi` bắt đầu: cột mọc từ trục (số âm mọc xuống dưới trục), điểm và đoạn nối của đường vẽ dần, lát tròn mở dần theo góc; số trên cột, trên điểm, phần trăm cạnh lát chạy từ 0 tới giá trị thật và hiện kiểu Việt (dấu phẩy thập phân). Máy quay giữ toàn cảnh biểu đồ.
+Cách hiện: trục và thang số tròn (bước 1, 2, 5 × 10ⁿ, 4–6 vạch) vẽ trước cùng nhãn các mục. Mục thứ k hiện khi câu thứ k của `loi` bắt đầu: cột mọc từ trục (số âm mọc xuống dưới trục), điểm và đoạn nối của đường vẽ dần, lát tròn mở dần theo góc; số trên cột, trên điểm, phần trăm cạnh lát chạy từ 0 tới giá trị thật và hiện kiểu Việt (dấu phẩy thập phân). Máy quay giữ toàn cảnh biểu đồ để học sinh so sánh được các mục.
+
+- Viết mỗi mục ứng với đúng một câu của `loi`, theo đúng thứ tự; lời ít câu hơn số mục thì các mục mọc đều theo thời lượng giọng.
+- Nhãn là chữ, viết dấu phẩy thập phân tuỳ ý (`0,25 m`); số sau `|` luôn dùng dấu chấm. Số chạy trên hình giữ đúng số chữ số thập phân đã viết (`1.0` hiện "1,0").
+- `cot`: số âm được, cột âm mọc xuống dưới trục. `duong`: hợp với số liệu thay đổi theo thời gian hay theo một đại lượng. `tron`: chỉ số dương, công cụ tự tính phần trăm; không ghi `don-vi`, `truc-ngang`, `truc-doc` (ghi là lỗi `parse`).
+- Số liệu chênh lệch rất lớn (1 và 100000) vẫn vẽ được nhưng cột nhỏ gần như phẳng; nên đổi đơn vị hoặc tách biểu đồ.
 
 ```
 ## Cảnh 11
@@ -309,6 +373,19 @@ du-lieu: 2 m | 2.84
 loi: Dây dài một phần tư mét, chu kì một giây. Dây nửa mét, chu kì một phẩy bốn hai giây. Dây một mét, chu kì hai giây. Dây hai mét, chu kì gần ba giây.
 ```
 
+Biểu đồ tròn:
+
+```
+## Cảnh 11
+loai: bieu-do
+tieu-de: Thành phần không khí theo thể tích
+kieu: tron
+du-lieu: Nitrogen | 78
+du-lieu: Oxygen | 21
+du-lieu: Khí khác | 1
+loi: Nitrogen chiếm khoảng bảy mươi tám phần trăm. Oxygen chiếm khoảng hai mươi mốt phần trăm. Các khí khác chỉ khoảng một phần trăm.
+```
+
 ## Sơ đồ tư duy
 
 Mã loại: `so-do`.
@@ -319,14 +396,14 @@ Mã loại: `so-do`.
 | `nhanh` | lặp 2–6 dòng | mỗi nhánh 40 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline`, vẽ trong nút trung tâm |
 
-Cách hiện: nút trung tâm vẽ trước; nhánh thứ k (đường cong vẽ tay, mỗi nhánh một màu, tới ô nhãn) hiện khi câu thứ k của `loi` bắt đầu. Các nhánh rải quanh nút theo góc cố định theo số nhánh, nhánh đầu ở phía trên bên phải rồi đi theo chiều kim đồng hồ. Máy quay giữ toàn cảnh sơ đồ.
+Cách hiện: nút trung tâm vẽ trước; nhánh thứ k (đường cong vẽ tay, mỗi nhánh một màu, tới ô nhãn) hiện khi câu thứ k của `loi` bắt đầu. Các nhánh rải quanh nút theo góc cố định theo số nhánh, nhánh đầu ở phía trên bên phải rồi đi theo chiều kim đồng hồ. Máy quay giữ toàn cảnh sơ đồ. Hợp với cảnh tóm tắt cuối bài; viết mỗi nhánh ứng với đúng một câu của `loi`. Nhánh dùng được dấu nhấn.
 
 ```
 ## Cảnh 12
 loai: so-do
 trung-tam: Chu kì con lắc đơn
 hinh: clock
-nhanh: Tăng khi dây dài hơn
+nhanh: Tăng khi dây ==dài hơn==
 nhanh: Giảm khi g lớn hơn
 nhanh: Không đổi theo khối lượng
 loi: Chu kì tăng khi dây dài hơn. Chu kì giảm khi gia tốc trọng trường lớn hơn. Khối lượng quả nặng không làm đổi chu kì.
@@ -341,7 +418,7 @@ Mã loại: `dong-thoi-gian`.
 | `tieu-de` | có | 90 ký tự |
 | `moc` | lặp 2–6 dòng | dạng `<nhãn> \| <mô tả>`; nhãn 12 ký tự, mô tả 60 ký tự |
 
-Cách hiện: trục ngang có mũi tên vẽ trước (0,6 giây); mốc thứ k (chấm, nhãn, rồi mô tả) hiện khi câu thứ k của `loi` bắt đầu. Đến 4 mốc: nhãn trên trục, mô tả dưới trục; từ 5 mốc: các mốc xen kẽ trên và dưới trục.
+Cách hiện: trục ngang có mũi tên vẽ trước (0,6 giây); mốc thứ k (chấm, nhãn, rồi mô tả) hiện khi câu thứ k của `loi` bắt đầu. Đến 4 mốc: nhãn trên trục, mô tả dưới trục; từ 5 mốc: các mốc xen kẽ trên và dưới trục. Hợp với tiến trình lịch sử, các giai đoạn phát triển, các bước theo thời gian. Viết các mốc theo thứ tự thời gian, mỗi mốc ứng với đúng một câu của `loi`.
 
 ```
 ## Cảnh 13
@@ -366,17 +443,25 @@ Mã loại: `cau-hoi`.
 | `cho` | không | số giây đếm ngược, số nguyên 3–10, mặc định 5 |
 | `loi-giai` | có | lời đọc sau khi hiện đáp án |
 
-Cách hiện: bút viết câu hỏi rồi từng lựa chọn theo câu của `loi`; hết lời thì đồng hồ đếm ngược `cho` giây, không có bàn tay; rồi lựa chọn đúng có viền xanh và dấu ✓, các lựa chọn khác mờ đi, giọng đọc `loi-giai` và bút viết `giai-thich`. Giọng lời giải là file riêng `giong/canh-<số>-giai.mp3` (đặt sẵn thì được dùng, không bị ghi đè).
+Cách hiện: bút viết câu hỏi rồi từng lựa chọn theo câu của `loi`; hết lời thì đồng hồ vòng tròn đếm ngược `cho` giây (số giây lớn ở giữa, không có bàn tay, không có phụ đề) để học sinh tự nghĩ; rồi lựa chọn đúng có viền xanh và dấu ✓, các lựa chọn khác mờ đi, giọng đọc `loi-giai` và bút viết `giai-thich` màu xanh. Máy quay không phóng vào từng lựa chọn nên học sinh luôn thấy cả câu hỏi.
+
+- `loi` đọc câu hỏi và các lựa chọn: câu đầu là câu hỏi, mỗi câu sau là một lựa chọn theo thứ tự ("A, tăng gấp bốn. B, tăng gấp hai."). Có thể thêm một câu dẫn trước câu hỏi ("Câu hỏi nhanh."); khi đó mỗi mục hiện sớm hơn một câu, và vẫn được viết xong trước lúc đếm ngược.
+- `loi-giai` là lời đọc sau khi hiện đáp án, nên mở đầu bằng đáp án ("Đáp án B.") rồi giải thích ngắn. Dấu nhấn trong `giai-thich` nổ theo giọng của `loi-giai`.
+- Thời lượng cảnh = 1 giây dẫn đầu + giọng `loi` + `cho` giây + 0,4 giây + giọng `loi-giai` + 0,6 giây. Không có mốc `tham-so` hay trường thời gian nào khác.
+- Giọng lời giải là file riêng `giong/canh-<số>-giai.mp3` (giọng máy tự tạo; thầy cô đặt sẵn thì được dùng, không bị ghi đè). Tạo giọng lời giải lỗi thì báo `giong` nêu đúng tên file đó.
+- `dap-an` viết hoa hay thường đều được; chữ cái ngoài số lựa chọn (ví dụ `D` khi chỉ có ba lựa chọn) là lỗi `parse`. `cho` là số nguyên, ngoài 3–10 là lỗi `parse`.
+- Công cụ chỉ kiểm đáp án là một trong các lựa chọn; nội dung câu hỏi và đáp án đúng hay sai do thầy cô duyệt. Nên có một cảnh câu hỏi ở gần cuối video, sau phần tóm tắt.
 
 ```
 ## Cảnh 14
 loai: cau-hoi
+chuyen: lat-trang
 cau-hoi: Dây treo dài gấp bốn thì chu kì con lắc đơn thay đổi thế nào?
 lua-chon: Tăng gấp bốn
 lua-chon: Tăng gấp hai
 lua-chon: Không đổi
 dap-an: B
-giai-thich: T tỉ lệ với căn bậc hai của l nên l gấp bốn thì T gấp hai.
+giai-thich: T tỉ lệ với ((căn bậc hai)) của l nên l gấp bốn thì T gấp hai.
 loi-giai: Đáp án B. Chu kì tỉ lệ với căn bậc hai của chiều dài, nên chu kì tăng gấp hai.
 loi: Dây treo dài gấp bốn thì chu kì thay đổi thế nào? A, tăng gấp bốn. B, tăng gấp hai. C, không đổi.
 ```
