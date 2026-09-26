@@ -13,6 +13,7 @@ from typing import Callable
 from video_parts import media
 
 from .lich import GiongInfo, tach_cau
+from .lich import khoa_so_khop as _chuan_hoa
 
 VOICES = {"nu": "vi-VN-HoaiMyNeural", "nam": "vi-VN-NamMinhNeural"}
 RATES = {"cham": "-10%", "vua": "+0%", "nhanh": "+15%"}
@@ -20,17 +21,12 @@ FIX_GIONG = "Có mạng rồi chạy lại, hoặc đặt sẵn file giọng gio
 FIX_EDGE = "Cài edge-tts bằng: python -m pip install -r requirements.txt (ở thư mục gốc repo)."
 FIX_FILE = "Xoá hoặc thay file giọng đó rồi chạy lại."
 _MARKUP_RE = re.compile(r"\*\*|~|\^|==|\(\(|\)\)|__|\{\{|\}\}")
-_CHUAN_RE = re.compile(r"[^\w\s]", re.UNICODE)
 _TOI_DA_SU_KIEN = 6
 _TOI_DA_TU = 3
 
 
 def bam(loi: str, voice: str, rate: str) -> str:
     return hashlib.sha256(f"{voice}|{rate}|{loi}".encode("utf-8")).hexdigest()[:16]
-
-
-def _chuan_hoa(chu: str) -> str:
-    return _CHUAN_RE.sub("", chu).lower()
 
 
 def _khop_tai(chuan_tu: list, chuan_su_kien: list, i: int, j: int):

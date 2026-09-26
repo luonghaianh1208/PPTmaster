@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -69,8 +70,10 @@ def moc_uoc_luong(cau: list, giay: float) -> list:
     return moc
 
 
-def _khoa(chu: str) -> str:
-    return _KHOA_RE.sub("", chu).lower()
+def khoa_so_khop(chu: str) -> str:
+    """Khoá so khớp chữ (dùng chung cho mốc câu, karaoke, nhấn ý): NFC, bỏ dấu câu, chữ thường, giữ dấu thanh — như
+    `khoa` của runtime/nhan.js. NFC trước khi lọc: lớp `\\w` của regex Python bỏ dấu tổ hợp nên "kì" NFD sẽ thành "ki"."""
+    return _KHOA_RE.sub("", unicodedata.normalize("NFC", chu)).lower()
 
 
 def moc_tu_uoc_luong(loi: str, moc_cau_giong: list, giay: float) -> list:
@@ -148,7 +151,7 @@ def _moc_loi(so: int, loi: str, giong: GiongInfo, dau: float, ten: str, warnings
         warnings.append(f"Cảnh {so}: mốc câu {ten}ước lượng theo số ký tự; hình có thể lệch tiếng vài trăm mili giây.")
     elif uoc_tu:
         warnings.append(f"Cảnh {so}: mốc từng từ {ten}ước lượng theo tỉ lệ ký tự; nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
-    moc_tu = [{"t": round(dau + w["t"], 3), "d": round(w.get("d", 0.0), 3), "chu": w["chu"], "khoa": _khoa(w["chu"])}
+    moc_tu = [{"t": round(dau + w["t"], 3), "d": round(w.get("d", 0.0), 3), "chu": w["chu"], "khoa": khoa_so_khop(w["chu"])}
               for w in tu_tho]
     return cau, moc_giong, moc_tu, uoc
 

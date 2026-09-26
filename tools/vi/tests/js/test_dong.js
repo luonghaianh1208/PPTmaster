@@ -104,6 +104,12 @@ test('thoiDiemNhan: lan dau sau batDauMuc; khong phan biet hoa thuong, bo dau ca
   assert.strictEqual(N.thoiDiemNhan({ noiDung: 'chu kì' }, coKhoa, 0, 5), 1);
 });
 
+test('thoiDiemNhan: cum NFD (Unikey to hop) khop khoa NFC cua lich.py', function () {
+  var coKhoa = [{ t: 1, chu: 'Chu', khoa: 'chu' }, { t: 1.4, chu: 'kì', khoa: 'kì'.normalize('NFC') }];
+  assert.strictEqual(N.thoiDiemNhan({ noiDung: 'chu kì'.normalize('NFD') }, coKhoa, 0, 5), 1);
+  assert.strictEqual(N.thoiDiemNhan({ noiDung: 'kì'.normalize('NFD') }, coKhoa, 0, 5), 1.4);
+});
+
 test('catDanhDau: cum va so boc dung the, chu hien thi dung, danh dau khong dem', function () {
   var chu = 'Ta có ==chu kì== và ((tần số)) và __biên độ__ bằng {{1500.5}} m';
   var tong = V.demKyTu(chu);

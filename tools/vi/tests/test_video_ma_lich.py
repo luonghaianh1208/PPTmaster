@@ -1,6 +1,10 @@
 """Test lịch thời gian của video giải thích: câu, mốc hiện ý, thời lượng cảnh, dữ liệu cảnh."""
 
+import json
+import shutil
+import subprocess
 import sys
+import unicodedata
 import unittest
 from pathlib import Path
 
@@ -11,6 +15,7 @@ from thi_nghiem_parts import thu_vien  # noqa: E402
 from video_ma_parts import kiem, lich, parse  # noqa: E402
 
 META = "tieu-de: T\nmon: Toán\nlop: 8\n"
+HAS_NODE = shutil.which("node") is not None
 
 
 def canh_dau(noi_dung: str, loi: str):
@@ -414,6 +419,42 @@ class QuizScheduleTest(unittest.TestCase):
         self.assertEqual(giai[0].split(",")[1], karaoke._thoi_gian(cl.bat_dau + cl.bat_dau_giai))
         hoi = dong[dong.index(giai[0]) - 1]  # câu cuối của lời câu hỏi
         self.assertEqual(hoi.split(",")[2], karaoke._thoi_gian(cl.bat_dau + lich.DAN_DAU + 4.13))
+
+
+def _nfd(chu: str) -> str:
+    return unicodedata.normalize("NFD", chu)
+
+
+class NfdTest(unittest.TestCase):
+    """Kịch bản gõ Unikey "Unicode tổ hợp" (hoặc dán từ Mac/PDF) ở dạng NFD: khoá so khớp vẫn phải là NFC như nhan.js,
+    nếu không cụm nhấn không tìm thấy lúc giọng đọc tới."""
+
+    TU = [{"t": 0.1, "d": 0.2, "chu": _nfd("Chu")}, {"t": 0.4, "d": 0.2, "chu": _nfd("kì.")},
+          {"t": 0.8, "d": 0.2, "chu": _nfd("Tần")}, {"t": 1.1, "d": 0.2, "chu": _nfd("số.")}]
+
+    def ke_hoach(self):
+        g = lich.GiongInfo(mp3=None, giay=2.0, moc_cau=[0.0, 0.8], uoc_luong=False, nguon="may",
+                           moc_tu=self.TU, uoc_luong_tu=False)
+        scene = canh_dau("loai: tieu-de\nchu: A\n", _nfd("Chu kì. Tần số."))
+        return lich.dung_lich([scene], [g])[0][0]
+
+    def test_khoa_cua_tu_nfd_la_nfc_giu_dau_thanh(self):
+        self.assertEqual(lich.khoa_so_khop(_nfd("Kì,")), unicodedata.normalize("NFC", "kì"))
+        self.assertEqual([w["khoa"] for w in self.ke_hoach().moc_tu], ["chu", "kì", "tần", "số"])
+
+    @unittest.skipUnless(HAS_NODE, "máy không có Node")
+    def test_nhan_js_tim_cum_nfd_dung_luc_giong_doc(self):
+        tu = self.ke_hoach().moc_tu
+        ma = ("require(process.argv[1] + '/khung-video.js'); require(process.argv[1] + '/nhan.js');"
+              "var tu = JSON.parse(process.argv[2]); var N = globalThis.THI_NHAN;"
+              "console.log(JSON.stringify(JSON.parse(process.argv[3]).map(function (c) {"
+              " return N.thoiDiemNhan({ noiDung: c }, tu, 0, 9); })));")
+        rt = str(TOOLS_VI / "video_ma_parts" / "runtime")
+        proc = subprocess.run([shutil.which("node"), "-e", ma, rt, json.dumps(tu, ensure_ascii=False),
+                               json.dumps([_nfd("chu kì"), _nfd("kì"), _nfd("tần số")], ensure_ascii=False)],
+                              capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), [tu[0]["t"], tu[1]["t"], tu[2]["t"]])
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import json
 import sys
 import tempfile
+import unicodedata
 import unittest
 from pathlib import Path
 
@@ -406,6 +407,13 @@ class SentenceMarkFromWordsTest(unittest.TestCase):
 
     def test_no_events_at_all_falls_back_to_empty(self):
         self.assertEqual(giong._moc_cau_theo_tu("Một. Hai.", []), [])
+
+    def test_kich_ban_nfd_van_khop_su_kien_nfc(self):
+        nfd = unicodedata.normalize("NFD", "Chu kì này. Tần số là gì.")
+        tu = [{"t": t, "d": 0.2, "chu": c} for t, c in
+              ((0.1, "Chu"), (0.4, "kì"), (0.7, "này"), (1.5, "Tần"), (1.8, "số"), (2.1, "là"), (2.4, "gì"))]
+        self.assertEqual(giong._moc_cau_theo_tu(nfd, tu), [0.1, 1.5])
+        self.assertEqual(giong._chuan_hoa(nfd.split()[1]), unicodedata.normalize("NFC", "kì"))
 
 
 if __name__ == "__main__":

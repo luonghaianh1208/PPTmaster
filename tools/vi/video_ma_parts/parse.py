@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 META_REQUIRED = ("tieu-de", "mon", "lop")
@@ -266,7 +267,9 @@ def _finish(so: int, dong0: int, fields: list) -> Scene:
 
 
 def parse(text: str) -> Video:
-    lines = text.lstrip("﻿").splitlines()
+    # Chữ NFD (Unikey "Unicode tổ hợp", dán từ Mac/PDF) về NFC một lần ở đầu vào: khoá so khớp nhấn ý, tiêu đề cảnh
+    # và tiền tố "Nhạc" đều so trên NFC.
+    lines = unicodedata.normalize("NFC", text.lstrip("﻿")).splitlines()
     i = 0
     while i < len(lines) and not lines[i].strip():
         i += 1

@@ -2,6 +2,7 @@
 
 import sys
 import tempfile
+import unicodedata
 import unittest
 from pathlib import Path
 
@@ -605,6 +606,20 @@ class QuizParseTest(unittest.TestCase):
     def test_loi_assignment_whitespace_nit_is_fixed(self):
         src = (TOOLS_VI / "video_ma_parts" / "parse.py").read_text(encoding="utf-8")
         self.assertNotIn("loi =truong", src)
+
+
+class NfdTest(unittest.TestCase):
+    """Unikey "Unicode tổ hợp", Mac, PDF cho chữ NFD: parse chuẩn hoá cả kịch bản về NFC một lần ở đầu vào."""
+
+    def test_kich_ban_nfd_thanh_nfc_ca_tieu_de_canh(self):
+        goc = ("﻿---\ntieu-de: Chu kì\nmon: Vật lí\nlop: 10\nnguon-nhac: Nhạc: Êm\nnhac-nen: êm.mp3\n---\n\n"
+               "## Cảnh 1\nloai: y-tung-y\ntieu-de: Dao động\ny: ==chu kì== lặp lại\nloi: Chu kì là thời gian.\n")
+        v = parse.parse(unicodedata.normalize("NFD", goc))
+        nfc = lambda s: unicodedata.normalize("NFC", s)  # noqa: E731
+        self.assertEqual(v.meta["tieu-de"], nfc("Chu kì"))
+        self.assertEqual(v.meta["nguon-nhac"], nfc("Nhạc: Êm"))
+        self.assertEqual(v.canh[0].loi, nfc("Chu kì là thời gian."))
+        self.assertEqual(v.canh[0].truong["y"], [nfc("==chu kì== lặp lại")])
 
 
 if __name__ == "__main__":
