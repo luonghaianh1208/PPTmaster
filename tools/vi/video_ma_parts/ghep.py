@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -11,10 +10,10 @@ from pathlib import Path
 from video_parts import media, srt
 
 from . import am_thanh, karaoke
+from .giong import _MARKUP_RE  # cùng bộ dấu giọng đọc bỏ đi: ** ~ ^ == (( )) __ {{ }}
 from .lich import DAN_DAU, FPS, doan_loi
 from .phong import FONT as ITIM_FONT, TEN as ITIM_TEN
 
-_MARKUP_RE = re.compile(r"\*\*|~|\^")
 BIEN_DO_NHIEU = 0.002
 HAT_NHIEU = 1234
 STYLE = f"FontName={ITIM_TEN},FontSize=16,Outline=1.5,Shadow=0,Spacing=0.5,MarginV=22"

@@ -16,7 +16,9 @@ from .lich import doan_loi
 
 GIOI_HAN_KY_TU = 42
 _MARKUP_RE = re.compile(r"\*\*|~|\^|==|\(\(|\)\)|__|\{\{|\}\}")
-_ESCAPE = (("\\", "\\\\"), ("{", "\\{"), ("}", "\\}"))
+# libass không có thoát cho dấu gạch ngược: `\` trong chữ thầy cô (`a\Nb`, `\h`) đổi thành ⧵ (U+29F5, trông gần như
+# nhau) để không bao giờ thành mã điều khiển; `{`, `}` thoát bằng dấu gạch ngược đứng trước.
+_ESCAPE = (("\\", "⧵"), ("{", "\\{"), ("}", "\\}"))
 
 _HEADER = """[Script Info]
 Title: Phụ đề karaoke

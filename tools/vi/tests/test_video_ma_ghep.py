@@ -38,6 +38,14 @@ class SubtitleTest(unittest.TestCase):
         self.assertAlmostEqual(cues[2].start, 6.0 + lich.DAN_DAU)
         self.assertAlmostEqual(cues[2].end, 6.0 + lich.DAN_DAU + 1.5)
 
+    def test_cues_bo_moi_dau_danh_dau_nhu_giong_doc(self):
+        cau = "Ta có ==chu kì== và ((tần số)) cùng __H~2~O__ nặng **{{12.5}}** g^2^."
+        plan = [canh_lich(1, 0.0, 6.0, 4.0, [cau], [0.0])]
+        text = ghep.cues_phu_de(plan)[0].text
+        self.assertEqual(text, "Ta có chu kì và tần số cùng H2O nặng 12.5 g2.")
+        for dau in ("==", "((", "))", "__", "{{", "}}", "**", "~", "^"):
+            self.assertNotIn(dau, text)
+
     def test_cues_render_to_valid_srt(self):
         text = srt.render_srt(ghep.cues_phu_de(PLAN))
         self.assertEqual(len(srt.parse_srt(text)), 3)

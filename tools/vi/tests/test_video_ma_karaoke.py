@@ -133,6 +133,17 @@ class ThoatKyTuTest(unittest.TestCase):
         self.assertNotIn("={1}.", dialogue)
 
 
+    def test_dau_gach_nguoc_khong_thanh_ma_dieu_khien_libass(self):
+        # libass không có thoát `\\`: `\N`, `\h` trong chữ của thầy cô sẽ thành xuống dòng / khoảng trắng cứng.
+        cl = canh(1, 0.0, 1.0, [r"Gõ a\Nb và \h nhé."], [lich.DAN_DAU], [])
+        dialogue = next(l for l in karaoke.tao_ass([cl]).splitlines() if l.startswith("Dialogue:"))
+        chu = _DIALOGUE_RE.match(dialogue).group(3)
+        self.assertEqual(_hien_thi(chu), "Gõ a⧵Nb và ⧵h nhé.")
+        self.assertNotIn("\\N", _KF_TAG_RE.sub("", chu))
+        self.assertNotIn("\\h", chu)
+        self.assertNotIn("\\\\", chu)
+
+
 class ChuKichBanTest(unittest.TestCase):
     """Chữ hiển thị karaoke phải là token gốc của kịch bản (giữ dấu câu), không phải chữ giọng máy đọc ra."""
 
