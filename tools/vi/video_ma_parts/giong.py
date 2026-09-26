@@ -175,10 +175,20 @@ def _dau_van_tay(path: Path) -> tuple:
     return path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _loi_file(exc: media.MediaError, mp3: Path) -> media.MediaError:
+    """Lỗi tổng hợp giọng nêu đúng file giọng (cảnh câu hỏi có hai file: câu hỏi và lời giải)."""
+    fix = f"Có mạng rồi chạy lại, hoặc đặt sẵn file giọng giong/{mp3.name}." if exc.fix == FIX_GIONG else exc.fix
+    return media.MediaError(exc.step, f"{mp3.name}: {exc.message}", fix)
+
+
 def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
-              tong_hop: Callable = tong_hop_edge, do_dai: Callable = media.probe_duration) -> GiongInfo:
-    mp3 = thu_muc / f"canh-{so}.mp3"
-    so_giong = thu_muc / f"canh-{so}.json"
+              tong_hop: Callable = tong_hop_edge, do_dai: Callable = media.probe_duration,
+              ten: str | None = None) -> GiongInfo:
+    """Giọng của một lời. `ten` là tên file không đuôi (mặc định `canh-<số>`; lời giải của cảnh câu hỏi dùng
+    `canh-<số>-giai`); file thầy cô đặt sẵn với tên đó được dùng và không bao giờ bị ghi đè."""
+    ten = ten or f"canh-{so}"
+    mp3 = thu_muc / f"{ten}.mp3"
+    so_giong = thu_muc / f"{ten}.json"
     voice, rate = VOICES[giong], RATES[toc_do]
     doc = _MARKUP_RE.sub("", loi)
     ma_bam = bam(doc, voice, rate)
@@ -197,7 +207,12 @@ def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
     tam = mp3.with_name(mp3.name + ".tmp")
     so_giong_cu = so_giong.read_bytes() if so_giong.is_file() else None
     try:
-        ket_qua = tong_hop(doc, voice, rate, tam)
+        try:
+            ket_qua = tong_hop(doc, voice, rate, tam)
+        except media.MediaError as exc:
+            if exc.step != "giong":
+                raise
+            raise _loi_file(exc, mp3) from exc
         if isinstance(ket_qua, dict):
             moc, tu = list(ket_qua.get("cau", [])), list(ket_qua.get("tu", []))
         else:

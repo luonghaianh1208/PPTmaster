@@ -37,8 +37,13 @@ SCENE_SPEC = {
     "bieu-do": (("tieu-de", "kieu"), ("don-vi", "truc-ngang", "truc-doc"), {"du-lieu": (2, 8)}),
     "so-do": (("trung-tam",), ("hinh",), {"nhanh": (2, 6)}),
     "dong-thoi-gian": (("tieu-de",), (), {"moc": (2, 6)}),
+    "cau-hoi": (("cau-hoi", "dap-an", "giai-thich", "loi-giai"), ("cho",), {"lua-chon": (2, 4)}),
 }
 BIEU_DO_KIEU = ("cot", "duong", "tron")
+# Cảnh câu hỏi: lựa chọn tự đánh A–D; `cho` là số giây đếm ngược (số nguyên).
+CHU_LUA_CHON = "ABCD"
+CHO_MAC_DINH = 5
+CHO_TOI_THIEU, CHO_TOI_DA = 3, 10
 SO_DAI = 10
 # `bieu-thuc` của `cong-thuc` tách phần bằng ` | ` (dấu gạch đứng có khoảng trắng hai bên); tối đa 4 phần.
 PHAN_CONG_THUC = " | "
@@ -88,6 +93,21 @@ def _kiem_du_lieu(truong: dict, dong_truong: dict) -> None:
             raise ParseError(no, f"Số `{cap[1]}` dài quá {SO_DAI} ký tự; đổi sang đơn vị lớn hơn.")
         if kieu == "tron" and float(cap[1]) <= 0:
             raise ParseError(no, f"Biểu đồ `tron` chỉ nhận số dương; `{cap[1]}` không vẽ được thành lát.")
+
+
+def _kiem_cau_hoi(truong: dict, dong_truong: dict, dong0: int) -> None:
+    chu = CHU_LUA_CHON[:len(truong["lua-chon"])]
+    dap_an, no = truong["dap-an"][0].strip().upper(), dong_truong["dap-an"][0]
+    if len(dap_an) != 1 or dap_an not in chu:
+        raise ParseError(no, f"`dap-an` phải là một chữ cái trong số lựa chọn: {', '.join(chu)}.")
+    truong["dap-an"] = [dap_an]
+    if "cho" not in truong:
+        truong["cho"], dong_truong["cho"] = [str(CHO_MAC_DINH)], [dong0]
+        return
+    cho, no = truong["cho"][0], dong_truong["cho"][0]
+    if not cho.isascii() or not cho.isdigit() or not CHO_TOI_THIEU <= int(cho) <= CHO_TOI_DA:
+        raise ParseError(no, f"`cho` là số giây đếm ngược, số nguyên từ {CHO_TOI_THIEU} đến {CHO_TOI_DA}.")
+    truong["cho"] = [str(int(cho))]
 
 
 def _kiem_bieu_thuc(value: str, no: int) -> None:
@@ -226,7 +246,9 @@ def _finish(so: int, dong0: int, fields: list) -> Scene:
             raise ParseError(no, "Dòng `moc` phải có dạng `<nhãn> | <mô tả>`, ví dụ `1945 | Cách mạng tháng Tám`.")
     if loai == "cong-thuc":
         _kiem_bieu_thuc(truong["bieu-thuc"][0], dong_truong["bieu-thuc"][0])
-    loi =truong.pop("loi")[0]
+    if loai == "cau-hoi":
+        _kiem_cau_hoi(truong, dong_truong, dong0)
+    loi = truong.pop("loi")[0]
     truong.pop("loai")
     dong_truong.pop("loai")
     dong_truong.pop("loi")

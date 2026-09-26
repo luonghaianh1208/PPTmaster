@@ -318,5 +318,103 @@ class WipeLengthTest(unittest.TestCase):
                 self.assertEqual(float(so.group(1)), lich.LAU_BANG)
 
 
+QUIZ = ("loai: cau-hoi\ncau-hoi: Chu kì đổi thế nào?\nlua-chon: Tăng\nlua-chon: Giảm\nlua-chon: Không đổi\n"
+        "dap-an: A\ngiai-thich: T tỉ lệ căn l.\ncho: 4\nloi-giai: Đáp án A. Chu kì tăng gấp đôi.\n")
+
+
+def quiz_scene(so_truoc: int = 0):
+    truoc = "".join(f"## Cảnh {k}\nloai: tieu-de\nchu: A\nloi: Chào.\n\n" for k in range(1, so_truoc + 1))
+    text = f"---\n{META}---\n\n{truoc}## Cảnh {so_truoc + 1}\n{QUIZ}loi: Câu hỏi. A, tăng. B, giảm. C, không đổi.\n"
+    return parse.parse(text).canh
+
+
+def quiz_voice(giay=4.13, giay_giai=3.21):
+    hoi = giong(giay, [0.0, 1.0, 2.0, 3.0])
+    hoi.giai = giong(giay_giai, [0.0, 1.5], moc_tu=[{"t": 0.0, "d": 0.3, "chu": "Đáp"}, {"t": 0.4, "d": 0.2, "chu": "án"},
+                                                     {"t": 0.7, "d": 0.2, "chu": "A."}, {"t": 1.5, "d": 0.3, "chu": "Chu"},
+                                                     {"t": 1.9, "d": 0.3, "chu": "kì"}, {"t": 2.3, "d": 0.3, "chu": "tăng"},
+                                                     {"t": 2.6, "d": 0.3, "chu": "gấp"}, {"t": 2.9, "d": 0.3, "chu": "đôi."}])
+    return hoi
+
+
+class QuizScheduleTest(unittest.TestCase):
+    """Cảnh câu hỏi: dẫn đầu + giọng câu hỏi + `cho` + 0,4 + giọng lời giải + 0,6 (Q8)."""
+
+    def test_duration_formula_rounds_up_to_a_frame(self):
+        tho = lich.DAN_DAU + 4.13 + 4 + 0.4 + 3.21 + lich.DUOI
+        self.assertEqual(lich.CHO_GIAI, 0.4)
+        tl = lich.thoi_luong_cau_hoi(4.13, 4, 3.21)
+        self.assertGreaterEqual(tl, tho - 1e-9)
+        self.assertLess(tl, tho + 1 / lich.FPS)
+        self.assertAlmostEqual(tl * lich.FPS, round(tl * lich.FPS), places=6)
+
+    def test_plan_places_the_answer_after_the_countdown(self):
+        canh = quiz_scene(1)
+        plan, warnings = lich.dung_lich(canh, [giong(1.0, [0.0]), quiz_voice()])
+        self.assertEqual(warnings, [])
+        cl = plan[1]
+        self.assertAlmostEqual(cl.bat_dau, plan[0].thoi_luong)
+        self.assertEqual(cl.thoi_luong, lich.thoi_luong_cau_hoi(4.13, 4, 3.21))
+        self.assertEqual(cl.so_khung, round(cl.thoi_luong * lich.FPS))
+        self.assertAlmostEqual(cl.bat_dau_giai, lich.DAN_DAU + 4.13 + 4 + 0.4)
+        self.assertEqual(cl.giay_giai, 3.21)
+        self.assertEqual(cl.cau_giai, ["Đáp án A.", "Chu kì tăng gấp đôi."])
+        self.assertEqual([round(m, 3) for m in cl.moc_cau_giai], [round(cl.bat_dau_giai, 3), round(cl.bat_dau_giai + 1.5, 3)])
+        # Mốc từ gồm cả lời giải, cộng thêm bat_dau_giai; câu hỏi vẫn ở đầu cảnh.
+        dap = [w for w in cl.moc_tu if w["chu"] == "Đáp"][0]
+        self.assertAlmostEqual(dap["t"], cl.bat_dau_giai)
+        self.assertLess(max(w["t"] for w in cl.moc_tu if w["t"] < cl.bat_dau_giai), lich.DAN_DAU + 4.13)
+        self.assertEqual([w["t"] for w in cl.moc_tu], sorted(w["t"] for w in cl.moc_tu))
+
+    def test_normal_scene_has_no_answer(self):
+        plan, _ = lich.dung_lich(quiz_scene(1)[:1], [giong(1.0, [0.0])])
+        self.assertIsNone(plan[0].bat_dau_giai)
+        self.assertEqual(plan[0].giay_giai, 0.0)
+        self.assertEqual(len(lich.doan_loi(plan[0])), 1)
+
+    def test_scene_data_for_the_page(self):
+        canh = quiz_scene()
+        plan, _ = lich.dung_lich(canh, [quiz_voice()])
+        du = lich.du_lieu_canh(canh[0], plan[0])
+        self.assertEqual(du["cauHoi"], {"batDauDem": round(lich.DAN_DAU + 4.13, 3), "cho": 4,
+                                        "batDauGiai": round(plan[0].bat_dau_giai, 3), "dapAn": "A"})
+        # Câu hỏi và ba lựa chọn: mốc câu k của lời câu hỏi.
+        self.assertEqual(du["moc"], [lich.DAN_DAU + m for m in (0.0, 1.0, 2.0, 3.0)])
+        self.assertIn("Đáp", [w["chu"] for w in du["tu"]])
+
+    def test_estimated_answer_marks_warn_about_the_answer(self):
+        hoi = quiz_voice()
+        hoi.giai = giong(3.0, [], True)
+        plan, warnings = lich.dung_lich(quiz_scene(), [hoi])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("lời giải", warnings[0])
+        self.assertEqual(len(plan[0].moc_cau_giai), 2)
+
+    def test_segments_and_subtitles_include_answer_sentences_at_their_true_times(self):
+        from video_ma_parts import ghep, karaoke
+
+        canh = quiz_scene(1)
+        plan, _ = lich.dung_lich(canh, [giong(1.0, [0.0]), quiz_voice()])
+        cl = plan[1]
+        doan = lich.doan_loi(cl)
+        self.assertEqual(len(doan), 2)
+        self.assertAlmostEqual(doan[0][2], lich.DAN_DAU + 4.13)
+        self.assertAlmostEqual(doan[1][2], cl.bat_dau_giai + 3.21)
+        cues = ghep.cues_phu_de(plan)
+        self.assertEqual([c.text for c in cues][-2:], ["Đáp án A.", "Chu kì tăng gấp đôi."])
+        hoi_cuoi = cues[-3]
+        self.assertAlmostEqual(hoi_cuoi.end, cl.bat_dau + lich.DAN_DAU + 4.13, msg="câu hỏi không kéo qua lúc đếm ngược")
+        self.assertAlmostEqual(cues[-2].start, cl.bat_dau + cl.bat_dau_giai)
+        self.assertAlmostEqual(cues[-1].start, cl.bat_dau + cl.bat_dau_giai + 1.5)
+        self.assertAlmostEqual(cues[-1].end, cl.bat_dau + cl.bat_dau_giai + 3.21)
+        ass = karaoke.tao_ass(plan)
+        dong = [d for d in ass.splitlines() if d.startswith("Dialogue:")]
+        giai = [d for d in dong if "Đáp" in d]
+        self.assertEqual(len(giai), 1)
+        self.assertEqual(giai[0].split(",")[1], karaoke._thoi_gian(cl.bat_dau + cl.bat_dau_giai))
+        hoi = dong[dong.index(giai[0]) - 1]  # câu cuối của lời câu hỏi
+        self.assertEqual(hoi.split(",")[2], karaoke._thoi_gian(cl.bat_dau + lich.DAN_DAU + 4.13))
+
+
 if __name__ == "__main__":
     unittest.main()

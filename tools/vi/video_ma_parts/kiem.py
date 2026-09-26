@@ -23,6 +23,7 @@ LIMITS = {
     ("bieu-do", "tieu-de"): 90, ("bieu-do", "don-vi"): 12, ("bieu-do", "truc-ngang"): 40, ("bieu-do", "truc-doc"): 40,
     ("so-do", "trung-tam"): 30, ("so-do", "nhanh"): 40,
     ("dong-thoi-gian", "tieu-de"): 90,
+    ("cau-hoi", "cau-hoi"): 160, ("cau-hoi", "lua-chon"): 60, ("cau-hoi", "giai-thich"): 180,
 }
 # Trường hai phần `<nhãn> | <…>`: giới hạn của nhãn và của mô tả (None: phần sau là số, parse đã kiểm).
 LIMITS_HAI_PHAN = {("bieu-do", "du-lieu"): (16, None), ("dong-thoi-gian", "moc"): (12, 60)}
@@ -218,6 +219,9 @@ def kiem(video: Video, thu_muc: Path) -> list:
                 _kiem_do_dai(scene.so, key, value, no, gioi_han, cum)
         if len(scene.loi) > LOI_DAI:
             warnings.append(f"Cảnh {scene.so}: lời dài {len(scene.loi)} ký tự (quá {LOI_DAI}); nên tách thành hai cảnh.")
+        loi_giai = scene.truong.get("loi-giai", [""])[0]
+        if len(loi_giai) > LOI_DAI:
+            warnings.append(f"Cảnh {scene.so}: lời giải dài {len(loi_giai)} ký tự (quá {LOI_DAI}); nên rút gọn.")
         if scene.loai == "thi-nghiem":
             _kiem_thi_nghiem(scene, thu_muc)
         _kiem_hinh_anh(scene, thu_muc)

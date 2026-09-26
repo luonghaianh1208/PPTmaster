@@ -14,6 +14,7 @@ FPS = 30
 DAN_DAU = 1.0
 LAU_BANG = 0.5
 DUOI = 0.6
+CHO_GIAI = 0.4  # cảnh câu hỏi: khoảng lặng sau đếm ngược, trước khi hiện đáp án và đọc lời giải
 TOI_THIEU = 2.5
 CANH_DAI = 40.0
 VIDEO_DAI = 480.0
@@ -30,6 +31,8 @@ class GiongInfo:
     nguon: str
     moc_tu: list = field(default_factory=list)
     uoc_luong_tu: bool = True
+    # Cảnh câu hỏi: giọng lời giải (file `canh-<số>-giai.mp3`); cảnh khác là None.
+    giai: GiongInfo | None = None
 
 
 @dataclass
@@ -44,6 +47,11 @@ class CanhLich:
     moc_cau_giong: list
     uoc_luong: bool
     moc_tu: list = field(default_factory=list)
+    # Cảnh câu hỏi: lời giải bắt đầu ở `bat_dau_giai` (giây trong cảnh), cùng lúc hiện đáp án; cảnh khác là None.
+    giay_giai: float = 0.0
+    bat_dau_giai: float | None = None
+    cau_giai: list = field(default_factory=list)
+    moc_cau_giai: list = field(default_factory=list)
 
 
 def tach_cau(loi: str) -> list:
@@ -109,6 +117,7 @@ def so_muc(scene: Scene) -> int:
         "bieu-do": len(t.get("du-lieu", [])),
         "so-do": len(t.get("nhanh", [])),
         "dong-thoi-gian": len(t.get("moc", [])),
+        "cau-hoi": 1 + len(t.get("lua-chon", [])),
     }.get(scene.loai, 0)
 
 
@@ -118,26 +127,60 @@ def so_phan_cong_thuc(scene: Scene) -> int:
     return len(phan) if len(phan) > 1 else 0
 
 
+def thoi_luong_cau_hoi(giay_hoi: float, cho: float, giay_giai: float, fps: int = FPS) -> float:
+    """Cảnh câu hỏi: dẫn đầu + giọng câu hỏi + `cho` giây đếm ngược + 0,4 s + giọng lời giải + đuôi."""
+    tho = DAN_DAU + giay_hoi + cho + CHO_GIAI + giay_giai + DUOI
+    return math.ceil(tho * fps - 1e-9) / fps
+
+
+def _moc_loi(so: int, loi: str, giong: GiongInfo, dau: float, ten: str, warnings: list) -> tuple:
+    """(câu, mốc câu trong giọng, mốc từ trong cảnh, có ước lượng câu) của một lời bắt đầu ở giây `dau` của cảnh."""
+    cau = tach_cau(loi)
+    uoc = giong.uoc_luong or len(giong.moc_cau) != len(cau)
+    moc_giong = moc_uoc_luong(cau, giong.giay) if uoc else list(giong.moc_cau)
+    uoc_tu = giong.uoc_luong_tu or not giong.moc_tu
+    tu_tho = moc_tu_uoc_luong(loi, moc_giong, giong.giay) if uoc_tu else list(giong.moc_tu)
+    if uoc and uoc_tu:
+        warnings.append(f"Cảnh {so}: mốc câu và mốc từng từ {ten}ước lượng theo số/tỉ lệ ký tự; "
+                         "hình, nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
+    elif uoc:
+        warnings.append(f"Cảnh {so}: mốc câu {ten}ước lượng theo số ký tự; hình có thể lệch tiếng vài trăm mili giây.")
+    elif uoc_tu:
+        warnings.append(f"Cảnh {so}: mốc từng từ {ten}ước lượng theo tỉ lệ ký tự; nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
+    moc_tu = [{"t": round(dau + w["t"], 3), "d": round(w.get("d", 0.0), 3), "chu": w["chu"], "khoa": _khoa(w["chu"])}
+              for w in tu_tho]
+    return cau, moc_giong, moc_tu, uoc
+
+
+def doan_loi(cl: CanhLich) -> list:
+    """Các đoạn lời của cảnh theo thời gian cảnh: [(câu, mốc câu, lúc hết giọng, mốc từ)]. Cảnh câu hỏi có thêm
+    đoạn lời giải bắt đầu ở `bat_dau_giai`; khoảng đếm ngược ở giữa không có phụ đề."""
+    if cl.bat_dau_giai is None:
+        return [(cl.cau, cl.moc_cau, DAN_DAU + cl.giay_giong, list(cl.moc_tu))]
+    return [(cl.cau, cl.moc_cau, DAN_DAU + cl.giay_giong, [w for w in cl.moc_tu if w["t"] < cl.bat_dau_giai - 1e-6]),
+            (cl.cau_giai, cl.moc_cau_giai, cl.bat_dau_giai + cl.giay_giai,
+             [w for w in cl.moc_tu if w["t"] >= cl.bat_dau_giai - 1e-6])]
+
+
 def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = True) -> tuple:
     plan: list = []
     warnings: list = []
     bat_dau = 0.0
     for scene, giong in zip(cac_canh, cac_giong):
-        cau = tach_cau(scene.loi)
-        uoc = giong.uoc_luong or len(giong.moc_cau) != len(cau)
-        moc_giong = moc_uoc_luong(cau, giong.giay) if uoc else list(giong.moc_cau)
-        uoc_tu = giong.uoc_luong_tu or not giong.moc_tu
-        tu_tho = moc_tu_uoc_luong(scene.loi, moc_giong, giong.giay) if uoc_tu else list(giong.moc_tu)
-        if uoc and uoc_tu:
-            warnings.append(f"Cảnh {scene.so}: mốc câu và mốc từng từ ước lượng theo số/tỉ lệ ký tự; "
-                             "hình, nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
-        elif uoc:
-            warnings.append(f"Cảnh {scene.so}: mốc câu ước lượng theo số ký tự; hình có thể lệch tiếng vài trăm mili giây.")
-        elif uoc_tu:
-            warnings.append(f"Cảnh {scene.so}: mốc từng từ ước lượng theo tỉ lệ ký tự; nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
-        moc_tu = [{"t": round(DAN_DAU + w["t"], 3), "d": round(w.get("d", 0.0), 3), "chu": w["chu"], "khoa": _khoa(w["chu"])}
-                  for w in tu_tho]
+        cau, moc_giong, moc_tu, uoc = _moc_loi(scene.so, scene.loi, giong, DAN_DAU, "", warnings)
         thoi_luong = thoi_luong_canh(giong.giay, fps)
+        giai: dict = {}
+        if scene.loai == "cau-hoi":
+            if giong.giai is None:
+                raise ValueError(f"Cảnh {scene.so} (câu hỏi) thiếu giọng lời giải.")
+            cho = int(scene.truong["cho"][0])
+            bat_dau_giai = round(DAN_DAU + giong.giay + cho + CHO_GIAI, 3)
+            cau_g, moc_g, tu_g, _ = _moc_loi(scene.so, scene.truong["loi-giai"][0], giong.giai, bat_dau_giai,
+                                             "của lời giải ", warnings)
+            moc_tu = moc_tu + tu_g
+            thoi_luong = thoi_luong_cau_hoi(giong.giay, cho, giong.giai.giay, fps)
+            giai = {"giay_giai": giong.giai.giay, "bat_dau_giai": bat_dau_giai, "cau_giai": cau_g,
+                    "moc_cau_giai": [round(bat_dau_giai + m, 3) for m in moc_g]}
         if thoi_luong > CANH_DAI:
             warnings.append(f"Cảnh {scene.so}: dài {thoi_luong:.0f} giây (quá 40 giây); nên tách thành hai cảnh.")
         if kiem_moc and scene.loai == "thi-nghiem":
@@ -148,7 +191,7 @@ def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = 
         plan.append(CanhLich(
             so=scene.so, bat_dau=bat_dau, thoi_luong=thoi_luong, so_khung=round(thoi_luong * fps),
             giay_giong=giong.giay, cau=cau, moc_cau=[round(DAN_DAU + m, 3) for m in moc_giong],
-            moc_cau_giong=moc_giong, uoc_luong=uoc, moc_tu=moc_tu,
+            moc_cau_giong=moc_giong, uoc_luong=uoc, moc_tu=moc_tu, **giai,
         ))
         bat_dau += thoi_luong
     if bat_dau > VIDEO_DAI:
@@ -198,6 +241,9 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None
         du["diem"] = [[float(p) for p in v.split(",")] for v in scene.truong["diem"]]
     if scene.loai == "bieu-do":
         du["duLieu"] = [[nhan, float(so)] for nhan, so in map(tach_du_lieu, scene.truong["du-lieu"])]
+    if scene.loai == "cau-hoi":
+        du["cauHoi"] = {"batDauDem": round(DAN_DAU + cl.giay_giong, 3), "cho": int(scene.truong["cho"][0]),
+                        "batDauGiai": round(cl.bat_dau_giai, 3), "dapAn": scene.truong["dap-an"][0]}
     if scene.loai == "thi-nghiem":
         du["khaiBao"] = model.khai_bao
         du["thamSo"] = {ma: [[g, v] for g, v in ds] for ma, ds in tham_so_theo_thoi_gian(scene).items()}

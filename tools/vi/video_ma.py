@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import importlib.util
 import json
 import os
@@ -106,8 +107,18 @@ def _giong_tam(video: parse.Video) -> list:
     out = []
     for c in video.canh:
         moc = [float(v.split()[0]) for v in c.truong.get("tham-so", [])]
-        out.append(lich.GiongInfo(mp3=None, giay=max([GIONG_TAM] + moc), moc_cau=[], uoc_luong=True, nguon="may"))
+        giai = lich.GiongInfo(mp3=None, giay=GIONG_TAM, moc_cau=[], uoc_luong=True, nguon="may") if c.loai == "cau-hoi" else None
+        out.append(lich.GiongInfo(mp3=None, giay=max([GIONG_TAM] + moc), moc_cau=[], uoc_luong=True, nguon="may", giai=giai))
     return out
+
+
+def _lay_giong(c: parse.Scene, thu_muc_giong: Path, meta: dict) -> lich.GiongInfo:
+    """Giọng của cảnh; cảnh câu hỏi thêm giọng lời giải (file riêng `canh-<số>-giai.mp3`)."""
+    g = giong.lay_giong(c.so, c.loi, thu_muc_giong, meta["giong"], meta["toc-do"])
+    if c.loai != "cau-hoi":
+        return g
+    giai = giong.lay_giong(c.so, c.truong["loi-giai"][0], thu_muc_giong, meta["giong"], meta["toc-do"], ten=f"canh-{c.so}-giai")
+    return dataclasses.replace(g, giai=giai)
 
 
 def _trang_tam(video: parse.Video, thu_muc: Path, models: dict) -> list:
@@ -138,7 +149,7 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
     models = _mo_hinh(video, thu_muc)
     with _loi_chup(), chup.trinh_duyet() as browser:
         _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, thu_muc, models))
-    cac_giong = [giong.lay_giong(c.so, c.loi, thu_muc / "giong", video.meta["giong"], video.meta["toc-do"]) for c in video.canh]
+    cac_giong = [_lay_giong(c, thu_muc / "giong", video.meta) for c in video.canh]
     cac_lich, canh_bao = lich.dung_lich(video.canh, cac_giong)
     warnings.extend(canh_bao)
     cac_du = _cac_du(video, cac_lich, models, thu_muc)
@@ -159,7 +170,7 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
         shutil.rmtree(lam, ignore_errors=True)
     if video.meta["phu-de"] != "file":
         (thu_muc / "phu-de.srt").unlink(missing_ok=True)
-    nguon = {g.nguon for g in cac_giong}
+    nguon = {g.nguon for g in cac_giong} | {g.giai.nguon for g in cac_giong if g.giai is not None}
     return {"files": files, "so_canh": len(video.canh), "thoi_luong_giay": round(sum(cl.thoi_luong for cl in cac_lich), 2),
             "phong_cach": video.meta["phong-cach"], "giong": nguon.pop() if len(nguon) == 1 else "hon-hop"}
 

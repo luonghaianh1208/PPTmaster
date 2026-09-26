@@ -42,6 +42,13 @@
     return dinhDang(v, chuSo);
   }
 
+  // Nảy đàn hồi của một khối (tỉ lệ): 1 tại p = 0, phình tới khoảng 1 + 0,56·bien, dao động tắt dần, đúng 1 tại p = 1.
+  function nayDanHoi(p, bien) {
+    p = kep01(p);
+    if (p === 0 || p === 1) { return 1; }
+    return 1 + bien * Math.sin(3 * Math.PI * p) * Math.exp(-4 * p);
+  }
+
   function thoiGianNay(n) { return LECH_NAY * Math.max(0, n - 1) + NAY; }
 
   // Chữ thứ i trong n chữ: s (tỉ lệ), y (px, âm là phía trên), a (độ đục).
@@ -54,6 +61,6 @@
   root.THI_DONG = {
     LECH_NAY: LECH_NAY, NAY: NAY,
     easeOutBack: easeOutBack, easeInOut: easeInOut, lo_xo: lo_xo,
-    dinhDang: dinhDang, soChay: soChay, nayChu: nayChu, thoiGianNay: thoiGianNay
+    dinhDang: dinhDang, soChay: soChay, nayChu: nayChu, thoiGianNay: thoiGianNay, nayDanHoi: nayDanHoi
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

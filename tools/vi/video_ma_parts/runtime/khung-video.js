@@ -618,6 +618,8 @@
       datMuc(t);
       var moi = datNen(t);
       var cam = noiBo ? { z: 1, tx: 0, ty: 0 } : Q.tinh(mucVe, hop, t, gh, { mayQuay: co.mayQuay === true, day: thiNghiem });
+      // Loại cảnh tự lái máy quay ngoài các mục (câu hỏi: đẩy nhẹ trong lúc đếm ngược).
+      if (!noiBo && co.mayQuay === true && loai.mayQuay) { cam = loai.mayQuay(du, t, cam); }
       var bd = matTran(cam);
       if (moi && moi.transform !== 'none') { bd = moi.transform + (bd === 'none' ? '' : ' ' + bd); }
       goc.style.transform = bd;

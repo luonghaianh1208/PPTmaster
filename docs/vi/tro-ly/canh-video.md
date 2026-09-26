@@ -1,4 +1,4 @@
-# Cảnh video giải thích: danh mục mười ba loại cảnh
+# Cảnh video giải thích: danh mục mười bốn loại cảnh
 
 File dành cho AI. Đọc cùng `docs/vi/tro-ly/video-giai-thich.md`. Mỗi cảnh trong `video.md` có `loai:`, `loi:` và các trường của loại cảnh dưới đây; trường không có trong danh sách của loại cảnh là lỗi `parse`.
 
@@ -351,6 +351,34 @@ moc: 1583 | Galileo nhận ra chu kì con lắc gần như không đổi
 moc: 1656 | Huygens chế tạo đồng hồ quả lắc đầu tiên
 moc: 1851 | Foucault chứng minh Trái Đất tự quay
 loi: Năm 1583, Galileo quan sát chiếc đèn chùm đung đưa. Năm 1656, Huygens làm ra đồng hồ quả lắc. Năm 1851, Foucault dùng con lắc chứng minh Trái Đất tự quay.
+```
+
+## Câu hỏi nhanh
+
+Mã loại: `cau-hoi`.
+
+| Trường | Bắt buộc | Giới hạn |
+|---|---|---|
+| `cau-hoi` | có | 160 ký tự |
+| `lua-chon` | lặp 2–4 dòng | mỗi lựa chọn 60 ký tự; tự đánh A, B, C, D theo thứ tự |
+| `dap-an` | có | một chữ cái trong số lựa chọn |
+| `giai-thich` | có | 180 ký tự |
+| `cho` | không | số giây đếm ngược, số nguyên 3–10, mặc định 5 |
+| `loi-giai` | có | lời đọc sau khi hiện đáp án |
+
+Cách hiện: bút viết câu hỏi rồi từng lựa chọn theo câu của `loi`; hết lời thì đồng hồ đếm ngược `cho` giây, không có bàn tay; rồi lựa chọn đúng có viền xanh và dấu ✓, các lựa chọn khác mờ đi, giọng đọc `loi-giai` và bút viết `giai-thich`. Giọng lời giải là file riêng `giong/canh-<số>-giai.mp3` (đặt sẵn thì được dùng, không bị ghi đè).
+
+```
+## Cảnh 14
+loai: cau-hoi
+cau-hoi: Dây treo dài gấp bốn thì chu kì con lắc đơn thay đổi thế nào?
+lua-chon: Tăng gấp bốn
+lua-chon: Tăng gấp hai
+lua-chon: Không đổi
+dap-an: B
+giai-thich: T tỉ lệ với căn bậc hai của l nên l gấp bốn thì T gấp hai.
+loi-giai: Đáp án B. Chu kì tỉ lệ với căn bậc hai của chiều dài, nên chu kì tăng gấp hai.
+loi: Dây treo dài gấp bốn thì chu kì thay đổi thế nào? A, tăng gấp bốn. B, tăng gấp hai. C, không đổi.
 ```
 
 ## Bảng tra biểu tượng

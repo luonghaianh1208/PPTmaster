@@ -944,6 +944,101 @@ class ChartMapTimelineChromiumTest(unittest.TestCase):
         self.assertEqual(self.page.evaluate(hien), "T = 2π√(l/g) ≈ 2,01 s")
 
 
+def cau_hoi_toi_da(n: int, dai_lc: int = 60) -> str:
+    return (f"loai: cau-hoi\ncau-hoi: {vi_text(160)}\n" + "".join(f"lua-chon: {vi_text(dai_lc)}\n" for _ in range(n))
+            + f"dap-an: {'ABCD'[n - 1]}\ngiai-thich: {vi_text(180)}\nloi-giai: Đáp án. Vì vậy.\n")
+
+
+CAU_HOI_TOI_DA = {"4": cau_hoi_toi_da(4), "3": cau_hoi_toi_da(3), "2": cau_hoi_toi_da(2), "4-34": cau_hoi_toi_da(4, 34),
+                  "ngan": "loai: cau-hoi\ncau-hoi: Chu kì?\nlua-chon: Tăng\nlua-chon: Giảm\ndap-an: A\ncho: 3\n"
+                          "giai-thich: Vì l tăng.\nloi-giai: Đáp án A.\n"}
+# Hộp của đồng hồ, viền đúng và dấu ✓ (toạ độ khung ở Z = 1).
+HOP_CAU_HOI = """() => ['#dong-ho', 'path.dung-vien', '#dau-dung'].map((s) => {
+    const b = document.querySelector(s).getBBox(); return {id: s, l: b.x, t: b.y, r: b.x + b.width, b: b.y + b.height}; })"""
+
+
+@unittest.skipUnless(co_chromium(), NEED_CHROMIUM)
+class QuizChromiumTest(unittest.TestCase):
+    """Cảnh câu hỏi nhanh ở giới hạn tối đa (Chromium thật)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cm = chup.trinh_duyet()
+        cls.browser = cls.cm.__enter__()
+        cls.page = chup.trang_moi(cls.browser)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cm.__exit__(None, None, None)
+
+    def du(self, noi_dung: str, giay: float = 9.0, giay_giai: float = 6.0) -> dict:
+        from video_ma_parts import kiem
+
+        text = f"---\n{META}---\n\n## Cảnh 1\n{noi_dung}loi: Một. Hai. Ba. Bốn. Năm.\n"
+        video = parse.parse(text)
+        self.assertEqual(kiem.kiem(video, Path(".")), [])
+        giai = lich.GiongInfo(mp3=None, giay=giay_giai, moc_cau=[0.0, 2.0], uoc_luong=False, nguon="may")
+        giong = lich.GiongInfo(mp3=None, giay=giay, moc_cau=[0.0, 1.5, 3.0, 4.5, 6.0], uoc_luong=False, nguon="may", giai=giai)
+        plan, _ = lich.dung_lich(video.canh, [giong])
+        return lich.du_lieu_canh(video.canh[0], plan[0], None, {"meta": {}})
+
+    def dat(self, t: float) -> None:
+        self.page.evaluate("(t) => window.datThoiDiem(t)", t)
+
+    def test_every_quiz_at_its_limits_fits_above_the_subtitles(self):
+        for ten, noi_dung in CAU_HOI_TOI_DA.items():
+            with self.subTest(canh=ten):
+                du = self.du(noi_dung)
+                self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+                q = du["cauHoi"]
+                for t in (q["batDauDem"] + q["cho"] / 2, du["thoiLuong"] - 0.2):
+                    self.page.evaluate("() => { document.getElementById('bang').style.transform = 'none'; }")
+                    self.dat(t)
+                    self.page.evaluate("() => { document.getElementById('bang').style.transform = 'none'; }")
+                    hop = self.page.evaluate(HOP_CANH)
+                    for h in hop["chu"] + hop["net"] + self.page.evaluate(HOP_CAU_HOI):
+                        self.assertGreaterEqual(min(h["l"], h["t"]), -1, h)
+                        self.assertLessEqual(h["r"], 1281, h)
+                        self.assertLessEqual(h["b"], 620, h)
+                chu = self.page.evaluate(HOP_CANH)["chu"]
+                for i, a in enumerate(chu):
+                    for b in chu[i + 1:]:
+                        giao = a["l"] < b["r"] - 0.5 and b["l"] < a["r"] - 0.5 and a["t"] < b["b"] - 0.5 and b["t"] < a["b"] - 0.5
+                        self.assertFalse(giao, f"`{a['id']}` chồng `{b['id']}`: {a} / {b}")
+
+    def test_tick_and_green_border_appear_only_when_the_answer_is_revealed(self):
+        du = self.du(CAU_HOI_TOI_DA["4"])
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        q = du["cauHoi"]
+        do = """() => [document.getElementById('dau-dung'), document.querySelector('path.dung-vien'), document.getElementById('dong-ho')]
+            .map((e) => Number(getComputedStyle(e).opacity))"""
+        mo = "() => [...document.querySelectorAll('[data-id^=lc-]')].map((e) => Number(getComputedStyle(e).opacity))"
+        self.dat(q["batDauGiai"] - 1 / 30)
+        self.assertEqual(self.page.evaluate(do)[:2], [0, 0], "trước lúc giải không có ✓ và viền xanh")
+        self.assertEqual(self.page.evaluate(mo), [1, 1, 1, 1])
+        self.dat(q["batDauDem"] + 1.5)
+        self.assertEqual(self.page.evaluate(do), [0, 0, 1])
+        so = self.page.evaluate("() => document.querySelector('#dong-ho .so').textContent")
+        self.assertEqual(so, str(q["cho"] - 1))
+        self.assertEqual(self.page.evaluate("() => document.getElementById('ban-tay').style.display"), "none")
+        self.dat(du["thoiLuong"] - 0.2)
+        self.assertEqual(self.page.evaluate(do), [1, 1, 0], "sau lúc giải có ✓, viền xanh; đồng hồ đã tắt")
+        self.assertEqual(self.page.evaluate(mo), [0.35, 0.35, 0.35, 1])
+        giai = self.page.evaluate("() => document.querySelector('[data-id=giai-thich]').textContent")
+        self.assertIn(vi_text(180)[:20], giai)
+
+    def test_frames_are_repeatable_during_the_countdown(self):
+        du = self.du(CAU_HOI_TOI_DA["3"])
+        html = trang.dung_trang(du)
+        t = du["cauHoi"]["batDauDem"] + 1.37
+        anh = []
+        for _ in range(2):
+            chup.mo_trang(self.page, html)
+            self.dat(t)
+            anh.append(self.page.screenshot(type="png"))
+        self.assertEqual(anh[0], anh[1])
+
+
 def hai_canh(chuyen_canh: str):
     """Cảnh 1 (tiêu đề, có mực) và cảnh 2 với khoá đầu `chuyen-canh`."""
     text = (f"---\n{META}chuyen-canh: {chuyen_canh}\n---\n\n"

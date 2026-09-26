@@ -11,7 +11,7 @@ from pathlib import Path
 from video_parts import media, srt
 
 from . import karaoke
-from .lich import DAN_DAU, FPS
+from .lich import DAN_DAU, FPS, doan_loi
 from .phong import FONT as ITIM_FONT, TEN as ITIM_TEN
 
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
@@ -25,25 +25,38 @@ def cues_phu_de(cac_lich: list) -> list:
     cues = []
     so = 0
     for cl in cac_lich:
-        het = cl.bat_dau + DAN_DAU + cl.giay_giong
-        for k, cau in enumerate(cl.cau):
-            start = cl.bat_dau + cl.moc_cau[k]
-            end = cl.bat_dau + cl.moc_cau[k + 1] if k + 1 < len(cl.cau) else het
-            so += 1
-            cues.append(srt.Cue(index=so, start=start, end=max(end, start + 0.1), text=_MARKUP_RE.sub("", cau)))
+        for cac_cau, moc_cau, het_giong, _tu in doan_loi(cl):
+            het = cl.bat_dau + het_giong
+            for k, cau in enumerate(cac_cau):
+                start = cl.bat_dau + moc_cau[k]
+                end = cl.bat_dau + moc_cau[k + 1] if k + 1 < len(cac_cau) else het
+                so += 1
+                cues.append(srt.Cue(index=so, start=start, end=max(end, start + 0.1), text=_MARKUP_RE.sub("", cau)))
     return cues
 
 
-def lenh_am_canh(mp3: Path, wav: Path, thoi_luong: float) -> list:
+def _giong_tre(vao: int, tre: float, thoi_luong: float, ra: str) -> str:
+    return (f"[{vao}:a]aresample=44100,aformat=channel_layouts=mono,adelay={int(round(tre * 1000))}:all=1,"
+            f"apad=whole_dur={thoi_luong:.3f}[{ra}];")
+
+
+def lenh_am_canh(mp3: Path, wav: Path, thoi_luong: float, giai: tuple | None = None) -> list:
+    """Tiếng một cảnh: giọng từ giây DAN_DAU, trộn nhiễu nền. `giai` = (mp3 lời giải, giây bắt đầu trong cảnh) của
+    cảnh câu hỏi: giọng lời giải trộn thêm ở đúng lúc hiện đáp án."""
     # Lớp nhiễu hồng rất nhỏ: loa Bluetooth/HDMI tự tắt khi gặp im lặng tuyệt đối và nuốt âm đầu câu sau.
     nhieu = f"anoisesrc=d={thoi_luong:.3f}:c=pink:r=44100:a={BIEN_DO_NHIEU}:seed={HAT_NHIEU}"
-    loc = (
-        f"[0:a]aresample=44100,aformat=channel_layouts=mono,adelay={int(round(DAN_DAU * 1000))}:all=1,"
-        f"apad=whole_dur={thoi_luong:.3f}[g];[1:a]aformat=channel_layouts=mono[n];"
-        "[g][n]amix=inputs=2:duration=first:normalize=0[a]"
-    )
+    vao = ["-i", str(mp3)]
+    loc = _giong_tre(0, DAN_DAU, thoi_luong, "g")
+    nhan = "[g]"
+    if giai is not None:
+        vao += ["-i", str(giai[0])]
+        loc += _giong_tre(1, giai[1], thoi_luong, "h")
+        nhan += "[h]"
+    so_n = len(vao) // 2
+    loc += (f"[{so_n}:a]aformat=channel_layouts=mono[n];"
+            f"{nhan}[n]amix=inputs={so_n + 1}:duration=first:normalize=0[a]")
     return [
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(mp3),
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *vao,
         "-f", "lavfi", "-i", nhieu, "-filter_complex", loc, "-map", "[a]",
         "-t", f"{thoi_luong:.3f}", "-ar", "44100", "-ac", "1", "-c:a", "pcm_s16le", str(wav),
     ]
@@ -80,7 +93,8 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
     wavs = []
     for cl, giong in zip(cac_lich, cac_giong):
         wav = lam / f"am-{cl.so}.wav"
-        _chay(lenh_am_canh(giong.mp3, wav, cl.thoi_luong), run, thu_muc)
+        giai = (giong.giai.mp3, cl.bat_dau_giai) if giong.giai is not None and cl.bat_dau_giai is not None else None
+        _chay(lenh_am_canh(giong.mp3, wav, cl.thoi_luong, giai), run, thu_muc)
         wavs.append(wav)
     danh_sach = lam / "am.txt"
     danh_sach.write_text(media.build_audio_concat_text(wavs), encoding="utf-8")

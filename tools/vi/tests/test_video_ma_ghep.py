@@ -79,6 +79,46 @@ class CommandTest(unittest.TestCase):
             dinh_nen = max(abs(x) for x in mau[: tan_so // 2])
             self.assertLess(dinh_nen, 400, "lớp nền phải rất nhỏ (dưới khoảng −38 dBFS đỉnh)")
 
+    def test_quiz_audio_command_adds_the_answer_voice_at_its_start(self):
+        cmd = ghep.lenh_am_canh(Path("giong/canh-2.mp3"), Path("am-2.wav"), 14.0, giai=(Path("giong/canh-2-giai.mp3"), 9.537))
+        joined = " ".join(cmd)
+        self.assertEqual([cmd[i + 1] for i, x in enumerate(cmd) if x == "-i"][:2],
+                         [str(Path("giong/canh-2.mp3")), str(Path("giong/canh-2-giai.mp3"))])
+        self.assertIn(f"adelay={int(round(lich.DAN_DAU * 1000))}:all=1", joined)
+        self.assertIn("adelay=9537:all=1", joined)
+        self.assertEqual(joined.count("apad=whole_dur=14.000"), 2)
+        self.assertIn("anoisesrc=", joined)
+        self.assertIn("amix=inputs=3:duration=first:normalize=0", joined)
+        self.assertEqual(cmd[cmd.index("-t") + 1], "14.000")
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "máy không có FFmpeg")
+    def test_quiz_scene_audio_has_the_answer_voice_at_bat_dau_giai(self):
+        import struct
+        import wave
+        with tempfile.TemporaryDirectory() as tmp:
+            hoi, giai = Path(tmp) / "hoi.mp3", Path(tmp) / "giai.mp3"
+            for mp3, tan in ((hoi, 440), (giai, 880)):
+                subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
+                                f"sine=frequency={tan}:duration=0.6:sample_rate=24000", "-q:a", "5", str(mp3)], check=True)
+            wav = Path(tmp) / "a.wav"
+            subprocess.run(ghep.lenh_am_canh(hoi, wav, 5.0, giai=(giai, 3.2)), check=True)
+            with wave.open(str(wav)) as w:
+                mau = struct.unpack("<%dh" % w.getnframes(), w.readframes(w.getnframes()))
+                tan_so = w.getframerate()
+        self.assertAlmostEqual(len(mau) / tan_so, 5.0, delta=0.01)
+
+        def dau_tieng(tu_giay):
+            i = int(tu_giay * tan_so)
+            while abs(mau[i]) < 3000:
+                i += 1
+            return i / tan_so
+
+        self.assertAlmostEqual(dau_tieng(0.0), lich.DAN_DAU, delta=0.05)
+        self.assertAlmostEqual(dau_tieng(2.0), 3.2, delta=0.05)
+        im = [i for i in range(0, len(mau) - tan_so // 20, tan_so // 20) if not any(mau[i:i + tan_so // 20])]
+        self.assertEqual(im, [], "vẫn có nhiễu nền, không im lặng tuyệt đối")
+        self.assertLess(max(abs(x) for x in mau[int(1.8 * tan_so):int(3.1 * tan_so)]), 400, "đếm ngược chỉ có nhiễu nền")
+
     def test_video_command_uses_scene_fps_frames_and_30_fps_output(self):
         cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), lich.FPS, ".khung/phu-de.srt")
         self.assertEqual(cmd[cmd.index("-framerate") + 1], str(lich.FPS))
@@ -139,6 +179,21 @@ class AssembleTest(unittest.TestCase):
         self.assertIn("Bài 5 – Sulfur dioxide (thử) '\\''a'\\''", listing)
         self.assertTrue(all(cwd == thu_muc for _, cwd in calls))
         self.assertEqual(len(calls), 3)
+
+    def test_quiz_scene_audio_mixes_the_answer_voice(self):
+        thu_muc = self.project("p-cau-hoi")
+        cac_giong = self.giong(thu_muc)
+        giai = thu_muc / "giong" / "canh-2-giai.mp3"
+        giai.write_bytes(b"ID3")
+        cac_giong[1].giai = lich.GiongInfo(mp3=giai, giay=1.0, moc_cau=[], uoc_luong=False, nguon="may")
+        plan = [PLAN[0], canh_lich(2, 6.0, 9.0, 1.5, ["Tạm biệt."], [0.0])]
+        plan[1].bat_dau_giai, plan[1].giay_giai, plan[1].cau_giai, plan[1].moc_cau_giai = 7.9, 1.0, ["Đáp án A."], [7.9]
+        calls = []
+        ghep.ghep_video(thu_muc, plan, cac_giong, "khong", run=self.fake_run(thu_muc, calls))
+        am_1, am_2 = calls[0][0], calls[1][0]
+        self.assertNotIn(str(giai), am_1)
+        self.assertIn(str(giai), am_2)
+        self.assertIn("adelay=7900:all=1", " ".join(am_2))
 
     def test_burned_subtitles_bundle_the_itim_font(self):
         thu_muc = self.project("p-font")

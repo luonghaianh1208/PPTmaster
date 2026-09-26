@@ -43,6 +43,14 @@ path.net.m2 { stroke: #15803d; }
 path.net.m3 { stroke: #b45309; }
 path.net.m4 { stroke: #7e22ce; }
 path.net.m5 { stroke: #0e7490; }
+/* Câu hỏi nhanh: đồng hồ đếm ngược, viền và dấu ✓ của đáp án đúng, giải thích màu xanh. */
+.chu.xanh { color: #15803d; }
+#dong-ho .nen { fill: #ffffff; stroke: #e5e7eb; stroke-width: 12; }
+#dong-ho .cung { fill: none; stroke-width: 12; stroke-linecap: round; }
+#dong-ho .so { font-size: 54px; fill: #1f2937; }
+path.dung-vien { fill: none; stroke: #16a34a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+#dau-dung circle { fill: #16a34a; stroke: #ffffff; stroke-width: 3; }
+#dau-dung path { fill: none; stroke: #ffffff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 g.hinh > * { fill: none; stroke: #1f2937; stroke-linecap: round; stroke-linejoin: round; }
 g.hinh.nhan > * { stroke: #1d4ed8; }
 .anh { position: absolute; opacity: 0; }

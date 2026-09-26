@@ -390,6 +390,86 @@ class CliTest(unittest.TestCase):
         self.assertEqual(len(lines), 1)
         json.loads(lines[0])
 
+    def quiz_build(self, tts):
+        """Dựng video một cảnh câu hỏi với giọng máy giả `tts` (lay_giong thật, không mạng); trả (mã, JSON, giọng)."""
+        self.viet(CAU_HOI)
+        that = video_ma.giong.lay_giong
+        seen = {}
+
+        def lay(*a, **kw):
+            return that(*a, tong_hop=tts, do_dai=lambda p: 3.0, **kw)
+
+        def ghep_gia(thu_muc, cac_lich, cac_giong, phu_de, **kw):
+            seen["lich"], seen["giong"] = cac_lich, cac_giong
+            return ["video.mp4"]
+
+        with contextlib.ExitStack() as stack:
+            for patch in trinh_duyet_gia():
+                stack.enter_context(patch)
+            stack.enter_context(mock.patch.object(video_ma.giong, "lay_giong", side_effect=lay))
+            stack.enter_context(mock.patch.object(video_ma.chup, "chup_canh", side_effect=fake_chup))
+            stack.enter_context(mock.patch.object(video_ma.ghep, "ghep_video", side_effect=ghep_gia))
+            code, data = self.one_json([str(self.dir)])
+        return code, data, seen
+
+    def test_quiz_scene_gets_a_second_voice_for_the_answer(self):
+        calls = []
+
+        def tts(text, voice, rate, out_path):
+            calls.append(text)
+            Path(out_path).write_bytes(b"ID3" + text.encode("utf-8"))
+            return [0.0]
+
+        code, data, seen = self.quiz_build(tts)
+        self.assertEqual(code, 0, data)
+        self.assertEqual(calls, ["Câu hỏi đây.", "Đáp án B."])
+        self.assertTrue((self.dir / "giong" / "canh-1.mp3").is_file())
+        self.assertTrue((self.dir / "giong" / "canh-1-giai.mp3").is_file())
+        g = seen["giong"][0]
+        self.assertEqual(g.giai.mp3, self.dir / "giong" / "canh-1-giai.mp3")
+        self.assertAlmostEqual(seen["lich"][0].bat_dau_giai, lich.DAN_DAU + 3.0 + 3 + lich.CHO_GIAI)
+        self.assertAlmostEqual(data["thoi_luong_giay"], lich.thoi_luong_cau_hoi(3.0, 3, 3.0), delta=0.01)
+
+    def test_teacher_question_file_with_failing_answer_voice_names_the_answer_file(self):
+        (self.dir / "giong").mkdir()
+        (self.dir / "giong" / "canh-1.mp3").write_bytes(b"ID3thay-co")
+
+        def tts(text, voice, rate, out_path):
+            raise media.MediaError("giong", "Không tạo được giọng đọc (thường do mất mạng): timeout", video_ma.giong.FIX_GIONG)
+
+        code, data, _ = self.quiz_build(tts)
+        self.assertEqual((code, data["error"]["step"]), (1, "giong"))
+        self.assertIn("canh-1-giai.mp3", data["error"]["message"])
+        self.assertIn("canh-1-giai.mp3", data["error"]["fix"])
+        self.assertEqual((self.dir / "giong" / "canh-1.mp3").read_bytes(), b"ID3thay-co")
+
+    def test_teacher_answer_file_is_used_and_not_overwritten(self):
+        (self.dir / "giong").mkdir()
+        (self.dir / "giong" / "canh-1-giai.mp3").write_bytes(b"ID3giai-thay-co")
+        calls = []
+
+        def tts(text, voice, rate, out_path):
+            calls.append(text)
+            Path(out_path).write_bytes(b"ID3may")
+            return [0.0]
+
+        code, data, seen = self.quiz_build(tts)
+        self.assertEqual(code, 0, data)
+        self.assertEqual(calls, ["Câu hỏi đây."])
+        self.assertEqual((self.dir / "giong" / "canh-1-giai.mp3").read_bytes(), b"ID3giai-thay-co")
+        self.assertEqual(seen["giong"][0].giai.nguon, "co-san")
+        self.assertEqual(data["giong"], "hon-hop")
+
+    def test_quiz_plan_only_passes(self):
+        self.viet(CAU_HOI)
+        code, data = self.one_json([str(self.dir), "--plan-only"])
+        self.assertEqual((code, data["error"]), (0, None), data)
+
+
+CAU_HOI = ("---\ntieu-de: T\nmon: Vật lí\nlop: 10\n---\n\n## Cảnh 1\nloai: cau-hoi\ncau-hoi: Chu kì đổi thế nào?\n"
+           "lua-chon: Giảm\nlua-chon: Tăng\ndap-an: B\ncho: 3\ngiai-thich: Dây dài hơn thì chu kì lớn hơn.\n"
+           "loi-giai: Đáp án B.\nloi: Câu hỏi đây.\n")
+
 
 if __name__ == "__main__":
     unittest.main()

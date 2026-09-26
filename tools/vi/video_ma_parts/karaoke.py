@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from .lich import DAN_DAU
+from .lich import doan_loi
 
 GIOI_HAN_KY_TU = 42
 _MARKUP_RE = re.compile(r"\*\*|~|\^|==|\(\(|\)\)|__|\{\{|\}\}")
@@ -61,17 +61,21 @@ def _boc_dong(chu: list, gioi_han: int = GIOI_HAN_KY_TU) -> list:
 
 
 def _nhom_cau(cl) -> list:
-    """Gom `cl.moc_tu` theo từng câu bằng mốc `cl.moc_cau`; trả `[(cau_text, start, end, [tu...])]` (thời gian trong cảnh)."""
-    if not cl.cau:
-        return []
-    bien = list(cl.moc_cau[1:]) + [DAN_DAU + cl.giay_giong]
-    nhom = [[] for _ in cl.cau]
-    idx = 0
-    for w in cl.moc_tu:
-        while idx < len(bien) - 1 and w["t"] >= bien[idx] - 1e-6:
-            idx += 1
-        nhom[idx].append(w)
-    return [(cl.cau[k], cl.moc_cau[k], bien[k], nhom[k]) for k in range(len(cl.cau))]
+    """Gom mốc từ theo từng câu của từng đoạn lời (`lich.doan_loi`: lời, và lời giải của cảnh câu hỏi);
+    trả `[(cau_text, start, end, [tu...])]` (thời gian trong cảnh)."""
+    ket: list = []
+    for cau, moc_cau, het, moc_tu in doan_loi(cl):
+        if not cau:
+            continue
+        bien = list(moc_cau[1:]) + [het]
+        nhom = [[] for _ in cau]
+        idx = 0
+        for w in moc_tu:
+            while idx < len(bien) - 1 and w["t"] >= bien[idx] - 1e-6:
+                idx += 1
+            nhom[idx].append(w)
+        ket.extend((cau[k], moc_cau[k], bien[k], nhom[k]) for k in range(len(cau)))
+    return ket
 
 
 def _kf_cs(neo: float, moc: list) -> list:

@@ -287,6 +287,77 @@ class GiongTest(unittest.TestCase):
         self.assertIn("edge-tts", str(caught.exception))
 
 
+class AnswerVoiceTest(unittest.TestCase):
+    """Giọng lời giải của cảnh câu hỏi: file riêng `canh-N-giai.mp3` (Review Focus 2)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name) / "giong"
+        self.addCleanup(self.tmp.cleanup)
+
+    def giai(self, tts, so=3, loi="Đáp án B. Vì chu kì tăng."):
+        return giong.lay_giong(so, loi, self.dir, "nu", "vua", tong_hop=tts, do_dai=fixed(2.5), ten=f"canh-{so}-giai")
+
+    def test_named_voice_writes_its_own_mp3_and_ledger(self):
+        info = self.giai(FakeTts(marks=(0.0, 1.0)))
+        self.assertEqual(info.mp3, self.dir / "canh-3-giai.mp3")
+        self.assertEqual(info.nguon, "may")
+        self.assertEqual(info.moc_cau, [0.0, 1.0])
+        self.assertTrue((self.dir / "canh-3-giai.json").is_file())
+        self.assertFalse((self.dir / "canh-3.mp3").exists())
+        self.assertFalse((self.dir / "canh-3.json").exists())
+        tts = FakeTts()
+        self.giai(tts)
+        self.assertEqual(tts.calls, [], "lần sau dùng lại giọng lời giải đã tạo")
+
+    def test_question_and_answer_voices_do_not_share_a_ledger(self):
+        giong.lay_giong(3, "Câu hỏi?", self.dir, "nu", "vua", tong_hop=FakeTts(), do_dai=fixed(4.0))
+        tts = FakeTts()
+        self.giai(tts)
+        self.assertEqual(len(tts.calls), 1)
+        tts_hoi = FakeTts()
+        giong.lay_giong(3, "Câu hỏi?", self.dir, "nu", "vua", tong_hop=tts_hoi, do_dai=fixed(4.0))
+        self.assertEqual(tts_hoi.calls, [])
+
+    def test_teacher_answer_mp3_is_used_and_never_overwritten(self):
+        self.dir.mkdir(parents=True)
+        (self.dir / "canh-3-giai.mp3").write_bytes(b"ID3giai-thay-co")
+        tts = FakeTts()
+        info = self.giai(tts)
+        self.assertEqual((info.nguon, info.uoc_luong), ("co-san", True))
+        self.assertEqual(tts.calls, [])
+        self.giai(tts, loi="Lời giải đã sửa hẳn.")
+        self.assertEqual(tts.calls, [])
+        self.assertEqual((self.dir / "canh-3-giai.mp3").read_bytes(), b"ID3giai-thay-co")
+        self.assertFalse((self.dir / "canh-3-giai.json").exists())
+
+    def test_failed_answer_voice_is_a_giong_error_naming_the_answer_file(self):
+        self.dir.mkdir(parents=True)
+        (self.dir / "canh-3.mp3").write_bytes(b"ID3cau-hoi-thay-co")  # thầy cô chỉ đặt sẵn file câu hỏi
+        hoi = giong.lay_giong(3, "Câu hỏi?", self.dir, "nu", "vua", tong_hop=FakeTts(), do_dai=fixed(4.0))
+        self.assertEqual(hoi.nguon, "co-san")
+        with self.assertRaises(media.MediaError) as caught:
+            self.giai(FakeTts(fail=True))
+        self.assertEqual(caught.exception.step, "giong")
+        self.assertIn("canh-3-giai.mp3", str(caught.exception))
+        self.assertIn("canh-3-giai.mp3", caught.exception.fix)
+        self.assertFalse((self.dir / "canh-3-giai.mp3").exists())
+        self.assertFalse((self.dir / "canh-3-giai.mp3.tmp").exists())
+        self.assertEqual((self.dir / "canh-3.mp3").read_bytes(), b"ID3cau-hoi-thay-co")
+
+    def test_failed_question_voice_names_the_question_file(self):
+        with self.assertRaises(media.MediaError) as caught:
+            giong.lay_giong(4, "Câu hỏi?", self.dir, "nu", "vua", tong_hop=FakeTts(fail=True), do_dai=fixed(4.0))
+        self.assertIn("canh-4.mp3", str(caught.exception))
+
+    def test_empty_teacher_answer_file_names_it(self):
+        self.dir.mkdir(parents=True)
+        (self.dir / "canh-3-giai.mp3").write_bytes(b"")
+        with self.assertRaises(media.MediaError) as caught:
+            self.giai(FakeTts())
+        self.assertIn("canh-3-giai.mp3", str(caught.exception))
+
+
 def _tu(*items):
     """items: (giay, chu) -> danh sách sự kiện WordBoundary giả, thời lượng 0.09s mỗi từ."""
     return [{"t": giay, "d": 0.09, "chu": chu} for giay, chu in items]

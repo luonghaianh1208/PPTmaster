@@ -520,5 +520,92 @@ class ChartMapTimelineTest(unittest.TestCase):
         self.parse_loi("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: **a | b**\nloi: Xin chào.\n", "bieu-thuc", "` | `")
 
 
+def cau_hoi(lua_chon=("Tăng", "Giảm", "Không đổi"), them: str = "dap-an: B\n", bo: str = "") -> str:
+    dong = {
+        "cau-hoi": "cau-hoi: Chu kì thay đổi thế nào khi dây dài gấp bốn?\n",
+        "lua-chon": "".join(f"lua-chon: {c}\n" for c in lua_chon),
+        "giai-thich": "giai-thich: T tỉ lệ với căn bậc hai của l.\n",
+        "loi-giai": "loi-giai: Đáp án B. Chu kì tăng gấp đôi.\n",
+    }
+    return ("## Cảnh 1\nloai: cau-hoi\n" + "".join(v for k, v in dong.items() if k != bo) + them
+            + "loi: Chu kì thay đổi thế nào? A, tăng. B, giảm. C, không đổi.\n")
+
+
+class QuizParseTest(unittest.TestCase):
+    """Cảnh câu hỏi nhanh (Q8, spec §5)."""
+
+    def loi(self, canh: str, needle: str, fragment: str = "", loai=parse.ParseError):
+        text = doc(canh)
+        with self.assertRaises(loai) as caught:
+            kiem.kiem(parse.parse(text), Path("."))
+        if loai is parse.ParseError:
+            self.assertEqual(caught.exception.line_no, line_of(text, needle), str(caught.exception))
+        else:
+            self.assertIn(f"dòng {line_of(text, needle)}", str(caught.exception))
+        self.assertIn(fragment, str(caught.exception))
+
+    def test_quiz_scene_is_registered(self):
+        self.assertEqual(parse.SCENE_SPEC["cau-hoi"],
+                         (("cau-hoi", "dap-an", "giai-thich", "loi-giai"), ("cho",), {"lua-chon": (2, 4)}))
+
+    def test_valid_quiz_parses_with_default_wait_and_normalised_answer(self):
+        video = parse.parse(doc(cau_hoi(them="dap-an: b\n")))
+        self.assertEqual(kiem.kiem(video, Path(".")), [])
+        scene = video.canh[0]
+        self.assertEqual(scene.truong["dap-an"], ["B"])
+        self.assertEqual(scene.truong["cho"], ["5"])
+        self.assertEqual(scene.truong["loi-giai"], ["Đáp án B. Chu kì tăng gấp đôi."])
+        self.assertEqual(scene.loi, "Chu kì thay đổi thế nào? A, tăng. B, giảm. C, không đổi.")
+        video = parse.parse(doc(cau_hoi(("a", "b", "c", "d"), them="dap-an: D\ncho: 10\n")))
+        self.assertEqual(video.canh[0].truong["cho"], ["10"])
+
+    def test_missing_answer_narration_is_a_parse_error(self):
+        text = doc(cau_hoi(bo="loi-giai"))
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertIn("loi-giai", str(caught.exception))
+        self.assertEqual(caught.exception.line_no, line_of(text, "## Cảnh 1"))
+
+    def test_answer_letter_must_be_one_of_the_choices(self):
+        self.loi(cau_hoi(them="dap-an: E\n"), "dap-an: E", "A, B, C")
+        self.loi(cau_hoi(them="dap-an: D\n"), "dap-an: D", "A, B, C")
+        self.loi(cau_hoi(("Có", "Không"), them="dap-an: C\n"), "dap-an: C", "A, B")
+        self.loi(cau_hoi(them="dap-an: AB\n"), "dap-an: AB", "một chữ cái")
+
+    def test_wait_must_be_whole_seconds_from_three_to_ten(self):
+        for sai in ("12", "2", "0", "4.5", "năm"):
+            with self.subTest(sai=sai):
+                self.loi(cau_hoi(them=f"dap-an: B\ncho: {sai}\n"), f"cho: {sai}", "3 đến 10")
+
+    def test_two_to_four_choices(self):
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(doc(cau_hoi(("Một",), them="dap-an: A\n")))
+        self.assertIn("ít nhất 2", str(caught.exception))
+        text = doc(cau_hoi(("a", "b", "c", "d", "e5")))
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, "lua-chon: e5"))
+
+    def test_quiz_text_limits(self):
+        dung = ("## Cảnh 1\nloai: cau-hoi\ncau-hoi: " + "q" * 160 + "\n" + "".join(f"lua-chon: {'c' * 60}\n" for _ in range(4))
+                + "dap-an: C\ngiai-thich: " + "g" * 180 + "\nloi-giai: Đáp án C.\nloi: Câu hỏi.\n")
+        self.assertEqual(kiem.kiem(parse.parse(doc(dung)), Path(".")), [])
+        self.loi(dung.replace("q" * 160, "q" * 161), "qqqq", "tối đa 160", kiem.CanhError)
+        self.loi(dung.replace("c" * 60, "c" * 61, 1), "cccc", "tối đa 60", kiem.CanhError)
+        self.loi(dung.replace("g" * 180, "g" * 181), "gggg", "tối đa 180", kiem.CanhError)
+        self.loi(dung.replace("dap-an: C", "dap-an: C\ncho: 3\ncho: 4"), "cho: 4", "bị lặp")
+
+    def test_long_answer_narration_is_a_warning_like_loi(self):
+        text = doc(cau_hoi(them="dap-an: B\n").replace("loi-giai: Đáp án B. Chu kì tăng gấp đôi.",
+                                                        "loi-giai: " + "a" * (kiem.LOI_DAI + 1)))
+        canh_bao = kiem.kiem(parse.parse(text), Path("."))
+        self.assertEqual(len(canh_bao), 1)
+        self.assertIn("lời giải", canh_bao[0])
+
+    def test_loi_assignment_whitespace_nit_is_fixed(self):
+        src = (TOOLS_VI / "video_ma_parts" / "parse.py").read_text(encoding="utf-8")
+        self.assertNotIn("loi =truong", src)
+
+
 if __name__ == "__main__":
     unittest.main()
