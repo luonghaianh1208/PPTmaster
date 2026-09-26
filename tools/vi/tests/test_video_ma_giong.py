@@ -14,11 +14,12 @@ from video_parts import media  # noqa: E402
 
 
 class FakeTts:
-    def __init__(self, marks=(0.0, 2.0), fail=False, partial=False):
+    def __init__(self, marks=(0.0, 2.0), fail=False, partial=False, tu=None):
         self.calls = []
         self.marks = list(marks)
         self.fail = fail
         self.partial = partial
+        self.tu = tu
 
     def __call__(self, text, voice, rate, out_path):
         self.calls.append((text, voice, rate))
@@ -27,6 +28,8 @@ class FakeTts:
             raise media.MediaError("giong", "mất mạng giữa chừng", giong.FIX_GIONG)
         if self.fail:
             raise media.MediaError("giong", "mất mạng", giong.FIX_GIONG)
+        if self.tu is not None:
+            return {"cau": list(self.marks), "tu": list(self.tu)}
         return list(self.marks)
 
 
@@ -153,6 +156,54 @@ class GiongTest(unittest.TestCase):
         self.get(loi="Học H2SO4 và m/s2.", tts=tts2)
         self.assertEqual(tts2.calls, [])
 
+    def test_highlight_markup_is_stripped_before_synthesis_and_hashing(self):
+        tts = FakeTts()
+        self.get(loi="==Chu kì== là ((thời gian)) của __một dao động__ và {{1500}} vòng.", tts=tts)
+        self.assertEqual(tts.calls[0][0], "Chu kì là thời gian của một dao động và 1500 vòng.")
+        ledger = json.loads((self.dir / "canh-1.json").read_text(encoding="utf-8"))
+        self.assertEqual(ledger["bam"], giong.bam("Chu kì là thời gian của một dao động và 1500 vòng.",
+                                                    "vi-VN-HoaiMyNeural", "+0%"))
+
+    def test_dict_tts_writes_word_marks_and_ledger_reuses_them(self):
+        tu = [
+            {"t": 0.0, "d": 0.2, "chu": "Xin"},
+            {"t": 0.2, "d": 0.2, "chu": "chào."},
+            {"t": 2.0, "d": 0.2, "chu": "Tạm"},
+            {"t": 2.2, "d": 0.2, "chu": "biệt."},
+        ]
+        tts = FakeTts(marks=(0.0, 2.0), tu=tu)
+        info = self.get(tts=tts)
+        self.assertEqual(info.moc_cau, [0.0, 2.0])
+        self.assertEqual(info.moc_tu, tu)
+        self.assertFalse(info.uoc_luong_tu)
+        ledger = json.loads((self.dir / "canh-1.json").read_text(encoding="utf-8"))
+        self.assertEqual(ledger["tu"], tu)
+        tts2 = FakeTts(marks=(0.0, 2.0), tu=tu)
+        info2 = self.get(tts=tts2)
+        self.assertEqual(tts2.calls, [])
+        self.assertEqual(info2.moc_tu, tu)
+        self.assertFalse(info2.uoc_luong_tu)
+
+    def test_old_ledger_without_tu_is_estimated(self):
+        self.get()
+        so_giong = self.dir / "canh-1.json"
+        ghi = json.loads(so_giong.read_text(encoding="utf-8"))
+        ghi.pop("tu", None)
+        so_giong.write_text(json.dumps(ghi, ensure_ascii=False), encoding="utf-8")
+        tts = FakeTts()
+        info = self.get(tts=tts)
+        self.assertEqual(tts.calls, [])
+        self.assertEqual(info.moc_tu, [])
+        self.assertTrue(info.uoc_luong_tu)
+
+    def test_teacher_supplied_mp3_has_estimated_word_marks(self):
+        self.dir.mkdir(parents=True)
+        (self.dir / "canh-1.mp3").write_bytes(b"ID3thay-co")
+        info = self.get(tts=FakeTts())
+        self.assertEqual(info.nguon, "co-san")
+        self.assertEqual(info.moc_tu, [])
+        self.assertTrue(info.uoc_luong_tu)
+
     def test_empty_supplied_file_is_a_giong_error_naming_the_file(self):
         self.dir.mkdir(parents=True)
         (self.dir / "canh-2.mp3").write_bytes(b"")
@@ -234,6 +285,23 @@ class GiongTest(unittest.TestCase):
             builtins.__import__ = real_import
         self.assertEqual(caught.exception.step, "giong")
         self.assertIn("edge-tts", str(caught.exception))
+
+
+class SentenceMarkFromWordsTest(unittest.TestCase):
+    def test_sentence_mark_is_first_word_of_each_sentence(self):
+        tu = [
+            {"t": 0.125, "d": 0.15, "chu": "Chu"},
+            {"t": 0.275, "d": 0.2, "chu": "kì."},
+            {"t": 2.0, "d": 0.15, "chu": "Tạm"},
+            {"t": 2.2, "d": 0.2, "chu": "biệt."},
+        ]
+        marks = giong._moc_cau_theo_tu("Chu kì. Tạm biệt.", tu)
+        self.assertEqual(marks, [0.125, 2.0])
+
+    def test_missing_words_fall_back_to_the_last_known_mark(self):
+        tu = [{"t": 0.0, "d": 0.2, "chu": "Một"}]
+        marks = giong._moc_cau_theo_tu("Một. Hai.", tu)
+        self.assertEqual(marks, [0.0, 0.0])
 
 
 if __name__ == "__main__":

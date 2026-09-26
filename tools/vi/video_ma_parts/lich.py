@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .kiem import CanhError, ma_do, tham_so_theo_thoi_gian
@@ -18,6 +18,7 @@ TOI_THIEU = 2.5
 CANH_DAI = 40.0
 VIDEO_DAI = 480.0
 _CAU_RE = re.compile(r"(?<=[.!?…])\s+")
+_KHOA_RE = re.compile(r"[^\w\s]", re.UNICODE)
 
 
 @dataclass
@@ -27,6 +28,8 @@ class GiongInfo:
     moc_cau: list
     uoc_luong: bool
     nguon: str
+    moc_tu: list = field(default_factory=list)
+    uoc_luong_tu: bool = True
 
 
 @dataclass
@@ -40,6 +43,7 @@ class CanhLich:
     moc_cau: list
     moc_cau_giong: list
     uoc_luong: bool
+    moc_tu: list = field(default_factory=list)
 
 
 def tach_cau(loi: str) -> list:
@@ -54,6 +58,30 @@ def moc_uoc_luong(cau: list, giay: float) -> list:
         moc.append(round(da_qua / tong * giay, 3))
         da_qua += len(c)
     return moc
+
+
+def _khoa(chu: str) -> str:
+    return _KHOA_RE.sub("", chu).lower()
+
+
+def moc_tu_uoc_luong(loi: str, moc_cau_giong: list, giay: float) -> list:
+    bien = list(moc_cau_giong) + [giay]
+    ket: list = []
+    for i, c in enumerate(tach_cau(loi)):
+        tu = c.split()
+        if not tu:
+            continue
+        start = bien[i] if i < len(bien) else giay
+        end = bien[i + 1] if i + 1 < len(bien) else giay
+        dai = max(end - start, 0.0)
+        tong = sum(len(t) for t in tu) or 1
+        da_qua = 0
+        for t in tu:
+            t0 = start + da_qua / tong * dai
+            da_qua += len(t)
+            t1 = start + da_qua / tong * dai
+            ket.append({"t": round(t0, 3), "d": round(max(t1 - t0, 0.0), 3), "chu": t})
+    return ket
 
 
 def thoi_luong_canh(giay_giong: float, fps: int = FPS) -> float:
@@ -91,6 +119,12 @@ def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = 
         moc_giong = moc_uoc_luong(cau, giong.giay) if uoc else list(giong.moc_cau)
         if uoc:
             warnings.append(f"Cảnh {scene.so}: mốc câu ước lượng theo số ký tự; hình có thể lệch tiếng vài trăm mili giây.")
+        uoc_tu = giong.uoc_luong_tu or not giong.moc_tu
+        tu_tho = moc_tu_uoc_luong(scene.loi, moc_giong, giong.giay) if uoc_tu else list(giong.moc_tu)
+        if uoc_tu:
+            warnings.append(f"Cảnh {scene.so}: mốc từng từ ước lượng theo tỉ lệ ký tự; nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
+        moc_tu = [{"t": round(DAN_DAU + w["t"], 3), "d": round(w.get("d", 0.0), 3), "chu": w["chu"], "khoa": _khoa(w["chu"])}
+                  for w in tu_tho]
         thoi_luong = thoi_luong_canh(giong.giay, fps)
         if thoi_luong > CANH_DAI:
             warnings.append(f"Cảnh {scene.so}: dài {thoi_luong:.0f} giây (quá 40 giây); nên tách thành hai cảnh.")
@@ -102,7 +136,7 @@ def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = 
         plan.append(CanhLich(
             so=scene.so, bat_dau=bat_dau, thoi_luong=thoi_luong, so_khung=round(thoi_luong * fps),
             giay_giong=giong.giay, cau=cau, moc_cau=[round(DAN_DAU + m, 3) for m in moc_giong],
-            moc_cau_giong=moc_giong, uoc_luong=uoc,
+            moc_cau_giong=moc_giong, uoc_luong=uoc, moc_tu=moc_tu,
         ))
         bat_dau += thoi_luong
     if bat_dau > VIDEO_DAI:
@@ -121,6 +155,7 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None
         "giayLauBang": LAU_BANG,
         "truong": scene.truong,
         "moc": [round(DAN_DAU + m, 3) for m in moc_hien(so_muc(scene), cl.moc_cau_giong, cl.giay_giong)],
+        "tu": list(cl.moc_tu),
         "hinh": tai_nguyen.get("hinh"),
         "anh": tai_nguyen.get("anh"),
         "hinhs": tai_nguyen.get("hinhs", []),

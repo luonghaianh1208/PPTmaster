@@ -12,35 +12,50 @@ from typing import Callable
 
 from video_parts import media
 
-from .lich import GiongInfo
+from .lich import GiongInfo, tach_cau
 
 VOICES = {"nu": "vi-VN-HoaiMyNeural", "nam": "vi-VN-NamMinhNeural"}
 RATES = {"cham": "-10%", "vua": "+0%", "nhanh": "+15%"}
 FIX_GIONG = "Có mạng rồi chạy lại, hoặc đặt sẵn file giọng giong/canh-<số>.mp3 cho từng cảnh."
 FIX_EDGE = "Cài edge-tts bằng: python -m pip install -r requirements.txt (ở thư mục gốc repo)."
 FIX_FILE = "Xoá hoặc thay file giọng đó rồi chạy lại."
-_MARKUP_RE = re.compile(r"\*\*|~|\^")
+_MARKUP_RE = re.compile(r"\*\*|~|\^|==|\(\(|\)\)|__|\{\{|\}\}")
 
 
 def bam(loi: str, voice: str, rate: str) -> str:
     return hashlib.sha256(f"{voice}|{rate}|{loi}".encode("utf-8")).hexdigest()[:16]
 
 
-async def _tong_hop(text: str, voice: str, rate: str, out_path: Path) -> list:
-    import edge_tts
-
+def _moc_cau_theo_tu(text: str, tu: list) -> list:
+    """Mốc câu = thời điểm của từ đầu mỗi câu, ghép danh sách từ theo thứ tự."""
     moc: list = []
-    with open(out_path, "wb") as f:
-        communicate = edge_tts.Communicate(text, voice, rate=rate, boundary="SentenceBoundary")
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                f.write(chunk["data"])
-            elif chunk["type"] == "SentenceBoundary":
-                moc.append(round(chunk["offset"] / 1e7, 3))
+    idx = 0
+    for cau in tach_cau(text):
+        so_tu = max(len(cau.split()), 1)
+        moc.append(tu[idx]["t"] if idx < len(tu) else (tu[-1]["t"] if tu else 0.0))
+        idx += so_tu
     return moc
 
 
-def tong_hop_edge(text: str, voice: str, rate: str, out_path: Path) -> list:
+async def _tong_hop(text: str, voice: str, rate: str, out_path: Path) -> dict:
+    import edge_tts
+
+    tu: list = []
+    with open(out_path, "wb") as f:
+        communicate = edge_tts.Communicate(text, voice, rate=rate, boundary="WordBoundary")
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                f.write(chunk["data"])
+            elif chunk["type"] == "WordBoundary":
+                tu.append({
+                    "t": round(chunk["offset"] / 1e7, 3),
+                    "d": round(chunk["duration"] / 1e7, 3),
+                    "chu": chunk["text"],
+                })
+    return {"cau": _moc_cau_theo_tu(text, tu), "tu": tu}
+
+
+def tong_hop_edge(text: str, voice: str, rate: str, out_path: Path) -> dict:
     try:
         import edge_tts  # noqa: F401
     except ImportError as exc:
@@ -84,17 +99,25 @@ def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
     if mp3.is_file():
         ghi = _so_giong(so_giong)
         if not ghi or (ghi.get("kich_thuoc"), ghi.get("sha256")) != _dau_van_tay(mp3):
-            return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=[], uoc_luong=True, nguon="co-san")
+            return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=[], uoc_luong=True, nguon="co-san",
+                              moc_tu=[], uoc_luong_tu=True)
         if ghi.get("bam") == ma_bam:
             moc = [float(m) for m in ghi.get("moc", [])]
-            return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=moc, uoc_luong=not moc, nguon="may")
+            tu_ghi = ghi.get("tu")
+            moc_tu = list(tu_ghi) if isinstance(tu_ghi, list) else []
+            return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=moc, uoc_luong=not moc, nguon="may",
+                              moc_tu=moc_tu, uoc_luong_tu=not moc_tu)
     thu_muc.mkdir(parents=True, exist_ok=True)
     tam = mp3.with_name(mp3.name + ".tmp")
     so_giong_cu = so_giong.read_bytes() if so_giong.is_file() else None
     try:
-        moc = tong_hop(doc, voice, rate, tam)
+        ket_qua = tong_hop(doc, voice, rate, tam)
+        if isinstance(ket_qua, dict):
+            moc, tu = list(ket_qua.get("cau", [])), list(ket_qua.get("tu", []))
+        else:
+            moc, tu = list(ket_qua), []
         kich_thuoc, sha = _dau_van_tay(tam)
-        so_giong.write_text(json.dumps({"bam": ma_bam, "moc": moc, "kich_thuoc": kich_thuoc, "sha256": sha},
+        so_giong.write_text(json.dumps({"bam": ma_bam, "moc": moc, "tu": tu, "kich_thuoc": kich_thuoc, "sha256": sha},
                                        ensure_ascii=False), encoding="utf-8")
         os.replace(tam, mp3)
     except BaseException:
@@ -104,4 +127,5 @@ def lay_giong(so: int, loi: str, thu_muc: Path, giong: str, toc_do: str,
         else:
             so_giong.write_bytes(so_giong_cu)
         raise
-    return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=list(moc), uoc_luong=not moc, nguon="may")
+    return GiongInfo(mp3=mp3, giay=_giay(mp3, do_dai), moc_cau=list(moc), uoc_luong=not moc, nguon="may",
+                      moc_tu=list(tu), uoc_luong_tu=not tu)

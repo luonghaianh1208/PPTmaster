@@ -18,8 +18,14 @@ def canh_dau(noi_dung: str, loi: str):
     return parse.parse(text).canh[0]
 
 
-def giong(giay: float, moc=None, uoc=False):
-    return lich.GiongInfo(mp3=None, giay=giay, moc_cau=moc or [], uoc_luong=uoc, nguon="may")
+def giong(giay: float, moc=None, uoc=False, moc_tu=None, uoc_tu=None):
+    moc_cau = moc or []
+    if moc_tu is None:
+        moc_tu = [{"t": m, "d": 0.1, "chu": "x"} for m in moc_cau]
+    if uoc_tu is None:
+        uoc_tu = not moc_tu
+    return lich.GiongInfo(mp3=None, giay=giay, moc_cau=moc_cau, uoc_luong=uoc, nguon="may",
+                          moc_tu=moc_tu, uoc_luong_tu=uoc_tu)
 
 
 class SentenceTest(unittest.TestCase):
@@ -89,9 +95,9 @@ class PlanTest(unittest.TestCase):
     def test_missing_marks_are_estimated_with_a_warning(self):
         plan, warnings = lich.dung_lich(self.scenes(), [giong(4.0, [], True), giong(1.0, [0.0])])
         self.assertTrue(plan[0].uoc_luong)
-        self.assertEqual(len(warnings), 1)
-        self.assertIn("Cảnh 1", warnings[0])
-        self.assertIn("ước lượng", warnings[0])
+        # Cảnh 1 thiếu cả mốc câu lẫn mốc từ nên cảnh báo cả hai.
+        self.assertEqual(len(warnings), 2)
+        self.assertTrue(all("Cảnh 1" in w and "ước lượng" in w for w in warnings))
 
     def test_mark_count_mismatch_falls_back_to_estimate(self):
         plan, warnings = lich.dung_lich(self.scenes(), [giong(4.0, [0.0]), giong(1.0, [0.0])])
@@ -179,6 +185,59 @@ class ResourceDataTest(unittest.TestCase):
         plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
         du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
         self.assertFalse(du2["co"]["lauBang"])
+
+
+class WordMarkEstimateTest(unittest.TestCase):
+    def test_words_divide_by_character_ratio_within_the_sentence_span(self):
+        marks = lich.moc_tu_uoc_luong("aa bbbb", [0.0], 6.0)
+        self.assertEqual(marks, [
+            {"t": 0.0, "d": 2.0, "chu": "aa"},
+            {"t": 2.0, "d": 4.0, "chu": "bbbb"},
+        ])
+
+    def test_first_word_of_each_sentence_matches_the_sentence_mark(self):
+        marks = lich.moc_tu_uoc_luong("Một hai ba. Bốn năm.", [0.0, 3.0], 5.0)
+        self.assertEqual(marks[3]["t"], 3.0)
+        self.assertEqual(marks[3]["chu"], "Bốn")
+        times = [m["t"] for m in marks]
+        self.assertEqual(times, sorted(times))
+        self.assertTrue(all(0.0 <= m["t"] <= 5.0 for m in marks))
+
+
+class WordMarkPlanTest(unittest.TestCase):
+    def test_real_word_marks_are_shifted_by_dan_dau_and_carry_khoa(self):
+        tu = [
+            {"t": 0.125, "d": 0.15, "chu": "Chu"},
+            {"t": 0.275, "d": 0.2, "chu": "kì."},
+        ]
+        g = lich.GiongInfo(mp3=None, giay=2.0, moc_cau=[0.0], uoc_luong=False, nguon="may",
+                            moc_tu=tu, uoc_luong_tu=False)
+        scene = canh_dau("loai: tieu-de\nchu: A\n", "Chu kì.")
+        plan, warnings = lich.dung_lich([scene], [g])
+        self.assertFalse(any("mốc từng từ" in w for w in warnings))
+        self.assertEqual(plan[0].moc_tu, [
+            {"t": round(lich.DAN_DAU + 0.125, 3), "d": 0.15, "chu": "Chu", "khoa": "chu"},
+            {"t": round(lich.DAN_DAU + 0.275, 3), "d": 0.2, "chu": "kì.", "khoa": "kì"},
+        ])
+
+    def test_estimated_word_marks_add_a_warning_and_increase_within_duration(self):
+        g = lich.GiongInfo(mp3=None, giay=4.0, moc_cau=[0.0, 2.0], uoc_luong=False, nguon="may",
+                            moc_tu=[], uoc_luong_tu=True)
+        scene = canh_dau("loai: tieu-de\nchu: A\n", "Xin chào các em. Hôm nay học bài mới.")
+        plan, warnings = lich.dung_lich([scene], [g])
+        self.assertTrue(any("mốc từng từ" in w and "ước lượng" in w for w in warnings))
+        times = [w["t"] for w in plan[0].moc_tu]
+        self.assertEqual(times, sorted(times))
+        self.assertTrue(all(lich.DAN_DAU <= t <= lich.DAN_DAU + 4.0 for t in times))
+
+    def test_du_lieu_canh_tu_field_matches_scene_lich_moc_tu(self):
+        g = lich.GiongInfo(mp3=None, giay=2.0, moc_cau=[0.0], uoc_luong=False, nguon="may",
+                            moc_tu=[{"t": 0.125, "d": 0.15, "chu": "Chu"}], uoc_luong_tu=False)
+        scene = canh_dau("loai: tieu-de\nchu: A\n", "Chu kì.")
+        plan, _ = lich.dung_lich([scene], [g])
+        du = lich.du_lieu_canh(scene, plan[0])
+        self.assertEqual(du["tu"], plan[0].moc_tu)
+        self.assertAlmostEqual(du["tu"][0]["t"], lich.DAN_DAU + 0.125)
 
 
 class WipeLengthTest(unittest.TestCase):
