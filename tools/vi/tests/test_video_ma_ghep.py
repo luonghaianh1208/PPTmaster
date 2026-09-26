@@ -270,6 +270,14 @@ class AssembleTest(unittest.TestCase):
         self.assertIn("Tập hợp A = {1; 2; 3}.", plain)
         self.assertNotIn("\\{", plain)
 
+    def test_backslash_cannot_become_a_libass_code_in_burned_subtitles(self):
+        plan = [canh_lich(1, 0.0, 6.0, 4.0, [r"Gõ a\Nb và \h ở đây."], [0.0])]
+        hinh = self.project("p-gach-nguoc")
+        ghep.ghep_video(hinh, plan, self.giong(hinh)[:1], "hinh", run=self.fake_run(hinh, []))
+        burned = (hinh / ".khung" / "phu-de.srt").read_text(encoding="utf-8")
+        self.assertNotIn("\\", burned)
+        self.assertIn("a⧵Nb", burned)
+
     def test_ffmpeg_failure_is_a_dung_error(self):
         thu_muc = self.project("loi")
         with self.assertRaises(media.MediaError) as caught:

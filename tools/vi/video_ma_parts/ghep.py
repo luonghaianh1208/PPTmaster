@@ -145,7 +145,7 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
     files = ["video.mp4"]
     burn = None
     if phu_de == "hinh":
-        thoat = [srt.Cue(index=c.index, start=c.start, end=c.end, text=c.text.replace("{", "\\{").replace("}", "\\}"))
+        thoat = [srt.Cue(index=c.index, start=c.start, end=c.end, text=c.text.replace("\\", "⧵").replace("{", "\\{").replace("}", "\\}"))
                  for c in cac_cue]
         (lam / "phu-de.srt").write_text(srt.render_srt(thoat), encoding="utf-8")
         fonts_dir = lam / "fonts"
