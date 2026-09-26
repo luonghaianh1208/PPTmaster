@@ -1,5 +1,38 @@
 # Nhật ký thay đổi — Bản Việt
 
+## 6.3.2-vi.11 — 2026-09-26
+
+Hiệu ứng giáo dục cho video giải thích: nhấn ý chính đúng lúc giọng đọc nói tới, số chạy, biểu đồ, sơ đồ tư duy, dòng thời gian, câu hỏi nhanh, năm kiểu chuyển cảnh, phụ đề karaoke, tiếng hiệu ứng tự tạo và nhạc nền giấy phép mở. Học ý tưởng từ HyperFrames (HeyGen, Apache 2.0) nhưng không nhúng thư viện nào: runtime vẫn là JS thuần, Python chỉ thư viện chuẩn cộng edge-tts và playwright.
+
+### Thêm
+- Mốc từng từ: giọng máy dùng `WordBoundary` của edge-tts; mốc câu tính từ từ đầu mỗi câu bằng cách so chữ của lời với chữ edge-tts trả về (số đọc thành nhiều từ, chữ viết tắt vẫn khớp). Không khớp được, hoặc dùng giọng thu sẵn, thì mốc được ước lượng theo tỉ lệ ký tự kèm đúng một cảnh báo cho cảnh đó. Sổ giọng `giong/canh-N.json` lưu thêm `tu`; sổ cũ vẫn dùng được.
+- Nhấn ý chính ngay trong chữ: `==chữ==` tô vàng, `((chữ))` khoanh elip đỏ vẽ tay, `__chữ__` gạch chân. Cụm nổ khi giọng đọc tới từ đầu của cụm (không phân biệt hoa thường, giữ dấu thanh), không bao giờ trước khi cụm được viết xong; không có trong lời thì nổ 0,3 giây sau khi viết xong. Tối đa 3 cụm mỗi dòng, không lồng nhau; trong `bieu-thuc` các dấu này là chữ của công thức; `____` và `==`, `__` có khoảng trắng hai bên là chữ thường.
+- Số chạy `{{số}}`: chạy từ 0 lên giá trị trong 0,8 giây khi bút viết tới; kịch bản dùng dấu chấm thập phân, trên hình hiện dấu phẩy, bề rộng giữ nguyên nên chữ không nhảy.
+- Khoá đầu `chu-dong` (mặc định `co`): tiêu đề cảnh `tieu-de` nảy vào từng chữ cái, cụm nhấn nảy nhẹ khi nổ.
+- Năm kiểu chuyển cảnh `lau-bang`, `lat-trang`, `truot`, `phong`, `mo-man` cho khoá `chuyen-canh`, thêm `luan-phien` (xoay vòng từ cảnh 2) và trường `chuyen:` ghi đè ở từng cảnh (không dùng ở cảnh 1).
+- Bốn loại cảnh mới, tổng cộng 14: `bieu-do` (cột, đường, tròn; cột âm mọc xuống; thang số tròn 4–6 vạch; máy quay giữ toàn cảnh), `so-do` (2–6 nhánh vẽ tay quanh nút trung tâm), `dong-thoi-gian` (2–6 mốc, xen kẽ trên dưới từ 5 mốc) và `cau-hoi` (2–4 lựa chọn, đếm ngược `cho` 3–10 giây, mặc định 5, rồi khoanh đáp án và đọc `loi-giai` bằng giọng riêng `giong/canh-N-giai.mp3`). `cong-thuc` hiện từng phần khi tách `bieu-thuc` bằng ` | `.
+- Phụ đề karaoke: `phu-de` thêm `karaoke` và đây là mặc định mới; file `.ass` tô vàng từng từ theo mốc từ, font Itim. Kịch bản ghi `phu-de: hinh` giữ kiểu cũ; `file` vẫn ra `phu-de.srt`.
+- Tiếng hiệu ứng (khoá `am-thanh`, mặc định `co`): tiếng bút, "ting", chuyển cảnh, tích tắc, chuông đáp án, tiếng nhấn. Tạo bằng FFmpeg từ công thức cố định, không dùng file ngoài; thời điểm lấy từ chính runtime (`THI_VIDEO.suKien()`). Đỉnh hiệu ứng thấp hơn đỉnh giọng 20 dB, tiếng bút không quá 40% thời gian cảnh.
+- Nhạc nền: khoá `nhac-nen: <file trong nhac/>` và `nguon-nhac:`; nhạc lặp đủ dài, vào ra dần 1,5 giây, nền −24 dB, tự hạ khi có giọng (`sidechaincompress`), dòng nguồn hiện 4 giây cuối video. Thiếu nguồn, thiếu file, sai định dạng hay hỏng là lỗi `canh` nêu dòng khoá đầu.
+- `tools/vi/tim_nhac.py "<từ khoá>" -o projects\_video\<tên>\nhac`: tìm trên Openverse, chỉ bản CC0 hoặc CC BY, mp3, dài từ 60 giây, chỉ tải qua https, không ghi đè, ghi nguồn vào `nhac/nguon.json`; một dòng JSON, lỗi mạng là `error.step: "mang"`.
+- Tài liệu: `docs/vi/tro-ly/video-giai-thich.md` (câu hỏi gộp, vẫn 7 câu; ví dụ thứ ba có đủ hiệu ứng), `docs/vi/tro-ly/canh-video.md` (cú pháp nhấn và số, chuyển cảnh, bốn loại cảnh mới), mục "Hiệu ứng giúp học sinh nhớ bài" cho thầy cô, `AGENTS.vi.md` mục 15 (bước tìm nhạc, nhắc nghe thử), luật Antigravity, mục "Tìm nhạc nền thất bại" trong Xử lý lỗi. Test lớp Việt đọc mọi kịch bản mẫu và mọi cảnh mẫu bằng bộ đọc thật.
+- Demo con lắc đơn 11 cảnh, giọng edge-tts thật, nhạc CC BY: 155,93 giây, 12,1 MB, dựng lần đầu 335 giây kể cả tạo giọng, dựng lại 172 giây. Chi tiết ở `docs/vi/phat-trien/2026-09-26-video-ma-hieu-ung-kiem-thu.md`.
+
+### Sửa
+- Tên biểu tượng gõ sai một từ tiếng Anh không dấu (ví dụ `magnt`) gợi ý tên tiếng Anh gần đúng trước (`magnet`); tên tiếng Việt vẫn tra bảng trước.
+
+### Bảo mật
+- `tim_nhac.py` chỉ tải qua https, từ chối file không phải mp3 hoặc lớn hơn 40 MB. `nhac-nen` không thoát được khỏi thư mục `nhac/`; nguồn nhạc bỏ mọi địa chỉ web.
+
+### Ngoài phạm vi
+- Kiểu Vox và khổ dọc 9:16 lùi sang vi.12. Không có bản đồ, 3D, hạt, shader, tự chọn nhạc theo cảm xúc hay ghép video quay thật.
+
+### Rủi ro
+- Chưa kiểm: phiên Antigravity thật với luật mới, cài từ đầu trên máy sạch, thời gian dựng trên máy 2 lõi, và chủ repo chưa nghe thử tiếng hiệu ứng và nhạc nền của demo.
+- Tiếng hiệu ứng tự tạo có thể nghe "máy"; tắt bằng `am-thanh: khong`.
+- Với giọng thu sẵn, nhấn ý và karaoke khớp theo ước lượng, có thể lệch vài trăm mili giây.
+- Công cụ chỉ kiểm đáp án của `cau-hoi` là một trong các lựa chọn; tính đúng của câu hỏi do thầy cô duyệt.
+
 ## 6.3.2-vi.10 — 2026-09-26
 
 Sửa lỗi font tiếng Việt trong video giải thích và làm video trực quan hơn: hình vẽ nét, ảnh thật, bàn tay cầm bút, lau bảng, máy quay động.
