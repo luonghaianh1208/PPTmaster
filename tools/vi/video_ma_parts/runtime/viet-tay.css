@@ -12,6 +12,15 @@ html, body { margin: 0; padding: 0; background: #fbfaf5; }
 .chu.nhan { color: #1d4ed8; }
 .chu.do { color: #b91c1c; }
 .chu .an { visibility: hidden; }
+.chu .cum.to { background-image: linear-gradient(#fde047, #fde047); background-repeat: no-repeat;
+  background-position: 0 0; background-size: 0% 100%; }
+.chu .cum { transform-origin: 50% 60%; }
+.chu .so { position: relative; }
+.chu .so-cuoi { visibility: hidden; }
+.chu .so-chay { position: absolute; left: 0; top: 0; white-space: nowrap; }
+.chu .tu { white-space: nowrap; }
+.chu .nay { display: inline-block; transform-origin: 50% 80%; }
+path.nhan-net { fill: none; stroke: #dc2626; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 path.net { fill: none; stroke: #1f2937; stroke-linecap: round; stroke-linejoin: round; }
 path.net.nhan { stroke: #1d4ed8; }
 path.net.do { stroke: #b91c1c; }

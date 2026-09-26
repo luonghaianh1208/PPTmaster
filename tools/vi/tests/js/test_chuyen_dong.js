@@ -262,3 +262,10 @@ test('ban tay va may quay: cung ranh gioi bat dau (t = batDau la dang ve)', func
   assert.strictEqual(T.dangVe(ds, 1), ds[0]);
   assert.strictEqual(Q.mucTieu(ds, { a: HOP_TAM }, 1), 'a');
 });
+
+test('ban tay: muc tay:false khong duoc ve (tieu de nay chu)', function () {
+  var ds = [muc('a', 1, 1, { tay: false }), muc('c', 5, 1)];
+  assert.strictEqual(T.viTri(ds, 1.5, ngoi, NGHI).hien, false);
+  assert.strictEqual(T.dangVe(ds, 1.5), null);
+  assert.strictEqual(T.viTri(ds, 5.5, ngoi, NGHI).hien, true);
+});

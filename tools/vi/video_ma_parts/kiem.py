@@ -25,6 +25,11 @@ LOI_DAI = 700
 MAX_THAM_SO = 3
 MAX_DO = 3
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
+# Cùng ngữ pháp với catDanhDau trong runtime/khung-video.js.
+_CUM_RE = re.compile(r"==(.+?)==|\(\((.+?)\)\)|__(.+?)__")
+_SO_RE = re.compile(r"\{\{(.*?)\}\}")
+_SO_DUNG = re.compile(r"-?\d+(?:\.\d+)?")
+MAX_CUM = 3
 
 
 class CanhError(Exception):
@@ -36,8 +41,35 @@ class CanhError(Exception):
         self.message = message
 
 
+def _trong_cum(m: re.Match) -> str:
+    return next(g for g in m.groups() if g is not None)
+
+
 def hien_thi(chu: str) -> int:
+    chu = _CUM_RE.sub(_trong_cum, chu)
+    chu = _SO_RE.sub(lambda m: m.group(1).replace(".", ","), chu)
     return len(_MARKUP_RE.sub("", chu))
+
+
+def kiem_danh_dau(key: str, value: str, no: int) -> None:
+    """Cụm nhấn `==`, `((…))`, `__` và số chạy `{{…}}`: không lồng, có đóng, tối đa 3 cụm, số dùng dấu chấm."""
+    cac_cum = list(_CUM_RE.finditer(value))
+    for m in cac_cum:
+        trong = _trong_cum(m)
+        if _CUM_RE.search(trong) or any(dau in trong for dau in ("==", "((", "__")):
+            raise ParseError(no, f"`{key}` có cụm nhấn lồng trong cụm khác (`{m.group(0)}`). Mỗi cụm nhấn đứng riêng.")
+    con_lai = _CUM_RE.sub("", value)
+    for dau, dong in (("==", "=="), ("((", "))"), ("__", "__")):
+        if dau in con_lai:
+            raise ParseError(no, f"`{key}` có `{dau}` chưa đóng bằng `{dong}`.")
+    if len(cac_cum) > MAX_CUM:
+        raise ParseError(no, f"`{key}` có {len(cac_cum)} cụm nhấn, tối đa {MAX_CUM} cụm mỗi dòng.")
+    for m in _SO_RE.finditer(value):
+        if _SO_DUNG.fullmatch(m.group(1)) is None:
+            raise ParseError(no, f"`{key}`: `{m.group(0)}` phải là một số, dấu thập phân là dấu chấm (ví dụ `{{{{1500.5}}}}`).")
+    con_lai = _SO_RE.sub("", value)
+    if "{{" in con_lai or "}}" in con_lai:
+        raise ParseError(no, f"`{key}` có `{{{{` hoặc `}}}}` chưa thành cặp; số chạy viết dạng `{{{{12}}}}`.")
 
 
 def tham_so_theo_thoi_gian(scene: Scene) -> dict:
@@ -125,6 +157,7 @@ def kiem(video: Video, thu_muc: Path) -> list:
             if gioi_han is None:
                 continue
             for value, no in zip(values, scene.dong_truong[key]):
+                kiem_danh_dau(key, value, no)
                 so_ky_tu = hien_thi(value)
                 if so_ky_tu > gioi_han:
                     raise CanhError(scene.so, f"`{key}` dài {so_ky_tu} ký tự, tối đa {gioi_han} (dòng {no}). Rút gọn nội dung.")

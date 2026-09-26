@@ -24,7 +24,7 @@ def dung_trang(du: dict, model=None) -> str:
     if du["loai"] == "thi-nghiem":
         scripts.append(_doc(NGHIEM / "khung.js"))
         scripts.append(model.js)
-    for ten in ("khung-video.js", "hinh.js", "ban-tay.js", "may-quay.js"):
+    for ten in ("dong.js", "khung-video.js", "nhan.js", "hinh.js", "ban-tay.js", "may-quay.js"):
         scripts.append(_doc(RUNTIME / ten))
     scripts.append(_doc(RUNTIME / "canh" / f"{du['loai']}.js"))
     scripts.append(f"window.DU_CANH = {json_nhung(du)};\nTHI_VIDEO.khoiDong(window.DU_CANH);")

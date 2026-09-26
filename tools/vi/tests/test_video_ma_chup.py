@@ -579,6 +579,158 @@ class PictureMotionChromiumTest(unittest.TestCase):
         self.assertIn("y-0", chup.kiem_tran(self.page, trang.dung_trang(du)))
 
 
+@unittest.skipUnless(co_chromium(), NEED_CHROMIUM)
+class NhanChromiumTest(unittest.TestCase):
+    """Cụm nhấn, số chạy, tiêu đề nảy chữ trong Chromium thật."""
+
+    @classmethod
+    def setUpClass(cls):
+        from video_ma_parts import hinh
+        cls.hinh = hinh.doc("flask")
+        cls.cm = chup.trinh_duyet()
+        cls.browser = cls.cm.__enter__()
+        cls.page = chup.trang_moi(cls.browser)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cm.__exit__(None, None, None)
+
+    def muc(self, id_muc: str) -> dict:
+        return self.page.evaluate(
+            "(id) => THI_CANH[DU_CANH.loai].muc(DU_CANH).filter((m) => m.id === id)[0]", id_muc)
+
+    def dat(self, t: float) -> None:
+        self.page.evaluate("(t) => window.datThoiDiem(t)", t)
+
+    TRANG_THAI = """() => {
+        const to = document.querySelector('.cum.to');
+        const net = [...document.querySelectorAll('path.nhan-net')];
+        return {to: to.style.backgroundSize,
+                net: net.map((p) => [getComputedStyle(p).opacity, Number(p.style.strokeDashoffset)])};
+    }"""
+
+    def test_emphasis_appears_when_the_narrator_says_it_not_before(self):
+        noi_dung = ("loai: khai-niem\nthuat-ngu: Chu kì\n"
+                    "dinh-nghia: Thời gian để ==vật== thực hiện ((một dao động)) __toàn phần__.\n")
+        du, _ = du_cua(noi_dung, giay=10.0)
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        m = self.muc("dinh-nghia")
+        noi = m["batDau"] + m["thoiLuong"] + 1.0
+        self.assertLess(noi + 0.6, du["thoiLuong"] - 0.2)
+        du["tu"] = [{"t": noi + 0.01 * i, "d": 0.01, "chu": w, "khoa": w.lower()}
+                    for i, w in enumerate(("Vật", "một", "dao", "động", "toàn", "phần."))]
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.dat(noi - 0.05)
+        truoc = self.page.evaluate(self.TRANG_THAI)
+        self.assertEqual(truoc["to"], "0% 100%")
+        self.assertEqual([o for o, _ in truoc["net"]], ["0", "0"])
+        self.dat(noi + 0.25)
+        giua = self.page.evaluate(self.TRANG_THAI)
+        self.assertNotIn(giua["to"], ("0% 100%", "100% 100%"))
+        # So trạng thái DOM (không so ảnh chụp: nét SVG khi máy quay phóng có thể lệch vài điểm ảnh giữa hai lần vẽ,
+        # kể cả trước thay đổi này). Bỏ bàn tay đang ẩn.
+        bang = """() => [...document.getElementById('bang').children]
+            .filter((e) => e.id !== 'ban-tay').map((e) => e.outerHTML).join('')
+            + document.getElementById('bang').style.transform"""
+        mot = self.page.evaluate(bang)
+        self.dat(0.1)
+        self.dat(noi + 0.25)
+        self.assertEqual(mot, self.page.evaluate(bang), "cùng t phải cho cùng khung")
+        self.dat(noi + 0.6)
+        sau = self.page.evaluate(self.TRANG_THAI)
+        self.assertEqual(sau["to"], "100% 100%")
+        self.assertEqual(sau["net"], [["1", 0], ["1", 0]])
+
+    def test_emphasis_missing_from_the_narration_fires_after_it_is_written(self):
+        # Cụm ở cuối dòng: viết xong cụm gần như cùng lúc viết xong mục; nổ 0,3 s sau đó.
+        du, _ = du_cua("loai: khai-niem\nthuat-ngu: Chu kì\ndinh-nghia: Nhớ ==chu kỳ==\n", giay=10.0,
+                       loi="Chu kì là thời gian. Hết bài.")
+        du["tu"] = [{"t": 1.0, "d": 0.2, "chu": "Chu", "khoa": "chu"}, {"t": 1.2, "d": 0.2, "chu": "kì", "khoa": "kì"}]
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        m = self.muc("dinh-nghia")
+        xong = m["batDau"] + m["thoiLuong"]
+        self.dat(xong + 0.2)
+        self.assertEqual(self.page.evaluate(self.TRANG_THAI)["to"], "0% 100%")
+        self.dat(xong + 0.8)
+        self.assertEqual(self.page.evaluate(self.TRANG_THAI)["to"], "100% 100%")
+
+    def test_longest_emphasis_at_the_text_limits_does_not_overflow(self):
+        from video_ma_parts import kiem
+
+        def cum(dau, n, cuoi):
+            return dau + vi_text(n) + cuoi
+        casos = {
+            "y-tung-y": "loai: y-tung-y\ntieu-de: " + cum("((", 90, "))") + "\n"
+                        + "".join(f"y: {cum(d, 60, c)}\n" for d, c in (("==", "=="), ("((", "))"), ("__", "__")) * 2),
+            "khai-niem": ("loai: khai-niem\nthuat-ngu: " + cum("((", 60, "))") + "\ndinh-nghia: "
+                          + cum("==", 70, "== ") + cum("((", 70, ")) ") + cum("__", 78, "__") + "\n"),
+            "tieu-de": "loai: tieu-de\nchu: " + cum("((", 90, "))") + "\nphu: " + cum("__", 90, "__") + "\n",
+            "so-sanh": ("loai: so-sanh\ntieu-de: S\ntrai: " + cum("((", 24, "))") + "\nphai: " + cum("==", 24, "==") + "\n"
+                        + "".join(f"y-trai: {cum('((', 60, '))')}\n" for _ in range(4))
+                        + "".join(f"y-phai: {cum('__', 60, '__')}\n" for _ in range(4))),
+            "cot-hinh": "loai: y-tung-y\ntieu-de: " + cum("((", 90, "))") + "\nhinh: flask\n"
+                        + "".join(f"y: {cum('((', 60, '))')}\n" for _ in range(6)),
+            "anh": "loai: khai-niem\nthuat-ngu: A\ndinh-nghia: " + cum("((", 200, "))") + "\n",
+        }
+        for loai, noi_dung in casos.items():
+            with self.subTest(loai=loai):
+                text = f"---\n{META}---\n\n## Cảnh 1\n{noi_dung}loi: Xin chào.\n"
+                if "hinh: flask" not in noi_dung:
+                    kiem.kiem(parse.parse(text), Path("."))
+                du = du_hinh(noi_dung, {"hinh": self.hinh} if "hinh: flask" in noi_dung else {})
+                self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+                bien = self.page.evaluate("""() => [...document.querySelectorAll('path.nhan-net')].map((p) => {
+                    const b = p.getBBox(); return [b.x, b.y, b.x + b.width, b.y + b.height]; })""")
+                for x1, y1, x2, y2 in bien:
+                    self.assertGreaterEqual(min(x1, y1), 0)
+                    self.assertLessEqual(x2, 1280)
+                    self.assertLessEqual(y2, 620)
+
+    def test_kiem_tran_still_catches_overflow_with_emphasis(self):
+        du, _ = du_cua("loai: tieu-de\nchu: ((" + "A" * 80 + "))\n")
+        self.assertIn("chu", chup.kiem_tran(self.page, trang.dung_trang(du)))
+
+    def test_bouncing_title_shows_every_letter_at_the_end(self):
+        chu = "Con lắc ==đơn== và {{12}} dao động"
+        for tai in ({}, {"hinh": self.hinh}):
+            with self.subTest(hinh=bool(tai)):
+                du = du_hinh(f"loai: tieu-de\nchu: {chu}\n" + ("hinh: flask\n" if tai else ""), tai, giay=1.0)
+                self.assertTrue(du["co"]["chuDong"])
+                chup.mo_trang(self.page, trang.dung_trang(du))
+                m = self.muc("chu")
+                self.assertIs(m["tay"], False)
+                self.dat(m["batDau"] + 0.3 * m["thoiLuong"])
+                mo = self.page.evaluate("[...document.querySelectorAll('[data-id=chu] .nay')].map((s) => getComputedStyle(s).opacity)")
+                self.assertTrue(any(float(o) < 1 for o in mo), "giữa lúc nảy phải còn chữ chưa hiện hẳn")
+                self.dat(du["thoiLuong"] - 1 / 30)
+                cuoi = self.page.evaluate("""() => {
+                    const el = document.querySelector('[data-id=chu]');
+                    return {chu: el.textContent.replace(/\\s+/g, ' ').trim(),
+                            mo: [...el.querySelectorAll('.nay')].map((s) => getComputedStyle(s).opacity),
+                            tay: getComputedStyle(document.getElementById('ban-tay')).display}; }""")
+                self.assertEqual(cuoi["chu"], "Con lắc đơn và 12 dao động")
+                self.assertTrue(all(o == "1" for o in cuoi["mo"]))
+        du = du_hinh("loai: tieu-de\nchu: Con lắc\n", {})
+        du["co"]["chuDong"] = False
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.assertEqual(self.page.evaluate("document.querySelectorAll('.nay').length"), 0)
+
+    def test_running_number_ends_on_its_value_and_keeps_its_width(self):
+        du, _ = du_cua("loai: y-tung-y\ntieu-de: Số\ny: Được {{1500}} lần và {{2.5}} m\n")
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        m = self.muc("y-0")
+        do = """() => [...document.querySelectorAll('[data-id=y-0] .so')].map((s) => {
+            const c = s.querySelector('.so-chay'); return [c ? c.textContent : s.textContent, s.offsetWidth]; })"""
+        self.dat(du["thoiLuong"] - 1 / 30)
+        cuoi = self.page.evaluate(do)
+        self.assertEqual([c for c, _ in cuoi], ["1500", "2,5"])
+        self.assertIn("Được 1500 lần và 2,5 m", self.page.evaluate("document.querySelector('[data-id=y-0]').textContent"))
+        self.dat(m["batDau"] + m["thoiLuong"] * ("Được ".__len__() + 1) / len("Được 1500 lần và 2,5 m") + 0.2)
+        giua = self.page.evaluate(do)
+        self.assertNotEqual(giua[0][0], "1500")
+        self.assertAlmostEqual(giua[0][1], cuoi[0][1], delta=0.5)
+
+
 class ChiaDaiTest(unittest.TestCase):
     def kiem_phu(self, so_khung, so_tt, dai):
         self.assertTrue(dai)

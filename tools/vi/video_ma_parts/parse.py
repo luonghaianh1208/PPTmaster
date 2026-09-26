@@ -14,10 +14,12 @@ META_CHOICES = {
     "ban-tay": ("co", "khong"),
     "may-quay": ("co", "khong"),
     "chuyen-canh": ("lau-bang", "khong"),
+    "chu-dong": ("co", "khong"),
 }
 META_DEFAULTS = {
     "phong-cach": "viet-tay", "giong": "nu", "toc-do": "vua", "phu-de": "hinh",
     "ban-tay": "co", "may-quay": "co", "chuyen-canh": "lau-bang",
+    "chu-dong": "co",
 }
 
 # loại cảnh -> (trường đơn bắt buộc, trường đơn tuỳ chọn, trường lặp {khoá: (tối thiểu, tối đa)})

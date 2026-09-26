@@ -174,10 +174,10 @@ class ResourceDataTest(unittest.TestCase):
         meta = {"ban-tay": "co", "may-quay": "khong", "chuyen-canh": "lau-bang"}
         plan1, _ = lich.dung_lich([scene1], [giong(2.0, [0.0])])
         du1 = lich.du_lieu_canh(scene1, plan1[0], tai_nguyen={"meta": meta})
-        self.assertEqual(du1["co"], {"banTay": True, "mayQuay": False, "lauBang": False})
+        self.assertEqual(du1["co"], {"banTay": True, "mayQuay": False, "lauBang": False, "chuDong": True})
         plan2, _ = lich.dung_lich([scene2], [giong(2.0, [0.0])])
         du2 = lich.du_lieu_canh(scene2, plan2[0], tai_nguyen={"meta": meta})
-        self.assertEqual(du2["co"], {"banTay": True, "mayQuay": False, "lauBang": True})
+        self.assertEqual(du2["co"], {"banTay": True, "mayQuay": False, "lauBang": True, "chuDong": True})
 
     def test_lau_bang_off_when_meta_says_khong(self):
         scene2 = canh_dau("loai: tieu-de\nchu: B\n", "Tiếp theo.")

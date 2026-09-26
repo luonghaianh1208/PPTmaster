@@ -8,6 +8,7 @@ var RT = path.join(__dirname, '..', '..', 'video_ma_parts', 'runtime');
 var TN = path.join(__dirname, '..', '..', 'thi_nghiem_parts');
 require(path.join(TN, 'runtime', 'khung.js'));
 require(path.join(TN, 'mo_hinh', 'li-con-lac-don.js'));
+require(path.join(RT, 'dong.js'));
 require(path.join(RT, 'khung-video.js'));
 var LOAI = ['tieu-de', 'khai-niem', 'cong-thuc', 'y-tung-y', 'quy-trinh', 'so-sanh', 'do-thi', 'thi-nghiem'];
 var LOAI_MOI = ['minh-hoa', 'anh'];
@@ -369,6 +370,24 @@ test('moi loai canh co lau bang, gh = 2,5667: khong muc nao bat dau truoc 0,55 h
       });
       var ids = ds.map(function (m) { return m.id; });
       assert.strictEqual(new Set(ids).size, ids.length, c[0] + ' co id trung');
+    });
+  });
+});
+
+test('tieu-de chu-dong: chu nay tung ky tu, khong ban tay, xong truoc cuoi canh; khong chu-dong thi viet tay', function () {
+  [12, 2.5].forEach(function (gh) {
+    ['', 'hinh'].forEach(function (kieu) {
+      var d = JSON.parse(JSON.stringify(boMoi(gh)['tieu-de']));
+      if (kieu) { d.hinh = HINH; }
+      d.truong.chu = ['x'.repeat(90)];
+      d.co.chuDong = true;
+      var c = tim(C['tieu-de'].muc(d), 'chu');
+      assert.strictEqual(c.nay, true);
+      assert.strictEqual(c.tay, false);
+      assert.ok(c.batDau + c.thoiLuong <= gh - 0.2 + 1e-9, gh + ' ' + kieu);
+      d.co.chuDong = false;
+      var cu = tim(C['tieu-de'].muc(d), 'chu');
+      assert.ok(!cu.nay && cu.tay !== false);
     });
   });
 });

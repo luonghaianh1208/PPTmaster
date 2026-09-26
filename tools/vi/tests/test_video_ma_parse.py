@@ -252,5 +252,64 @@ class NewFieldsTest(unittest.TestCase):
             parse.parse(text)
 
 
+class NhanTest(unittest.TestCase):
+    def kiem_loi(self, canh: str, needle: str):
+        text = doc(canh)
+        with self.assertRaises(parse.ParseError) as caught:
+            kiem.kiem(parse.parse(text), Path("."))
+        self.assertEqual(caught.exception.line_no, line_of(text, needle))
+        return caught.exception
+
+    def test_chu_dong_is_a_meta_choice_defaulting_to_co(self):
+        self.assertEqual(parse.META_CHOICES["chu-dong"], ("co", "khong"))
+        self.assertEqual(parse.META_DEFAULTS["chu-dong"], "co")
+        video = parse.parse(doc("## Cảnh 1\nloai: tieu-de\nchu: A\nloi: Xin chào.\n"))
+        self.assertEqual(video.meta["chu-dong"], "co")
+        video = parse.parse(doc("## Cảnh 1\nloai: tieu-de\nchu: A\nloi: Xin chào.\n", META + "chu-dong: khong\n"))
+        self.assertEqual(video.meta["chu-dong"], "khong")
+
+    def test_du_lieu_canh_carries_chu_dong(self):
+        from video_ma_parts import lich
+
+        for gia_tri, mong in (("co", True), ("khong", False)):
+            video = parse.parse(doc("## Cảnh 1\nloai: tieu-de\nchu: A\nloi: Xin chào.\n", META + f"chu-dong: {gia_tri}\n"))
+            giong = lich.GiongInfo(mp3=None, giay=3.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
+            plan, _ = lich.dung_lich(video.canh, [giong])
+            du = lich.du_lieu_canh(video.canh[0], plan[0], None, {"meta": video.meta})
+            self.assertIs(du["co"]["chuDong"], mong)
+
+    def test_valid_emphasis_and_numbers_pass(self):
+        text = doc("## Cảnh 1\nloai: y-tung-y\ntieu-de: ==Ba== ((bước)) __nhỏ__\n"
+                   "y: Tăng {{1500.5}} lần và {{-2}} độ\ny: f(g(x)) vẫn là chữ thường\nloi: Xin chào.\n")
+        self.assertEqual(kiem.kiem(parse.parse(text), Path(".")), [])
+
+    def test_nested_emphasis_is_an_error_at_its_line(self):
+        err = self.kiem_loi("## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: ==chu ((kì)) này==\nloi: Xin chào.\n", "y: ==chu")
+        self.assertIn("lồng", err.message)
+
+    def test_unclosed_emphasis_is_an_error_at_its_line(self):
+        for mo in ("==chu kì", "((chu kì", "__chu kì"):
+            with self.subTest(mo=mo):
+                err = self.kiem_loi(f"## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: Một {mo} này\nloi: Xin chào.\n", "y: Một")
+                self.assertIn("đóng", err.message)
+
+    def test_more_than_three_emphasis_groups_in_a_field_is_an_error(self):
+        self.kiem_loi("## Cảnh 1\nloai: khai-niem\nthuat-ngu: A\n"
+                      "dinh-nghia: ==a== ((b)) __c__ ==d==\nloi: Xin chào.\n", "dinh-nghia:")
+
+    def test_number_must_use_a_decimal_point(self):
+        for sai in ("{{1,5}}", "{{mười}}", "{{}}", "{{3"):
+            with self.subTest(sai=sai):
+                err = self.kiem_loi(f"## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: Được {sai} lần\nloi: Xin chào.\n", "y: Được")
+                self.assertIn("{{", err.message)
+
+    def test_length_limit_counts_only_visible_text(self):
+        chu = "==" + "a" * 60 + "== {{1500}}"
+        text = doc(f"## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: {'a' * 55} {{{{12}}}}\nloi: Xin chào.\n")
+        self.assertEqual(kiem.kiem(parse.parse(text), Path(".")), [])
+        self.assertEqual(kiem.hien_thi(chu), 60 + 1 + 4)
+        self.assertEqual(kiem.hien_thi("((ab)) __c__ **d** H~2~"), len("ab c d H2"))
+
+
 if __name__ == "__main__":
     unittest.main()

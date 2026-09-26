@@ -166,6 +166,7 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None
             "banTay": meta.get("ban-tay", "co") == "co",
             "mayQuay": meta.get("may-quay", "co") == "co",
             "lauBang": meta.get("chuyen-canh", "lau-bang") == "lau-bang" and scene.so > 1,
+            "chuDong": meta.get("chu-dong", "co") == "co",
         },
         "nenTruoc": None,
     }

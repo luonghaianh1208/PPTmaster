@@ -8,7 +8,7 @@
   var CUOI = 0.2;
 
   function kep(x, a, b) { return x < a ? a : (x > b ? b : x); }
-  function veDuoc(m) { return !m.dong && m.kieu !== 'anh'; }
+  function veDuoc(m) { return !m.dong && m.tay !== false && m.kieu !== 'anh'; }
   function ketThuc(m) { return m.batDau + m.thoiLuong; }
   function noi(a, b, u) { return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }; }
   function but(d, hien) { return { x: d.x, y: d.y, hien: hien, kieu: 'but' }; }

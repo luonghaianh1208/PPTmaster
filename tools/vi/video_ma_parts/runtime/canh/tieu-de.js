@@ -6,8 +6,9 @@
       var B = V.tao(du);
       var t = du.truong;
       var kq = [];
+      var nay = !!(du.co && du.co.chuDong);
       if (!B.coCot) {
-        var c = B.chu('chu', t.chu[0], 80, 60, 1120, 320, 60, 0.3, { can: 'giua', mau: 'nhan', day: true });
+        var c = B.chu('chu', t.chu[0], 80, 60, 1120, 320, 60, 0.3, { can: 'giua', mau: 'nhan', day: true, nay: nay });
         kq.push(c);
         kq.push(B.net('gach', V.duongQua([[340, 400], [940, 400]], 3), c.batDau + c.thoiLuong, 0.4, { mau: 'nhan', quay: false }));
         if (t.phu) { kq.push(B.chu('phu', t.phu[0], 80, 430, 1120, 100, 34, c.batDau + c.thoiLuong + 0.4, { can: 'giua' })); }
@@ -18,7 +19,7 @@
       var h = du.hinh ? B.hinh('hinh', du.hinh, 550, 40, 180, 0.3) : B.anh('anh', du.anh, 550, 40, 180, 180, 0.3, { viTriNguon: 'canh' });
       kq.push(h);
       var co = V.demKyTu(t.chu[0]) <= 40 ? 56 : 44;
-      var c2 = B.chu('chu', t.chu[0], 80, 225, 1120, 150, co, h.batDau + h.thoiLuong, { can: 'giua', mau: 'nhan', day: true });
+      var c2 = B.chu('chu', t.chu[0], 80, 225, 1120, 150, co, h.batDau + h.thoiLuong, { can: 'giua', mau: 'nhan', day: true, nay: nay });
       kq.push(c2);
       kq.push(B.net('gach', V.duongQua([[340, 395], [940, 395]], 3), c2.batDau + c2.thoiLuong, 0.4, { mau: 'nhan', quay: false }));
       if (t.phu) { kq.push(B.chu('phu', t.phu[0], 80, 420, 1120, 100, 34, c2.batDau + c2.thoiLuong + 0.4, { can: 'giua' })); }
