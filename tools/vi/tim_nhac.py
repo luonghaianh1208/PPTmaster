@@ -94,6 +94,8 @@ def tim(tu_khoa: str, lay=urllib.request.urlopen) -> list:
     for ban in ds:
         if not isinstance(ban, dict) or not ban.get("url"):
             continue
+        if urllib.parse.urlsplit(str(ban["url"])).scheme != "https":
+            continue  # Chỉ tải qua https: địa chỉ lấy từ dữ liệu ngoài, không tin http hay giao thức khác.
         if (ban.get("license") or "").lower() not in GIAY_PHEP:
             continue
         giay = ban.get("duration")

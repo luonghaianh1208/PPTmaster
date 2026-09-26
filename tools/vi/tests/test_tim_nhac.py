@@ -70,6 +70,12 @@ class TimTest(unittest.TestCase):
         self.assertEqual([b["id"] for b in tim_nhac.tim("x", lay=lay)], ["mp3"])
 
 
+    def test_chi_tai_qua_https(self):
+        lay = LayGia([ket_qua("http", 90, url="http://tai.example/a.mp3"), ket_qua("file", 90, url="file:///C:/x.mp3"),
+                      ket_qua("tot", 90)])
+        self.assertEqual([b["id"] for b in tim_nhac.tim("x", lay=lay)], ["tot"])
+
+
 class MainTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
