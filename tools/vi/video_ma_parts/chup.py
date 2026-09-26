@@ -245,5 +245,11 @@ def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_
 def _doc_cac_su_kien(cac_du: list, thu_muc_su_kien) -> dict | None:
     if not thu_muc_su_kien:
         return None
-    return {du["so"]: json.loads((Path(thu_muc_su_kien) / f"canh-{du['so']}.json").read_text(encoding="utf-8"))
-            for du in cac_du}
+    ket_qua = {}
+    for du in cac_du:
+        try:
+            ds = json.loads((Path(thu_muc_su_kien) / f"canh-{du['so']}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            ds = []  # Thiếu hay hỏng file sự kiện thì cảnh đó dựng không có hiệu ứng âm thanh, không làm hỏng video.
+        ket_qua[du["so"]] = ds if isinstance(ds, list) else []
+    return ket_qua

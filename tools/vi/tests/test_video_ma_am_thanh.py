@@ -339,3 +339,16 @@ class TrangChromiumTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DocSuKienTest(unittest.TestCase):
+    def test_file_su_kien_thieu_hoac_hong_thi_canh_khong_co_hieu_ung(self):
+        import tempfile
+        from video_ma_parts import chup
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "canh-1.json").write_text('[{"t": 1.0, "loai": "ting", "dai": 0.2}]', encoding="utf-8")
+            (Path(tmp) / "canh-2.json").write_text("{hong", encoding="utf-8")
+            kq = chup._doc_cac_su_kien([{"so": 1}, {"so": 2}, {"so": 3}], tmp)
+        self.assertEqual(len(kq[1]), 1)
+        self.assertEqual(kq[2], [])
+        self.assertEqual(kq[3], [])
