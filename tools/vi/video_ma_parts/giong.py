@@ -61,25 +61,15 @@ def _khop_tai(chuan_tu: list, chuan_su_kien: list, i: int, j: int):
     return None
 
 
-def _can_chinh_moc_cau(cau: list, tu: list):
-    """Ghép mốc đầu mỗi câu bằng cách so khớp chữ (kịch bản) với sự kiện WordBoundary.
-    Trả `None` khi không đủ tin cậy (từ đầu một câu không khớp được sau khi đã thử
-    lệch tối đa `_TOI_DA_SU_KIEN` sự kiện / `_TOI_DA_TU` từ, hoặc số sự kiện đã dùng
-    lệch quá xa tổng số sự kiện) — không bao giờ trả mốc sai một cách âm thầm."""
-    tokens: list = []
-    dau_cau: list = []
-    for c in cau:
-        dau_cau.append(len(tokens))
-        tokens.extend(c.split())
-    if not tokens or not tu:
-        return None
-
-    chuan_tu = [_chuan_hoa(w) for w in tokens]
-    chuan_su_kien = [_chuan_hoa(e["chu"]) for e in tu]
-    dau_can_khop = set(dau_cau)
-    idx_su_kien: list = [None] * len(tokens)
+def can_chinh_tu(chuan_tu: list, chuan_su_kien: list) -> tuple:
+    """Khớp từng token kịch bản (đã chuẩn hoá) với sự kiện WordBoundary (đã chuẩn hoá) — lõi dùng chung
+    cho mốc đầu câu (`_can_chinh_moc_cau`) và mốc từng từ hiển thị (karaoke, giữ nguyên dấu câu/chữ hoa
+    của kịch bản). Trả `(idx_su_kien, i, j)`: `idx_su_kien[k]` là chỉ số sự kiện khớp với token thứ `k`
+    (`None` nếu token đó bị gộp vào sự kiện của token liền trước, hoặc không khớp được); `i`, `j` là vị
+    trí dừng lại (để đánh giá độ tin cậy: còn dư bao nhiêu token/sự kiện)."""
+    idx_su_kien: list = [None] * len(chuan_tu)
     i = j = 0
-    while i < len(tokens) and j < len(tu):
+    while i < len(chuan_tu) and j < len(chuan_su_kien):
         ket = _khop_tai(chuan_tu, chuan_su_kien, i, j)
         if ket is not None:
             idx_su_kien[i] = j
@@ -96,14 +86,30 @@ def _can_chinh_moc_cau(cau: list, tu: list):
                     tim = ("tu", di)
                     break
         if tim is None:
-            if i in dau_can_khop:
-                return None
             i += 1
             continue
         if tim[0] == "su_kien":
             j += tim[1]
         else:
             i += tim[1]
+    return idx_su_kien, i, j
+
+
+def _can_chinh_moc_cau(cau: list, tu: list):
+    """Ghép mốc đầu mỗi câu bằng cách so khớp chữ (kịch bản) với sự kiện WordBoundary.
+    Trả `None` khi không đủ tin cậy (từ đầu một câu không khớp được, hoặc số sự kiện đã dùng
+    lệch quá xa tổng số sự kiện) — không bao giờ trả mốc sai một cách âm thầm."""
+    tokens: list = []
+    dau_cau: list = []
+    for c in cau:
+        dau_cau.append(len(tokens))
+        tokens.extend(c.split())
+    if not tokens or not tu:
+        return None
+
+    chuan_tu = [_chuan_hoa(w) for w in tokens]
+    chuan_su_kien = [_chuan_hoa(e["chu"]) for e in tu]
+    idx_su_kien, _i, j = can_chinh_tu(chuan_tu, chuan_su_kien)
 
     if any(idx_su_kien[p] is None for p in dau_cau):
         return None

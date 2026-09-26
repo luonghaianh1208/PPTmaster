@@ -38,6 +38,15 @@ def _thoi_gian_giay(nhan: str) -> float:
     return int(gio) * 3600 + int(phut) * 60 + int(s) + int(cs) / 100
 
 
+def _dialogues(text: str) -> list:
+    return [l for l in text.splitlines() if l.startswith("Dialogue:")]
+
+
+def _hien_thi(dialogue_text: str) -> str:
+    """Chữ hiển thị của một Dialogue: bỏ thẻ `\\kf`, đổi `\\N` (xuống dòng) thành khoảng trắng."""
+    return _KF_TAG_RE.sub("", dialogue_text).replace("\\N", " ")
+
+
 class CauTrucTest(unittest.TestCase):
     def test_has_all_three_required_sections(self):
         text = karaoke.tao_ass([])
@@ -124,7 +133,89 @@ class ThoatKyTuTest(unittest.TestCase):
         self.assertNotIn("={1}.", dialogue)
 
 
+class ChuKichBanTest(unittest.TestCase):
+    """Chữ hiển thị karaoke phải là token gốc của kịch bản (giữ dấu câu), không phải chữ giọng máy đọc ra."""
+
+    def test_punctuation_from_the_script_is_kept_even_when_tts_words_lack_it(self):
+        cau_text = "Thứ nhất, dây dài hơn thì chu kì lớn hơn."
+        # Giọng máy (WordBoundary) không bao giờ trả dấu câu kèm theo từ.
+        loi_may = ["Thứ", "nhất", "dây", "dài", "hơn", "thì", "chu", "kì", "lớn", "hơn"]
+        tu = [{"t": lich.DAN_DAU + i * 0.3, "d": 0.25, "chu": w, "khoa": w.lower()} for i, w in enumerate(loi_may)]
+        cl = canh(1, 0.0, len(loi_may) * 0.3, [cau_text], [lich.DAN_DAU], tu)
+        text = karaoke.tao_ass([cl])
+        dialogues = _dialogues(text)
+        self.assertGreaterEqual(len(dialogues), 1)
+        hien_thi = " ".join(_hien_thi(_DIALOGUE_RE.match(d).group(3)) for d in dialogues)
+        self.assertIn("nhất,", hien_thi)
+        self.assertIn("hơn.", hien_thi)
+        self.assertNotIn("nhất dây", hien_thi)  # dấu phẩy sau "nhất" không bị rơi mất
+
+        for d in dialogues:
+            match = _DIALOGUE_RE.match(d)
+            start, end = _thoi_gian_giay(match.group(1)), _thoi_gian_giay(match.group(2))
+            du_kf = sum(int(n) for n in _KF_RE.findall(match.group(3)))
+            self.assertLessEqual(abs(du_kf - round((end - start) * 100)), 1)
+
+    def test_a_script_number_spoken_as_several_tts_events_does_not_crash_and_keeps_totals(self):
+        cau_text = "Số đo là 1500 đơn vị"
+        # "1500" được giọng máy đọc thành 4 sự kiện đánh vần rời rạc, không khớp chữ được với token "1500".
+        loi_may = ["Số", "đo", "là", "một", "nghìn", "năm", "trăm", "đơn", "vị"]
+        tu = [{"t": lich.DAN_DAU + i * 0.2, "d": 0.15, "chu": w, "khoa": w.lower()} for i, w in enumerate(loi_may)]
+        cl = canh(1, 0.0, len(loi_may) * 0.2, [cau_text], [lich.DAN_DAU], tu)
+        text = karaoke.tao_ass([cl])  # không được ném lỗi
+        dialogues = _dialogues(text)
+        self.assertGreaterEqual(len(dialogues), 1)
+        hien_thi = " ".join(_hien_thi(_DIALOGUE_RE.match(d).group(3)) for d in dialogues)
+        self.assertIn("1500", hien_thi)  # giữ đúng chữ số của kịch bản, không phải chữ đánh vần
+        for d in dialogues:
+            match = _DIALOGUE_RE.match(d)
+            start, end = _thoi_gian_giay(match.group(1)), _thoi_gian_giay(match.group(2))
+            du_kf = sum(int(n) for n in _KF_RE.findall(match.group(3)))
+            self.assertLessEqual(abs(du_kf - round((end - start) * 100)), 1)
+
+    def test_answer_sentence_dialogue_starts_exactly_at_the_answer_offset(self):
+        """Cảnh câu hỏi: đoạn lời giải (`cau_giai`) vẫn bắt đầu đúng `bat_dau_giai`, không đổi so với trước."""
+        bat_dau_giai = round(lich.DAN_DAU + 1.2 + 2.0 + lich.CHO_GIAI, 3)  # dẫn đầu + hỏi + chờ + khoảng lặng
+        cl = lich.CanhLich(
+            so=1, bat_dau=20.0, thoi_luong=10.0, so_khung=1, giay_giong=1.2,
+            cau=["Cau hoi la gi"], moc_cau=[lich.DAN_DAU], moc_cau_giong=[0.0], uoc_luong=False,
+            moc_tu=[
+                {"t": lich.DAN_DAU + 0.0, "d": 0.25, "chu": "Cau", "khoa": "cau"},
+                {"t": lich.DAN_DAU + 0.3, "d": 0.25, "chu": "hoi", "khoa": "hoi"},
+                {"t": lich.DAN_DAU + 0.6, "d": 0.25, "chu": "la", "khoa": "la"},
+                {"t": lich.DAN_DAU + 0.9, "d": 0.25, "chu": "gi", "khoa": "gi"},
+                {"t": bat_dau_giai + 0.0, "d": 0.25, "chu": "Dap", "khoa": "dap"},
+                {"t": bat_dau_giai + 0.3, "d": 0.25, "chu": "an", "khoa": "an"},
+                {"t": bat_dau_giai + 0.6, "d": 0.25, "chu": "la", "khoa": "la"},
+                {"t": bat_dau_giai + 0.9, "d": 0.25, "chu": "B", "khoa": "b"},
+            ],
+            giay_giai=1.2, bat_dau_giai=bat_dau_giai, cau_giai=["Dap an la B"], moc_cau_giai=[bat_dau_giai],
+        )
+        text = karaoke.tao_ass([cl])
+        dialogues = _dialogues(text)
+        giai = next(d for d in dialogues if "Dap" in _hien_thi(_DIALOGUE_RE.match(d).group(3)))
+        start = _thoi_gian_giay(_DIALOGUE_RE.match(giai).group(1))
+        self.assertAlmostEqual(start, cl.bat_dau + bat_dau_giai, delta=0.02)
+
+
 class BocDongTest(unittest.TestCase):
+    def test_a_long_sentence_balances_its_two_lines_instead_of_orphaning_one_word(self):
+        cau_text = "Chu kì tỉ lệ với căn bậc hai của chiều dài dây."
+        tu_van = cau_text.rstrip(".").split()
+        tu = [{"t": lich.DAN_DAU + i * 0.3, "d": 0.25, "chu": w, "khoa": w.lower()} for i, w in enumerate(tu_van)]
+        cl = canh(1, 0.0, len(tu_van) * 0.3, [cau_text], [lich.DAN_DAU], tu)
+        text = karaoke.tao_ass([cl])
+        dialogues = _dialogues(text)
+        self.assertEqual(len(dialogues), 1, dialogues)
+        dong = _DIALOGUE_RE.match(dialogues[0]).group(3).split("\\N")
+        self.assertEqual(len(dong), 2, dong)
+        so_tu = [len(_KF_TAG_RE.sub("", d).strip().split()) for d in dong]
+        self.assertGreaterEqual(min(so_tu), 2, so_tu)  # không dòng nào mồ côi 1 từ
+        do_dai = [len(_KF_TAG_RE.sub("", d)) for d in dong]
+        self.assertLessEqual(abs(do_dai[0] - do_dai[1]), 10, do_dai)  # hai dòng cân đối
+
+
+class BocDongCuTest(unittest.TestCase):
     def test_long_sentence_wraps_to_at_most_two_lines(self):
         tu = [{"t": lich.DAN_DAU + i * 0.3, "d": 0.25, "chu": f"tuso{i}", "khoa": f"tuso{i}"} for i in range(10)]
         cl = canh(1, 0.0, 3.0, [" ".join(w["chu"] for w in tu)], [lich.DAN_DAU], tu)
