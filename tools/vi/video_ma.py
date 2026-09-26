@@ -76,13 +76,17 @@ def _tai_nguyen(scene: parse.Scene, thu_muc: Path) -> dict:
     return {"hinh": None, "anh": None, "hinhs": []}
 
 
-def _cac_du(video, cac_lich, models, thu_muc: Path) -> list:
-    return [lich.du_lieu_canh(c, cl, models.get(c.so), {**_tai_nguyen(c, thu_muc), "meta": video.meta})
-            for c, cl in zip(video.canh, cac_lich)]
+def _cac_du(video, cac_lich, models, thu_muc: Path, nhac=None) -> list:
+    """`nhac`: nhạc nền (`kiem.doc_nhac`); dòng nguồn nhạc gắn vào cảnh cuối."""
+    cac_du = [lich.du_lieu_canh(c, cl, models.get(c.so), {**_tai_nguyen(c, thu_muc), "meta": video.meta})
+              for c, cl in zip(video.canh, cac_lich)]
+    if nhac is not None and cac_du:
+        lich.gan_nguon_nhac(cac_du[-1], nhac["nguon"])
+    return cac_du
 
 
-def _trang(video, cac_lich, models, thu_muc: Path) -> list:
-    return [trang.dung_trang(du, models.get(du["so"])) for du in _cac_du(video, cac_lich, models, thu_muc)]
+def _trang(video, cac_lich, models, thu_muc: Path, nhac=None) -> list:
+    return [trang.dung_trang(du, models.get(du["so"])) for du in _cac_du(video, cac_lich, models, thu_muc, nhac)]
 
 
 def _kiem_tran_tat_ca(page, video, trang_html) -> None:
@@ -121,13 +125,13 @@ def _lay_giong(c: parse.Scene, thu_muc_giong: Path, meta: dict) -> lich.GiongInf
     return dataclasses.replace(g, giai=giai)
 
 
-def _trang_tam(video: parse.Video, thu_muc: Path, models: dict) -> list:
+def _trang_tam(video: parse.Video, thu_muc: Path, models: dict, nhac=None) -> list:
     cac_lich, _ = lich.dung_lich(video.canh, _giong_tam(video), kiem_moc=False)
-    return _trang(video, cac_lich, models, thu_muc)
+    return _trang(video, cac_lich, models, thu_muc, nhac)
 
 
 def _xem_truoc(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
-    trang_html = _trang_tam(video, thu_muc, _mo_hinh(video, thu_muc))
+    trang_html = _trang_tam(video, thu_muc, _mo_hinh(video, thu_muc), kiem.doc_nhac(video, thu_muc))
     ra = thu_muc / "xem-truoc"
     shutil.rmtree(ra, ignore_errors=True)
     files = []
@@ -147,12 +151,13 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
     if not co_chromium():
         raise media.MediaError("chromium", "Chưa cài Chromium hoặc playwright.", chup.FIX_CHROMIUM)
     models = _mo_hinh(video, thu_muc)
+    nhac = kiem.doc_nhac(video, thu_muc)
     with _loi_chup(), chup.trinh_duyet() as browser:
-        _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, thu_muc, models))
+        _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, thu_muc, models, nhac))
     cac_giong = [_lay_giong(c, thu_muc / "giong", video.meta) for c in video.canh]
     cac_lich, canh_bao = lich.dung_lich(video.canh, cac_giong)
     warnings.extend(canh_bao)
-    cac_du = _cac_du(video, cac_lich, models, thu_muc)
+    cac_du = _cac_du(video, cac_lich, models, thu_muc, nhac)
     models_js = {so: m.js for so, m in models.items()}
     so_khung = [cl.so_khung for cl in cac_lich]
     lam = thu_muc / ".khung"
@@ -169,7 +174,7 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
                                       thu_muc_su_kien=lam / "su-kien" if co_am else None)
         su_kien = [ket.get(du["so"], []) for du in cac_du] if co_am and ket is not None else None
         log("Ghép video bằng FFmpeg...")
-        files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"], su_kien=su_kien)
+        files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"], su_kien=su_kien, nhac=nhac)
     finally:
         shutil.rmtree(lam, ignore_errors=True)
     if video.meta["phu-de"] != "file":

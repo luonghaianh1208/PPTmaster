@@ -440,6 +440,15 @@
     var goc = document.createElement('div');
     goc.id = 'bang';
     khung.appendChild(goc);
+    // Dòng nguồn nhạc nền (cảnh cuối, 4 s cuối video): nằm ngoài lớp bảng nên không theo máy quay hay chuyển cảnh.
+    var nhacNguon = null;
+    if (du.nhacNguon && du.nhacNguon.chu) {
+      nhacNguon = document.createElement('div');
+      nhacNguon.id = 'nhac-nguon';
+      nhacNguon.textContent = du.nhacNguon.chu;
+      nhacNguon.style.display = 'none';
+      khung.appendChild(nhacNguon);
+    }
     var svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 've');
     svg.setAttribute('viewBox', '0 0 1280 720');
@@ -691,6 +700,11 @@
       goc.style.transform = bd;
       goc.style.opacity = moi && moi.opacity !== 1 ? String(moi.opacity) : '';
       goc.style.clipPath = moi && moi.clipPath !== 'none' ? moi.clipPath : '';
+      if (nhacNguon) {
+        var pn = noiBo ? 0 : tienDo(t, du.nhacNguon.tu, 0.3);
+        nhacNguon.style.display = pn > 0 ? 'block' : 'none';
+        nhacNguon.style.opacity = String(lam3(pn));
+      }
       if (!tay) { return; }
       var v = noiBo ? { hien: false } : T.viTri(mucVe, t, ngoiCua(cam), T.NGHI, { chuyen: kieu, giayLau: lau, gh: gh });
       tay.style.display = v.hien ? 'block' : 'none';
@@ -724,6 +738,11 @@
       if (ng) {
         var rn = ng.getBoundingClientRect();
         if (rn.left < -1 || rn.top < -1 || rn.right > 1281 || rn.bottom > 621) { loi.push('nguon'); }
+      }
+      // Dòng nguồn nhạc nền: trong khung hình và trên vạch phụ đề.
+      if (nhacNguon) {
+        var rm = nhacNguon.getBoundingClientRect();
+        if (rm.left < -1 || rm.top < -1 || rm.right > 1281 || rm.bottom > 621) { loi.push('nhac-nguon'); }
       }
       // Vòng khoanh và nét gạch của cụm nhấn: trong khung hình và trên vạch phụ đề.
       var cacNet = svg.querySelectorAll('path.nhan-net');

@@ -17,6 +17,7 @@ DUOI = 0.6
 CHO_GIAI = 0.4  # cảnh câu hỏi: khoảng lặng sau đếm ngược, trước khi hiện đáp án và đọc lời giải
 TOI_THIEU = 2.5
 CANH_DAI = 40.0
+NGUON_NHAC_GIAY = 4.0  # dòng nguồn nhạc nền hiện trong 4 s cuối video (ở cảnh cuối)
 VIDEO_DAI = 480.0
 _CAU_RE = re.compile(r"(?<=[.!?…])\s+")
 _KHOA_RE = re.compile(r"[^\w\s]", re.UNICODE)
@@ -210,6 +211,12 @@ def kieu_chuyen(scene: Scene, meta: dict):
     if kieu == "luan-phien":
         return CHUYEN_XOAY[(scene.so - 2) % len(CHUYEN_XOAY)]
     return None if kieu == "khong" else kieu
+
+
+def gan_nguon_nhac(du: dict, nguon: str) -> dict:
+    """Gắn dòng nguồn nhạc vào dữ liệu cảnh cuối: hiện từ `tu` (giây trong cảnh) tới hết cảnh."""
+    du["nhacNguon"] = {"chu": nguon, "tu": round(max(0.0, du["thoiLuong"] - NGUON_NHAC_GIAY), 3)}
+    return du
 
 
 def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None = None) -> dict:

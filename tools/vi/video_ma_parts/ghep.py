@@ -19,6 +19,10 @@ BIEN_DO_NHIEU = 0.002
 HAT_NHIEU = 1234
 STYLE = f"FontName={ITIM_TEN},FontSize=16,Outline=1.5,Shadow=0,Spacing=0.5,MarginV=22"
 FONTS_REL = ".khung/fonts"
+# Nhạc nền: vào/ra dần, mức nền, và bộ nén hạ nhạc khi tiếng chính (giọng) vượt ngưỡng.
+NHAC_VAO_RA = 1.5
+NHAC_DB = -24
+NHAC_NEN = "threshold=0.02:ratio=8:attack=20:release=400"
 
 
 def cues_phu_de(cac_lich: list) -> list:
@@ -62,12 +66,32 @@ def lenh_am_canh(mp3: Path, wav: Path, thoi_luong: float, giai: tuple | None = N
     ]
 
 
+def lenh_nhac(danh_sach_am: Path, nhac: Path, wav_ra: Path, tong: float) -> list:
+    """Tiếng chính (nối các cảnh) trộn nhạc nền: nhạc lặp vô hạn rồi cắt đúng `tong` giây, vào/ra 1,5 s (video ngắn
+    thì nửa video), −24 dB, hạ thêm bằng `sidechaincompress` lấy tiếng chính làm tín hiệu điều khiển."""
+    mo = min(NHAC_VAO_RA, tong / 2)
+    loc = ("[0:a]aresample=44100,aformat=channel_layouts=mono,asplit=2[chinh][dk];"
+           f"[1:a]aresample=44100,aformat=channel_layouts=mono,atrim=duration={tong:.3f},asetpts=N/SR/TB,"
+           f"afade=t=in:d={mo:.3f},afade=t=out:st={tong - mo:.3f}:d={mo:.3f},volume={NHAC_DB}dB[nen];"
+           f"[nen][dk]sidechaincompress={NHAC_NEN}[ha];"
+           "[chinh][ha]amix=inputs=2:duration=first:normalize=0[a]")
+    return [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-f", "concat", "-safe", "0", "-i", str(danh_sach_am), "-stream_loop", "-1", "-i", str(nhac),
+        "-filter_complex", loc, "-map", "[a]", "-t", f"{tong:.3f}", "-ar", "44100", "-ac", "1", "-c:a", "pcm_s16le",
+        str(wav_ra),
+    ]
+
+
 def lenh_video(danh_sach_am: Path, out_mp4: Path, fps: int, phu_de_tuong_doi) -> list:
+    """`danh_sach_am`: danh sách nối tiếng các cảnh (.txt), hoặc một file tiếng đã trộn nhạc (.wav)."""
     cmd = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-framerate", str(fps), "-i", ".khung/anh/f%06d.png",
-        "-f", "concat", "-safe", "0", "-i", str(danh_sach_am),
     ]
+    if Path(danh_sach_am).suffix.lower() == ".txt":
+        cmd += ["-f", "concat", "-safe", "0"]
+    cmd += ["-i", str(danh_sach_am)]
     if phu_de_tuong_doi:
         if str(phu_de_tuong_doi).endswith(".ass"):
             cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:fontsdir={FONTS_REL}"]
@@ -89,8 +113,9 @@ def _chay(cmd: list, run, cwd: Path) -> None:
 
 
 def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps: int = FPS, run=subprocess.run,
-               su_kien: list | None = None) -> list:
-    """`su_kien`: sự kiện âm thanh của từng cảnh (cùng thứ tự `cac_lich`) để trộn hiệu ứng; None là không có hiệu ứng."""
+               su_kien: list | None = None, nhac: dict | None = None) -> list:
+    """`su_kien`: sự kiện âm thanh của từng cảnh (cùng thứ tự `cac_lich`) để trộn hiệu ứng; None là không có hiệu ứng.
+    `nhac`: kết quả `nhac.doc` (nhạc nền trộn sau khi nối tiếng các cảnh); None là không có nhạc."""
     lam = thu_muc / ".khung"
     wavs = []
     mau = None
@@ -111,6 +136,11 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
         wavs.append(wav)
     danh_sach = lam / "am.txt"
     danh_sach.write_text(media.build_audio_concat_text(wavs), encoding="utf-8")
+    am = danh_sach
+    if nhac is not None:
+        am = lam / "am-nhac.wav"
+        tong = round(sum(cl.thoi_luong for cl in cac_lich), 3)
+        _chay(lenh_nhac(danh_sach, Path(nhac["duong_dan"]), am, tong), run, thu_muc)
     cac_cue = cues_phu_de(cac_lich)
     cues = srt.render_srt(cac_cue)
     files = ["video.mp4"]
@@ -133,7 +163,7 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
         (thu_muc / "phu-de.srt").write_text(cues, encoding="utf-8")
         files.append("phu-de.srt")
     tam = lam / "video.mp4"
-    _chay(lenh_video(danh_sach, tam, fps, burn), run, thu_muc)
+    _chay(lenh_video(am, tam, fps, burn), run, thu_muc)
     try:
         os.replace(tam, thu_muc / "video.mp4")
     except PermissionError as exc:

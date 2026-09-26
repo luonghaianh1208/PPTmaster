@@ -7,7 +7,7 @@ from pathlib import Path
 
 from thi_nghiem_parts import thu_vien
 
-from . import anh, hinh, parse
+from . import anh, hinh, nhac, parse
 from .parse import ParseError, Scene, Video
 
 LIMITS = {
@@ -197,8 +197,20 @@ def _kiem_do_dai(so: int, key: str, value: str, no: int, gioi_han: int, cum: boo
         raise CanhError(so, f"`{key}` dài {so_ky_tu} ký tự, tối đa {gioi_han} (dòng {no}). Rút gọn nội dung.")
 
 
+def doc_nhac(video: Video, thu_muc: Path):
+    """Nhạc nền của video (`nhac.doc`), None khi không có `nhac-nen`. Lỗi là CanhError số cảnh 0, nêu dòng khoá đầu."""
+    ten = video.meta.get("nhac-nen")
+    if not ten:
+        return None
+    try:
+        return nhac.doc(thu_muc, ten, video.meta.get("nguon-nhac"))
+    except nhac.NhacError as exc:
+        raise CanhError(0, f"nhạc nền: {exc} (dòng {video.dong_meta.get('nhac-nen', '?')}).") from exc
+
+
 def kiem(video: Video, thu_muc: Path) -> list:
     warnings: list = []
+    doc_nhac(video, thu_muc)
     for scene in video.canh:
         for key, values in scene.truong.items():
             hai_phan = LIMITS_HAI_PHAN.get((scene.loai, key))

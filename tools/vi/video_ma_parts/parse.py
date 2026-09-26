@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 META_REQUIRED = ("tieu-de", "mon", "lop")
 META_CHOICES = {
@@ -17,6 +17,8 @@ META_CHOICES = {
     "chu-dong": ("co", "khong"),
     "am-thanh": ("co", "khong"),
 }
+# Khoá đầu tự do (không có mặc định): nhạc nền là tên file trong nhac/; nguồn nhạc là chữ (chỉ dùng kèm `nhac-nen`).
+META_FREE = ("nhac-nen", "nguon-nhac")
 META_DEFAULTS = {
     "phong-cach": "viet-tay", "giong": "nu", "toc-do": "vua", "phu-de": "karaoke",
     "ban-tay": "co", "may-quay": "co", "chuyen-canh": "lau-bang",
@@ -149,6 +151,8 @@ class Scene:
 class Video:
     meta: dict
     canh: list
+    # Số dòng của từng khoá đầu có trong video.md (lỗi nhạc nền nêu đúng dòng khoá).
+    dong_meta: dict = field(default_factory=dict)
 
 
 def _check_value(no: int, key: str, value: str) -> None:
@@ -160,6 +164,7 @@ def _check_value(no: int, key: str, value: str) -> None:
 
 def _read_meta(lines: list, start: int) -> tuple:
     meta: dict = {}
+    dong_meta: dict = {}
     i = start
     while i < len(lines):
         raw = lines[i].strip()
@@ -170,7 +175,7 @@ def _read_meta(lines: list, start: int) -> tuple:
             if match is None:
                 raise ParseError(i + 1, "Dòng thông tin phải có dạng `khoá: giá trị`.")
             key, value = match.group(1), match.group(2).strip()
-            if key not in META_REQUIRED and key not in META_CHOICES:
+            if key not in META_REQUIRED and key not in META_CHOICES and key not in META_FREE:
                 raise ParseError(i + 1, f"Khoá `{key}` không có trong khối thông tin.")
             if key in meta:
                 raise ParseError(i + 1, f"Khoá `{key}` bị lặp.")
@@ -178,15 +183,19 @@ def _read_meta(lines: list, start: int) -> tuple:
             if key in META_CHOICES and value not in META_CHOICES[key]:
                 raise ParseError(i + 1, f"`{key}` phải là một trong: {', '.join(META_CHOICES[key])}.")
             meta[key] = value
+            dong_meta[key] = i + 1
         i += 1
     else:
         raise ParseError(start, "Khối thông tin chưa đóng bằng dòng `---`.")
     for key in META_REQUIRED:
         if key not in meta:
             raise ParseError(i + 1, f"Khối thông tin thiếu `{key}`.")
+    if "nguon-nhac" in meta and "nhac-nen" not in meta:
+        raise ParseError(dong_meta["nguon-nhac"], "`nguon-nhac` chỉ dùng kèm `nhac-nen` (nguồn của file nhạc nền); "
+                                                  "thêm dòng `nhac-nen: <file trong nhac/>` hoặc bỏ dòng này.")
     for key, default in META_DEFAULTS.items():
         meta.setdefault(key, default)
-    return meta, i + 1
+    return meta, dong_meta, i + 1
 
 
 def _finish(so: int, dong0: int, fields: list) -> Scene:
@@ -263,7 +272,7 @@ def parse(text: str) -> Video:
         i += 1
     if i >= len(lines) or lines[i].strip() != "---":
         raise ParseError(i + 1, "video.md phải mở đầu bằng khối thông tin giữa hai dòng `---`.")
-    meta, i = _read_meta(lines, i + 1)
+    meta, dong_meta, i = _read_meta(lines, i + 1)
     scenes: list = []
     current = None
     for index in range(i, len(lines)):
@@ -292,4 +301,4 @@ def parse(text: str) -> Video:
         scenes.append(_finish(*current))
     if not scenes:
         raise ParseError(i + 1, "video.md chưa có cảnh nào; bắt đầu bằng `## Cảnh 1`.")
-    return Video(meta=meta, canh=scenes)
+    return Video(meta=meta, canh=scenes, dong_meta=dong_meta)
