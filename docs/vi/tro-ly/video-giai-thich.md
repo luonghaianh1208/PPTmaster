@@ -70,7 +70,7 @@ Khối thông tin:
 
 Các khoá `ban-tay`, `may-quay`, `chuyen-canh`, `chu-dong`, `am-thanh` chỉ ghi khi muốn đổi: không ghi thì đều bật (`chuyen-canh` là lau bảng). Ghi `khong` khi thầy cô thấy rối mắt hay ồn và muốn tắt. Cảnh `thi-nghiem` không có bàn tay, máy quay chỉ đẩy chậm. Kịch bản cũ ghi `phu-de: hinh` vẫn giữ phụ đề kiểu cũ.
 
-Hiệu ứng âm thanh do công cụ tự tạo bằng FFmpeg (không dùng file ngoài, không vướng giấy phép), luôn thấp hơn giọng đọc khoảng 20 dB; tiếng bút không kéo dài quá 40% thời gian mỗi cảnh. Nhạc nền được lặp cho đủ dài, vào và ra dần 1,5 giây, tự nhỏ đi khi có giọng đọc (khoảng 14–24 dB), và dòng nguồn nhạc hiện ở góc dưới bên trái trong 4 giây cuối video. Nhạc thiếu nguồn, thiếu file, sai định dạng hay hỏng là lỗi `canh` (thông báo "Cảnh 0: nhạc nền: …" nêu dòng khoá đầu).
+Hiệu ứng âm thanh do công cụ tự tạo bằng FFmpeg (không dùng file ngoài, không vướng giấy phép), luôn thấp hơn giọng đọc khoảng 20 dB; tiếng bút không kéo dài quá 40% thời gian mỗi cảnh. Nhạc nền được lặp cho đủ dài, vào và ra dần 1,5 giây, tự nhỏ đi khi có giọng đọc (khoảng 14–24 dB), và dòng nguồn nhạc hiện ở góc dưới bên trái trong 4 giây cuối video (cảnh cuối ngắn hơn 4 giây thì hiện suốt cảnh cuối). Nhạc thiếu nguồn, thiếu file, sai định dạng hay hỏng là lỗi `canh` (thông báo "Cảnh 0: nhạc nền: …" nêu dòng khoá đầu).
 
 Mỗi cảnh:
 

@@ -81,6 +81,24 @@ Mỗi mục có test trượt trước khi sửa và đạt sau khi sửa.
 - **Tải nhạc qua giao thức không an toàn** (`b462bdfc`): `tim_nhac.py` chỉ nhận địa chỉ https lấy từ Openverse.
 - **Sơ đồ tư duy trượt xuống vùng phụ đề** (`de19c71e`): máy quay phóng vào nhánh trên bên trái đẩy các ô dưới xuống y 590, phụ đề đè lên. Nay mọi mục của `so-do` giữ máy quay đứng yên như biểu đồ; test Node kiểm 2–6 nhánh ở 321 thời điểm, không mục nào xuống dưới y 620.
 
+## 4b. Sửa sau review toàn nhánh
+
+Mỗi mục có test trượt trước khi sửa và đạt sau khi sửa.
+
+- **Kịch bản NFD** (`0b2a4b88`): Unikey "Unicode tổ hợp", Mac hay PDF cho chữ NFD; `\w` của Python bỏ dấu tổ hợp nên khoá của "kì" thành "ki", còn `nhan.js` dùng "kì", cụm nhấn rơi về "không tìm thấy". Nay `parse` chuẩn hoá cả `video.md` về NFC một lần khi đọc, và khoá so khớp là một hàm dùng chung (`lich.khoa_so_khop`, cũng là `giong._chuan_hoa`) tự chuẩn hoá NFC. Test: khoá của từ NFD bằng khoá NFC; `nhan.js` chạy bằng Node trên mốc từ do Python tạo tìm cụm NFD đúng giờ của từ; mốc câu khớp khi kịch bản NFD mà chữ edge-tts NFC; tiền tố "Nhạc:" gõ NFD không bị thêm lần nữa.
+- **Gạch ngược trong karaoke** (`ec3f10c4`): libass không có thoát cho `\`, nên `a\Nb`, `\h` trong chữ thầy cô thành mã điều khiển. Nay đổi thành ⧵ (U+29F5).
+- **Dấu thô trong phụ đề `hinh`/`file`** (`ec3f10c4`): chỉ bỏ `**`, `~`, `^`; nay bỏ đủ bộ dấu như giọng đọc.
+- **Hiệu ứng lấn giọng nhỏ** (`8fc60573`): sàn −50 dBFS làm hiệu ứng chỉ thấp hơn giọng −45 dBFS 5 dB; nay sàn −80 dBFS, chỉ chạm tới ở cảnh gần như im lặng.
+- **Chuyển hướng sang http** (`33f93155`): `tim_nhac.py` kiểm địa chỉ cuối trước khi đọc nội dung, không phải https thì dừng với `error.step: "mang"`.
+- **Cách sửa lỗi nhạc** (`c7d7d7fe`): lỗi nhạc nền (Cảnh 0) và dòng nguồn nhạc tràn khung có `fix` riêng; ffprobe chỉ đo nhạc một lần mỗi lượt dựng.
+- Tài liệu: bỏ mục `magnt`→`magnet` khỏi vi.11 (đã phát hành ở vi.10, `2374b95c`); thêm rủi ro dự án vi.10 dùng mốc ước lượng tới khi xoá `giong/*.json`; ghi rõ dòng nguồn nhạc hiện suốt cảnh cuối khi cảnh đó ngắn hơn 4 giây.
+
+Ba lần chạy test sau các sửa này:
+
+- `venv\Scripts\python.exe -m unittest discover -s tools/vi/tests`: **1092 test, OK, bỏ qua 62, 55,5 giây**.
+- `C:/Users/ADMIN/vmt/v/Scripts/python.exe -m unittest discover -s tools/vi/tests -p "test_video_ma_*.py"`: **415 test, OK, 264,7 giây**.
+- `node --test` từng file: **117 test, pass 117, fail 0** (`test_am_thanh.js` 8/8, `test_bieu_do.js` 10/10, `test_canh.js` 24/24, `test_cau_hoi.js` 8/8, `test_chuyen_dong.js` 34/34, `test_dong.js` 18/18, `test_khung.js` 15/15).
+
 ## 5. Chưa kiểm
 
 Các mục sau **chưa** được kiểm, không suy diễn là đạt:
