@@ -1,0 +1,77 @@
+(function (root) {
+  'use strict';
+  var V = root.THI_VIDEO;
+  // Nút trung tâm là elip ở (CX, CY); ô nhánh (W × H) đặt trên elip lớn (RX, RY) theo góc cố định theo số nhánh
+  // (độ, 0 là bên phải, chiều kim đồng hồ), nhánh 0 ở trên bên phải rồi đi vòng. Mọi ô nằm trong y 110..590.
+  var CX = 640, CY = 350, RX = 420, RY = 200, W = 330, H = 80;
+  var GOC = {
+    2: [0, 180],
+    3: [-40, 90, 220],
+    4: [-35, 35, 145, 215],
+    5: [-90, -18, 54, 126, 198],
+    6: [-60, 0, 60, 120, 180, 240]
+  };
+
+  function lam(x) { return Math.round(x * 10) / 10; }
+  function elip(rx, ry, hat) {
+    var diem = [];
+    for (var i = 0; i <= 30; i++) {
+      var a = (-100 + 372 * i / 30) * Math.PI / 180;
+      diem.push([CX + rx * Math.cos(a), CY + ry * Math.sin(a)]);
+    }
+    return V.duongQua(diem, hat);
+  }
+  // Đường cong nhánh: Bézier bậc hai từ mép elip tới mép ô nhãn, uốn sang một bên.
+  function cong(a, b, uon, hat) {
+    var dx = b[0] - a[0], dy = b[1] - a[1];
+    var dai = Math.sqrt(dx * dx + dy * dy) || 1;
+    uon = (uon < 0 ? -1 : 1) * Math.min(Math.abs(uon), 0.2 * dai);
+    var c = [(a[0] + b[0]) / 2 - dy / dai * uon, (a[1] + b[1]) / 2 + dx / dai * uon];
+    var diem = [];
+    var n = Math.max(3, Math.round(dai / 30));
+    for (var i = 0; i <= n; i++) {
+      var u = i / n;
+      diem.push([(1 - u) * (1 - u) * a[0] + 2 * u * (1 - u) * c[0] + u * u * b[0],
+                 (1 - u) * (1 - u) * a[1] + 2 * u * (1 - u) * c[1] + u * u * b[1]]);
+    }
+    return V.duongQua(diem, hat);
+  }
+
+  var canh = {
+    GOC: GOC,
+    TAM: { x: CX, y: CY },
+    muc: function (du) {
+      var B = V.tao(du);
+      var t = du.truong;
+      var coHinh = !!du.hinh;
+      var rx = 190, ry = coHinh ? 95 : 70;
+      var kq = [];
+      kq.push(B.net('vong-tam', elip(rx, ry, 11), 0.2, 0.6, { mau: 'nhan', day: 5 }));
+      var tam = t['trung-tam'][0];
+      var co = V.demKyTu(tam) > 20 ? 26 : 30;
+      if (coHinh) { kq.push(B.hinh('hinh', du.hinh, CX - 30, CY - 82, 60, 0.3, { mau: 'nhan' })); }
+      kq.push(B.chu('trung-tam', tam, CX - 145, coHinh ? CY - 18 : CY - 37, 290, 74, co, 0.5, { can: 'giua', mau: 'nhan giua-doc', day: true }));
+      var n = t.nhanh.length;
+      // Mọi ô nhánh cùng cỡ chữ: có nhánh dài hơn 30 ký tự thì cả sơ đồ dùng chữ nhỏ hơn.
+      var coNhanh = t.nhanh.some(function (c) { return V.demKyTu(c) > 30; }) ? 22 : 24;
+      GOC[n].forEach(function (g, k) {
+        var a = g * Math.PI / 180;
+        var bx = CX + RX * Math.cos(a), by = CY + RY * Math.sin(a);
+        var dx = bx - CX, dy = by - CY;
+        var s = 1 / Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
+        var dai = Math.sqrt(dx * dx + dy * dy);
+        var tu = [CX + dx * s + 6 * dx / dai, CY + dy * s + 6 * dy / dai];
+        var c = Math.min((W / 2) / (Math.abs(dx) || 1e-9), (H / 2) / (Math.abs(dy) || 1e-9));
+        var toi = [bx - dx * c - 6 * dx / dai, by - dy * c - 6 * dy / dai];
+        var mau = 'm' + k;
+        var chu = t.nhanh[k];
+        kq.push(B.net('nhanh-' + k, cong(tu, toi, k % 2 ? -26 : 26, 70 + k), du.moc[k], 0.5, { mau: mau }));
+        kq.push(B.net('o-' + k, V.hopQua(lam(bx - W / 2), lam(by - H / 2), W, H, 30 + k), du.moc[k] + 0.35, 0.4, { mau: mau }));
+        kq.push(B.chu('chu-' + k, chu, bx - W / 2 + 12, by - H / 2 + 8, W - 24, H - 16, coNhanh,
+          du.moc[k] + 0.6, { can: 'giua', mau: 'giua-doc', day: true }));
+      });
+      return kq;
+    }
+  };
+  root.THI_CANH['so-do'] = canh;
+})(typeof globalThis !== 'undefined' ? globalThis : this);

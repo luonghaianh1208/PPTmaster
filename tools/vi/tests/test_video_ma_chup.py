@@ -810,6 +810,140 @@ class NhanChromiumTest(unittest.TestCase):
         self.assertAlmostEqual(giua[0][1], cuoi[0][1], delta=0.5)
 
 
+SO_GIOI_HAN = ["12.5", "-40", "0", "100000", "1", "-7.25", "3000", "99999.99"]
+
+
+def bieu_do_toi_da(kieu: str) -> str:
+    so = [s.lstrip("-") if kieu == "tron" and s != "0" else ("0.5" if kieu == "tron" else s) for s in SO_GIOI_HAN]
+    them = ("" if kieu == "tron"
+            else f"don-vi: {vi_text(12)}\ntruc-ngang: {vi_text(40)}\ntruc-doc: {vi_text(40)}\n")
+    return (f"loai: bieu-do\ntieu-de: {vi_text(90)}\nkieu: {kieu}\n{them}"
+            + "".join(f"du-lieu: {vi_text(16)} | {s}\n" for s in so))
+
+
+CANH_MOI_TOI_DA = {
+    "cot": bieu_do_toi_da("cot"),
+    "duong": bieu_do_toi_da("duong"),
+    "tron": bieu_do_toi_da("tron"),
+    "so-do": f"loai: so-do\ntrung-tam: {vi_text(30)}\n" + "".join(f"nhanh: {vi_text(40)}\n" for _ in range(6)),
+    "so-do-hinh": f"loai: so-do\ntrung-tam: {vi_text(30)}\nhinh: flask\n" + "".join(f"nhanh: {vi_text(40)}\n" for _ in range(6)),
+    "dong-thoi-gian": f"loai: dong-thoi-gian\ntieu-de: {vi_text(90)}\n" + "".join(
+        f"moc: {vi_text(12)} | {vi_text(60)}\n" for _ in range(6)),
+    "dong-thoi-gian-4": f"loai: dong-thoi-gian\ntieu-de: {vi_text(90)}\n" + "".join(
+        f"moc: {vi_text(12)} | {vi_text(60)}\n" for _ in range(4)),
+    "cong-thuc": ("loai: cong-thuc\nbieu-thuc: " + " | ".join(vi_text(21) for _ in range(4)) + "\n"
+                  + "".join(f"giai-thich: {vi_text(60)}\n" for _ in range(4))),
+    "cong-thuc-hinh": ("loai: cong-thuc\nbieu-thuc: " + " | ".join(vi_text(21) for _ in range(4)) + "\nhinh: flask\n"
+                       + "".join(f"giai-thich: {vi_text(60)}\n" for _ in range(4))),
+}
+
+# Hộp chữ thật (theo từng dòng) của mọi ô chữ và hộp mọi nét SVG (trừ bàn tay), toạ độ khung ở Z = 1.
+HOP_CANH = """() => {
+    const k = document.getElementById('khung').getBoundingClientRect();
+    const chu = [...document.querySelectorAll('#bang .chu')].map((el) => {
+        const r = document.createRange(); r.selectNodeContents(el);
+        const b = r.getBoundingClientRect();
+        return {id: el.dataset.id, l: b.left - k.left, t: b.top - k.top, r: b.right - k.left, b: b.bottom - k.top, w: b.width};
+    }).filter((h) => h.w > 0);
+    const net = [...document.querySelectorAll('#bang svg.ve path')].filter((p) => p.getAttribute('d') !== 'M0 0').map((p) => {
+        const b = p.getBBox(); return {l: b.x, t: b.y, r: b.x + b.width, b: b.y + b.height}; });
+    return {chu, net}; }"""
+
+
+@unittest.skipUnless(co_chromium(), NEED_CHROMIUM)
+class ChartMapTimelineChromiumTest(unittest.TestCase):
+    """Biểu đồ, sơ đồ tư duy, dòng thời gian, công thức từng phần ở giới hạn tối đa (Chromium thật)."""
+
+    @classmethod
+    def setUpClass(cls):
+        from video_ma_parts import hinh
+        cls.hinh = hinh.doc("flask")
+        cls.cm = chup.trinh_duyet()
+        cls.browser = cls.cm.__enter__()
+        cls.page = chup.trang_moi(cls.browser)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cm.__exit__(None, None, None)
+
+    def du(self, noi_dung: str, giay: float = 12.0) -> dict:
+        from video_ma_parts import kiem
+
+        text = f"---\n{META}---\n\n## Cảnh 1\n{noi_dung}loi: Một. Hai. Ba.\n"
+        kiem.kiem(parse.parse(text), Path("."))
+        return du_hinh(noi_dung, {"hinh": self.hinh} if "hinh: flask" in noi_dung else {}, giay=giay,
+                       loi="Một. Hai. Ba.")
+
+    def cuoi(self, du: dict) -> dict:
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.page.evaluate("window.datThoiDiem(window.THI_VIDEO.thoiDiemCuoi())")
+        return self.page.evaluate(HOP_CANH)
+
+    def test_every_new_scene_at_its_limits_fits_above_the_subtitles(self):
+        for ten, noi_dung in CANH_MOI_TOI_DA.items():
+            with self.subTest(canh=ten):
+                du = self.du(noi_dung)
+                self.assertEqual(chup.kiem_tran(self.page, trang.dung_trang(du)), [])
+                hop = self.cuoi(du)
+                for h in hop["chu"] + hop["net"]:
+                    self.assertGreaterEqual(min(h["l"], h["t"]), -1, h)
+                    self.assertLessEqual(h["r"], 1281, h)
+                    self.assertLessEqual(h["b"], 620, h)
+
+    def test_text_boxes_never_overlap_in_charts_maps_and_timelines(self):
+        for ten in ("cot", "duong", "tron", "so-do", "so-do-hinh", "dong-thoi-gian", "dong-thoi-gian-4"):
+            with self.subTest(canh=ten):
+                chu = self.cuoi(self.du(CANH_MOI_TOI_DA[ten]))["chu"]
+                for i, a in enumerate(chu):
+                    for b in chu[i + 1:]:
+                        giao = a["l"] < b["r"] - 0.5 and b["l"] < a["r"] - 0.5 and a["t"] < b["b"] - 0.5 and b["t"] < a["b"] - 0.5
+                        self.assertFalse(giao, f"`{a['id']}` chồng `{b['id']}`: {a} / {b}")
+
+    def test_bar_values_run_to_their_exact_value_without_overlapping_for_huge_ranges(self):
+        for du_lieu in (SO_GIOI_HAN, ["1", "100000"], ["-99999.99", "0", "0.001", "99999.99"]):
+            with self.subTest(du_lieu=du_lieu):
+                noi_dung = ("loai: bieu-do\ntieu-de: T\nkieu: cot\n"
+                            + "".join(f"du-lieu: {vi_text(16)} | {s}\n" for s in du_lieu))
+                chu = self.cuoi(self.du(noi_dung))["chu"]
+                so = sorted((c for c in chu if c["id"].startswith("so-")), key=lambda c: int(c["id"][3:]))
+                text = self.page.evaluate("() => [...document.querySelectorAll('[data-id^=so-]')].map((e) => e.textContent)")
+                self.assertEqual([t.replace("−", "-") for t in text], [s.replace(".", ",") for s in du_lieu])
+                for a, b in zip(so, so[1:]):
+                    self.assertLessEqual(a["r"], b["l"], f"nhãn giá trị chồng nhau: {a} / {b}")
+
+    def test_bar_grows_from_the_axis_and_negative_bar_grows_down(self):
+        du = self.du("loai: bieu-do\ntieu-de: T\nkieu: cot\ndu-lieu: A | 30\ndu-lieu: B | -20\n")
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        cao = """() => [...document.querySelectorAll('path.to-mau')].map((p) => {
+            const b = p.getBBox(); return [b.y, b.height]; })"""
+        for k in (0, 1):
+            m = self.page.evaluate(f"THI_CANH['bieu-do'].muc(DU_CANH).filter((m) => m.id === 'cot-{k}')[0]")
+            self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] - 0.01)
+            self.assertLess(self.page.evaluate(cao)[k][1], 0.5)
+            self.page.evaluate("(t) => window.datThoiDiem(t)", m["batDau"] + 0.1 * m["thoiLuong"])
+            giua = self.page.evaluate(cao)[k]
+            self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 0.2)
+            cuoi = self.page.evaluate(cao)[k]
+            self.assertTrue(0.5 < giua[1] < cuoi[1], (giua, cuoi))
+            if k == 0:
+                self.assertAlmostEqual(giua[0] + giua[1], cuoi[0] + cuoi[1], delta=0.5)  # đáy cố định ở trục
+            else:
+                self.assertAlmostEqual(giua[0], cuoi[0], delta=0.5)  # đỉnh cố định ở trục, cột âm mọc xuống
+
+    def test_formula_parts_appear_one_after_another(self):
+        du = self.du("loai: cong-thuc\nbieu-thuc: T = 2π√(l/g) | ≈ {{2.01}} s\n", giay=12.0)
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        m = self.page.evaluate("THI_CANH['cong-thuc'].muc(DU_CANH).filter((m) => m.id === 'bieu-thuc')[0]")
+        p0, p1 = m["phan"]
+        self.assertGreater(p1["batDau"], p0["batDau"] + p0["thoiLuong"] + 0.5)
+        hien = """() => { const el = document.querySelector('[data-id="bieu-thuc"]').cloneNode(true);
+            el.querySelectorAll('.an, .so-cuoi').forEach((s) => s.remove()); return el.textContent.trim(); }"""
+        self.page.evaluate("(t) => window.datThoiDiem(t)", (p0["batDau"] + p0["thoiLuong"] + p1["batDau"]) / 2)
+        self.assertEqual(self.page.evaluate(hien), "T = 2π√(l/g)")
+        self.page.evaluate("(t) => window.datThoiDiem(t)", du["thoiLuong"] - 0.2)
+        self.assertEqual(self.page.evaluate(hien), "T = 2π√(l/g) ≈ 2,01 s")
+
+
 def hai_canh(chuyen_canh: str):
     """Cảnh 1 (tiêu đề, có mực) và cảnh 2 với khoá đầu `chuyen-canh`."""
     text = (f"---\n{META}chuyen-canh: {chuyen_canh}\n---\n\n"

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .kiem import CanhError, ma_do, tham_so_theo_thoi_gian
-from .parse import Scene
+from .parse import Scene, phan_cong_thuc, tach_du_lieu
 
 FPS = 30
 DAN_DAU = 1.0
@@ -104,9 +104,18 @@ def so_muc(scene: Scene) -> int:
         "quy-trinh": len(t.get("buoc", [])),
         "so-sanh": len(t.get("y-trai", [])) + len(t.get("y-phai", [])),
         "do-thi": len(t.get("diem", [])),
-        "cong-thuc": len(t.get("giai-thich", [])),
+        "cong-thuc": so_phan_cong_thuc(scene) + len(t.get("giai-thich", [])),
         "minh-hoa": len(t.get("hinh", [])),
+        "bieu-do": len(t.get("du-lieu", [])),
+        "so-do": len(t.get("nhanh", [])),
+        "dong-thoi-gian": len(t.get("moc", [])),
     }.get(scene.loai, 0)
+
+
+def so_phan_cong_thuc(scene: Scene) -> int:
+    """Số phần của `bieu-thuc` khi tách bằng ` | ` (mỗi phần hiện ở một mốc câu); không tách thì 0."""
+    phan = phan_cong_thuc(scene.truong.get("bieu-thuc", [""])[0])
+    return len(phan) if len(phan) > 1 else 0
 
 
 def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = True) -> tuple:
@@ -187,6 +196,8 @@ def du_lieu_canh(scene: Scene, cl: CanhLich, model=None, tai_nguyen: dict | None
     }
     if scene.loai == "do-thi":
         du["diem"] = [[float(p) for p in v.split(",")] for v in scene.truong["diem"]]
+    if scene.loai == "bieu-do":
+        du["duLieu"] = [[nhan, float(so)] for nhan, so in map(tach_du_lieu, scene.truong["du-lieu"])]
     if scene.loai == "thi-nghiem":
         du["khaiBao"] = model.khai_bao
         du["thamSo"] = {ma: [[g, v] for g, v in ds] for ma, ds in tham_so_theo_thoi_gian(scene).items()}

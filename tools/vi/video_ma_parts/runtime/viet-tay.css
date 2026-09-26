@@ -11,6 +11,8 @@ html, body { margin: 0; padding: 0; background: #fbfaf5; }
 .chu { position: absolute; overflow: hidden; line-height: 1.3; white-space: normal; overflow-wrap: normal; text-align: left; }
 .chu.day { display: flex; flex-direction: column; }
 .chu.day > .trong { margin-top: auto; padding-bottom: 0.25em; }
+/* Chữ căn giữa theo chiều dọc trong ô (ô nhãn sơ đồ tư duy). */
+.chu.day.giua-doc > .trong { margin-bottom: auto; padding-bottom: 0; }
 .chu.giua { text-align: center; }
 .chu.phai { text-align: right; }
 .chu.nhan { color: #1d4ed8; }
@@ -32,6 +34,15 @@ path.nhan-net { fill: none; stroke: #dc2626; stroke-width: 4; stroke-linecap: ro
 path.net { fill: none; stroke: #1f2937; stroke-linecap: round; stroke-linejoin: round; }
 path.net.nhan { stroke: #1d4ed8; }
 path.net.do { stroke: #b91c1c; }
+/* Biểu đồ: lưới nhạt, phần tô màu dưới nét. Sơ đồ tư duy: mỗi nhánh một màu. */
+path.net.luoi { stroke: #d6d3cb; }
+path.to-mau { stroke: none; }
+path.net.m0 { stroke: #1d4ed8; }
+path.net.m1 { stroke: #b91c1c; }
+path.net.m2 { stroke: #15803d; }
+path.net.m3 { stroke: #b45309; }
+path.net.m4 { stroke: #7e22ce; }
+path.net.m5 { stroke: #0e7490; }
 g.hinh > * { fill: none; stroke: #1f2937; stroke-linecap: round; stroke-linejoin: round; }
 g.hinh.nhan > * { stroke: #1d4ed8; }
 .anh { position: absolute; opacity: 0; }

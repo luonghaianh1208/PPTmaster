@@ -150,6 +150,32 @@ class ExperimentDataTest(unittest.TestCase):
         self.assertEqual(len(du["moc"]), 2)
 
 
+class ChartMapTimelineDataTest(unittest.TestCase):
+    def test_items_per_new_scene_type(self):
+        for noi_dung, n in (
+            ("loai: bieu-do\ntieu-de: A\nkieu: cot\ndu-lieu: a | 1\ndu-lieu: b | -2\ndu-lieu: c | 0\n", 3),
+            ("loai: so-do\ntrung-tam: T\nnhanh: a\nnhanh: b\nnhanh: c\nnhanh: d\n", 4),
+            ("loai: dong-thoi-gian\ntieu-de: A\nmoc: 1930 | a\nmoc: 1945 | b\n", 2),
+            ("loai: cong-thuc\nbieu-thuc: a = b | = c | = d\ngiai-thich: x\n", 4),
+            ("loai: cong-thuc\nbieu-thuc: a = |b|\ngiai-thich: x\n", 1),
+        ):
+            with self.subTest(noi_dung=noi_dung):
+                self.assertEqual(lich.so_muc(canh_dau(noi_dung, "Ok.")), n)
+
+    def test_chart_data_is_label_number_pairs_and_marks_follow_sentences(self):
+        scene = canh_dau("loai: bieu-do\ntieu-de: A\nkieu: cot\ndu-lieu: Lúa | 12.5\ndu-lieu: Ngô | -40\n"
+                         "du-lieu: Đậu | 100000\n", "Một. Hai. Ba.")
+        plan, _ = lich.dung_lich([scene], [giong(6.0, [0.0, 2.0, 4.0])])
+        du = lich.du_lieu_canh(scene, plan[0])
+        self.assertEqual(du["duLieu"], [["Lúa", 12.5], ["Ngô", -40.0], ["Đậu", 100000.0]])
+        self.assertEqual(du["moc"], [1.0, 3.0, 5.0])
+
+    def test_other_scenes_have_no_chart_data(self):
+        scene = canh_dau("loai: so-do\ntrung-tam: T\nnhanh: a\nnhanh: b\n", "Ok.")
+        plan, _ = lich.dung_lich([scene], [giong(3.0, [0.0])])
+        self.assertNotIn("duLieu", lich.du_lieu_canh(scene, plan[0]))
+
+
 class ResourceDataTest(unittest.TestCase):
     def test_minh_hoa_reveal_marks_match_picture_count(self):
         scene = canh_dau("loai: minh-hoa\ntieu-de: A\nhinh: clock | Đồng hồ\nhinh: atom | Nguyên tử\n",

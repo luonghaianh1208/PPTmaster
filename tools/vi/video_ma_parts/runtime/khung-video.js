@@ -164,6 +164,28 @@
   }
   function thoiGianViet(chu, khongCum) { return Math.max(0.5, demKyTu(chu, khongCum) / TOC_DO_VIET); }
 
+  // Số ký tự đã viết của mục chữ tại t (mục viết theo phần: cộng từng phần).
+  function kyTuHien(m, t, tong) {
+    if (!m.phan) { return Math.round(tienDo(t, m.batDau, m.thoiLuong) * tong); }
+    return Math.min(tong, m.phan.reduce(function (n, p) { return n + Math.round(tienDo(t, p.batDau, p.thoiLuong) * p.ky); }, 0));
+  }
+  // Lúc ký tự thứ i của mục chữ (viết tay) hiện ra.
+  function lucKyTu(m, i, tong) {
+    var p = m.phan ? m.phan.filter(function (q) { return i >= q.tu && i < q.tu + q.ky; })[0] : null;
+    if (p) { return p.batDau + p.thoiLuong * (i - p.tu + 0.5) / Math.max(1, p.ky); }
+    return m.batDau + m.thoiLuong * (i + 0.5) / Math.max(1, tong);
+  }
+  // Danh sách mục cho bàn tay và máy quay: mục viết theo phần tách thành một mục mỗi phần (cùng id), để giữa hai
+  // phần bàn tay rời bảng như giữa hai mục.
+  function tachPhan(ds) {
+    var kq = [];
+    ds.forEach(function (m) {
+      if (!m.phan) { kq.push(m); return; }
+      m.phan.forEach(function (p) { kq.push(gan(gan({}, m), { batDau: p.batDau, thoiLuong: p.thoiLuong })); });
+    });
+    return kq;
+  }
+
   function rng(hat) {
     var a = hat | 0;
     return function () {
@@ -228,12 +250,31 @@
     var sau = kieuChuyen(du) ? giayLau(du) + 0.05 : 0;
     function dau(batDau, lui) { return Math.min(Math.max(batDau, sau), gh - lui); }
     function chu(id, noiDung, x, y, rong, cao, co, batDau, tuy) {
+      if (tuy && tuy.phan) { return chuPhan(id, noiDung, x, y, rong, cao, co, tuy); }
       batDau = dau(batDau, 0.6);
       // Chữ nảy (tiêu đề khi chu-dong): nảy từng ký tự thay cho bút viết; không có bàn tay.
       var nay = !!(tuy && tuy.nay);
       var dai = Math.max(0.3, Math.min(nay ? root.THI_DONG.thoiGianNay(demKyTu(noiDung)) : thoiGianViet(noiDung, tuy && tuy.khongCum), gh - 0.2 - batDau));
       if (nay) { tuy = gan({ tay: false }, tuy); }
       return gan({ id: id, kieu: 'chu', chu: noiDung, x: x, y: y, rong: rong, cao: cao, co: co, batDau: batDau, thoiLuong: dai, can: 'trai', mau: '' }, tuy);
+    }
+    // Chữ viết theo từng phần: `tuy.phan` = [{batDau, ky}] nối tiếp nhau (ky: số ký tự hiện của phần). Phần k bắt
+    // đầu ở batDau của nó nhưng không sớm hơn lúc phần trước xong; giữa hai phần bút dừng. Tổng ky phải bằng số ký tự.
+    function chuPhan(id, noiDung, x, y, rong, cao, co, tuy) {
+      var xong = 0;
+      var tu = 0;
+      var phan = tuy.phan.map(function (p) {
+        var bd = Math.max(dau(p.batDau, 0.6), Math.min(xong, gh - 0.6));
+        var dai = Math.max(0.3, Math.min(p.ky / TOC_DO_VIET, gh - 0.2 - bd));
+        var o = { batDau: bd, thoiLuong: dai, tu: tu, ky: p.ky };
+        xong = bd + dai;
+        tu += p.ky;
+        return o;
+      });
+      var batDau = phan[0].batDau;
+      var het = Math.max.apply(null, phan.map(function (p) { return p.batDau + p.thoiLuong; }));
+      return gan(gan({ id: id, kieu: 'chu', chu: noiDung, x: x, y: y, rong: rong, cao: cao, co: co, batDau: batDau,
+        thoiLuong: het - batDau, can: 'trai', mau: '' }, tuy), { phan: phan });
     }
     function net(id, d, batDau, dai, tuy) {
       batDau = dau(batDau, 0.6);
@@ -286,6 +327,7 @@
     var khung = document.getElementById('khung');
     var loai = root.THI_CANH[du.loai];
     var muc = loai.muc(du);
+    var mucVe = tachPhan(muc);
     var co = du.co || {};
     var gh = du.thoiLuong;
     var thiNghiem = du.loai === 'thi-nghiem';
@@ -366,7 +408,7 @@
       var keo = m.nay ? Math.max(1, D.thoiGianNay(tong) / m.thoiLuong) : 1;
       // Lúc ký tự thứ i hiện ra (viết tay: khi round(p * tổng) > i; nảy: lúc ký tự i bắt đầu nảy).
       var luc = function (i) {
-        return m.nay ? m.batDau + D.LECH_NAY * i / keo : m.batDau + m.thoiLuong * (i + 0.5) / Math.max(1, tong);
+        return m.nay ? m.batDau + D.LECH_NAY * i / keo : lucKyTu(m, i, tong);
       };
       o.tong = tong;
       o.keo = keo;
@@ -400,7 +442,7 @@
         var tt = m.batDau + (t - m.batDau) * o.keo;
         html = catDanhDau(m.chu, o.tong, so, function (i) { return D.nayChu(i, o.tong, tt, m.batDau); });
       } else {
-        html = catDanhDau(m.chu, Math.round(tienDo(t, m.batDau, m.thoiLuong) * o.tong), so, null, m.khongCum);
+        html = catDanhDau(m.chu, kyTuHien(m, t, o.tong), so, null, m.khongCum);
       }
       o.el.innerHTML = m.day ? '<span class="trong">' + html + '</span>' : html;
       o.cum.forEach(function (c) {
@@ -535,7 +577,8 @@
         }
         if (m.kieu === 'hinh') { return H.ngoiHinh(o.el, m, p); }
         var dc = dauCuoi[m.id] || { dau: { x: m.x, y: m.y + m.co }, cuoi: { x: m.x, y: m.y + m.co } };
-        var s = p > 0 && p < 1 ? o.el.querySelector('.ngoi') : null;
+        // Mục viết theo phần: giữa hai phần ngòi bút nằm ở cuối phần đã viết (span.ngoi của trạng thái hiện tại).
+        var s = (p > 0 && p < 1) || m.phan ? o.el.querySelector('.ngoi') : null;
         if (!s) { return p >= 0.5 ? dc.cuoi : dc.dau; }
         var r = s.getBoundingClientRect();
         return { x: (r.left - k.left - cam.tx) / cam.z, y: (r.top + 0.8 * r.height - k.top - cam.ty) / cam.z };
@@ -574,14 +617,14 @@
       if (!noiBo && !hop) { hop = doHop(); }
       datMuc(t);
       var moi = datNen(t);
-      var cam = noiBo ? { z: 1, tx: 0, ty: 0 } : Q.tinh(muc, hop, t, gh, { mayQuay: co.mayQuay === true, day: thiNghiem });
+      var cam = noiBo ? { z: 1, tx: 0, ty: 0 } : Q.tinh(mucVe, hop, t, gh, { mayQuay: co.mayQuay === true, day: thiNghiem });
       var bd = matTran(cam);
       if (moi && moi.transform !== 'none') { bd = moi.transform + (bd === 'none' ? '' : ' ' + bd); }
       goc.style.transform = bd;
       goc.style.opacity = moi && moi.opacity !== 1 ? String(moi.opacity) : '';
       goc.style.clipPath = moi && moi.clipPath !== 'none' ? moi.clipPath : '';
       if (!tay) { return; }
-      var v = noiBo ? { hien: false } : T.viTri(muc, t, ngoiCua(cam), T.NGHI, { chuyen: kieu, giayLau: lau, gh: gh });
+      var v = noiBo ? { hien: false } : T.viTri(mucVe, t, ngoiCua(cam), T.NGHI, { chuyen: kieu, giayLau: lau, gh: gh });
       tay.style.display = v.hien ? 'block' : 'none';
       if (!v.hien) { return; }
       tay.setAttribute('data-kieu', v.kieu);
@@ -630,7 +673,7 @@
   root.THI_VIDEO = {
     LAU_BANG: LAU_BANG,
     kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau, phanTich: phanTich, demRong: demRong, viTriSo: viTriSo,
-    thoiGianViet: thoiGianViet, duongQua: duongQua, hopQua: hopQua, vongTron: vongTron, muiTen: muiTen,
+    thoiGianViet: thoiGianViet, kyTuHien: kyTuHien, lucKyTu: lucKyTu, tachPhan: tachPhan, duongQua: duongQua, hopQua: hopQua, vongTron: vongTron, muiTen: muiTen,
     rng: rng, vuaKhung: vuaKhung, tao: tao, khoiDong: khoiDong, san: false
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

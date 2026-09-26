@@ -1,4 +1,4 @@
-# Cảnh video giải thích: danh mục mười loại cảnh
+# Cảnh video giải thích: danh mục mười ba loại cảnh
 
 File dành cho AI. Đọc cùng `docs/vi/tro-ly/video-giai-thich.md`. Mỗi cảnh trong `video.md` có `loai:`, `loi:` và các trường của loại cảnh dưới đây; trường không có trong danh sách của loại cảnh là lỗi `parse`.
 
@@ -64,13 +64,15 @@ Mã loại: `cong-thuc`.
 
 | Trường | Bắt buộc | Giới hạn |
 |---|---|---|
-| `bieu-thuc` | có | 90 ký tự |
+| `bieu-thuc` | có | 90 ký tự; tách tối đa 4 phần bằng ` \| ` (mỗi dấu tính là một khoảng trắng) |
 | `giai-thich` | lặp 0–4 dòng | mỗi dòng 60 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline` |
 | `anh` | không | tên file trong `anh/` |
 | `nguon` | không | dòng nguồn của ảnh ở `anh`; chỉ ghi khi cảnh có `anh` |
 
 Cách hiện: biểu thức được viết dần, các dòng giải thích hiện lần lượt theo từng câu của lời.
+
+Công thức hiện từng phần: tách `bieu-thuc` bằng ` | ` (gạch đứng có khoảng trắng hai bên), ví dụ `bieu-thuc: T = 2π√(l/g) | = 2π√(1/9,8) | ≈ {{2.01}} s`. Phần thứ k được viết nối tiếp trên cùng dòng khi câu thứ k của `loi` bắt đầu; dòng giải thích thứ k khi đó hiện ở câu (số phần + k). Không có ` | ` thì như cũ; `|x|` (không có khoảng trắng hai bên) vẫn là chữ thường. Phần trống, quá 4 phần, hoặc `**`, `~`, `^`, `{{…}}` mở ở phần này đóng ở phần khác là lỗi `parse`.
 
 ```
 ## Cảnh 3
@@ -277,6 +279,79 @@ python skills\ppt-master\scripts\image_search.py "Foucault pendulum" --filename 
 - Lệnh còn ghi một bản thu nhỏ để xem vào `anh/.review/<tên>.jpg` (cạnh dài 1024 px). Mở bản này xem ảnh có đúng nội dung không; sai thì tải lại với từ khoá khác.
 - Ảnh gốc nặng quá 8 MB là lỗi `canh`. Khi đó chép `anh/.review/<tên>.jpg` đè lên file gốc cùng tên (tên gốc có đuôi `.jpg`); tên gốc có đuôi khác thì chép bản thu nhỏ thành `anh/<tên>.jpg`, sửa dòng `anh:` theo tên mới, và thêm vào `items` của `anh/image_sources.json` một bản ghi chép nguyên bản ghi của file gốc, chỉ đổi `filename` thành tên mới. Không có bản `.review` thì chọn ảnh khác.
 - Công cụ dựng không bao giờ tự lên mạng tìm ảnh; không chèn địa chỉ web vào `anh:` hay `nguon:`.
+
+## Biểu đồ
+
+Mã loại: `bieu-do`.
+
+| Trường | Bắt buộc | Giới hạn |
+|---|---|---|
+| `tieu-de` | có | 90 ký tự |
+| `kieu` | có | `cot` (cột), `duong` (đường) hoặc `tron` (hình tròn) |
+| `du-lieu` | lặp 2–8 dòng | dạng `<nhãn> \| <số>`; nhãn 16 ký tự; số dấu thập phân là dấu chấm, tối đa 10 ký tự; `tron` chỉ nhận số dương |
+| `don-vi` | không | 12 ký tự; không dùng với `tron` |
+| `truc-ngang`, `truc-doc` | không | tên trục, mỗi tên 40 ký tự; không dùng với `tron` |
+
+Cách hiện: trục và thang số tròn (bước 1, 2, 5 × 10ⁿ, 4–6 vạch) vẽ trước cùng nhãn các mục. Mục thứ k hiện khi câu thứ k của `loi` bắt đầu: cột mọc từ trục (số âm mọc xuống dưới trục), điểm và đoạn nối của đường vẽ dần, lát tròn mở dần theo góc; số trên cột, trên điểm, phần trăm cạnh lát chạy từ 0 tới giá trị thật và hiện kiểu Việt (dấu phẩy thập phân). Máy quay giữ toàn cảnh biểu đồ.
+
+```
+## Cảnh 11
+loai: bieu-do
+tieu-de: Chu kì theo chiều dài dây
+kieu: cot
+don-vi: s
+truc-ngang: Chiều dài dây
+truc-doc: Chu kì
+du-lieu: 0,25 m | 1.0
+du-lieu: 0,5 m | 1.42
+du-lieu: 1 m | 2.01
+du-lieu: 2 m | 2.84
+loi: Dây dài một phần tư mét, chu kì một giây. Dây nửa mét, chu kì một phẩy bốn hai giây. Dây một mét, chu kì hai giây. Dây hai mét, chu kì gần ba giây.
+```
+
+## Sơ đồ tư duy
+
+Mã loại: `so-do`.
+
+| Trường | Bắt buộc | Giới hạn |
+|---|---|---|
+| `trung-tam` | có | 30 ký tự |
+| `nhanh` | lặp 2–6 dòng | mỗi nhánh 40 ký tự |
+| `hinh` | không | tên biểu tượng `tabler-outline`, vẽ trong nút trung tâm |
+
+Cách hiện: nút trung tâm vẽ trước; nhánh thứ k (đường cong vẽ tay, mỗi nhánh một màu, tới ô nhãn) hiện khi câu thứ k của `loi` bắt đầu. Các nhánh rải quanh nút theo góc cố định theo số nhánh, nhánh đầu ở phía trên bên phải rồi đi theo chiều kim đồng hồ.
+
+```
+## Cảnh 12
+loai: so-do
+trung-tam: Chu kì con lắc đơn
+hinh: clock
+nhanh: Tăng khi dây dài hơn
+nhanh: Giảm khi g lớn hơn
+nhanh: Không đổi theo khối lượng
+loi: Chu kì tăng khi dây dài hơn. Chu kì giảm khi gia tốc trọng trường lớn hơn. Khối lượng quả nặng không làm đổi chu kì.
+```
+
+## Dòng thời gian
+
+Mã loại: `dong-thoi-gian`.
+
+| Trường | Bắt buộc | Giới hạn |
+|---|---|---|
+| `tieu-de` | có | 90 ký tự |
+| `moc` | lặp 2–6 dòng | dạng `<nhãn> \| <mô tả>`; nhãn 12 ký tự, mô tả 60 ký tự |
+
+Cách hiện: trục ngang có mũi tên vẽ trước (0,6 giây); mốc thứ k (chấm, nhãn, rồi mô tả) hiện khi câu thứ k của `loi` bắt đầu. Đến 4 mốc: nhãn trên trục, mô tả dưới trục; từ 5 mốc: các mốc xen kẽ trên và dưới trục.
+
+```
+## Cảnh 13
+loai: dong-thoi-gian
+tieu-de: Lịch sử đo thời gian bằng con lắc
+moc: 1583 | Galileo nhận ra chu kì con lắc gần như không đổi
+moc: 1656 | Huygens chế tạo đồng hồ quả lắc đầu tiên
+moc: 1851 | Foucault chứng minh Trái Đất tự quay
+loi: Năm 1583, Galileo quan sát chiếc đèn chùm đung đưa. Năm 1656, Huygens làm ra đồng hồ quả lắc. Năm 1851, Foucault dùng con lắc chứng minh Trái Đất tự quay.
+```
 
 ## Bảng tra biểu tượng
 

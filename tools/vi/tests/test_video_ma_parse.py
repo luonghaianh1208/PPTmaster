@@ -389,5 +389,136 @@ class NhanTest(unittest.TestCase):
         self.assertEqual(kiem.hien_thi("((ab)) __c__ **d** H~2~"), len("ab c d H2"))
 
 
+def bieu_do(kieu: str, du_lieu, them: str = "") -> str:
+    dong = "".join(f"du-lieu: {d}\n" for d in du_lieu)
+    return f"## Cảnh 1\nloai: bieu-do\ntieu-de: Sản lượng\nkieu: {kieu}\n{them}{dong}loi: Xin chào.\n"
+
+
+class ChartMapTimelineTest(unittest.TestCase):
+    """Biểu đồ, sơ đồ tư duy, dòng thời gian và công thức từng phần (Q3, Q4, Q12, spec §5)."""
+
+    def parse_loi(self, canh: str, needle: str, fragment: str = ""):
+        text = doc(canh)
+        with self.assertRaises(parse.ParseError) as caught:
+            kiem.kiem(parse.parse(text), Path("."))
+        self.assertEqual(caught.exception.line_no, line_of(text, needle), str(caught.exception))
+        self.assertIn(fragment, str(caught.exception))
+        return caught.exception
+
+    def canh_loi(self, canh: str, needle: str, fragment: str = ""):
+        text = doc(canh)
+        with self.assertRaises(kiem.CanhError) as caught:
+            kiem.kiem(parse.parse(text), Path("."))
+        self.assertIn(f"dòng {line_of(text, needle)}", str(caught.exception))
+        self.assertIn(fragment, str(caught.exception))
+
+    def dung(self, canh: str):
+        video = parse.parse(doc(canh))
+        self.assertEqual(kiem.kiem(video, Path(".")), [])
+        return video.canh[0]
+
+    def test_new_scene_types_are_registered(self):
+        self.assertEqual(parse.SCENE_SPEC["bieu-do"],
+                         (("tieu-de", "kieu"), ("don-vi", "truc-ngang", "truc-doc"), {"du-lieu": (2, 8)}))
+        self.assertEqual(parse.SCENE_SPEC["so-do"], (("trung-tam",), ("hinh",), {"nhanh": (2, 6)}))
+        self.assertEqual(parse.SCENE_SPEC["dong-thoi-gian"], (("tieu-de",), (), {"moc": (2, 6)}))
+        self.assertEqual(parse.BIEU_DO_KIEU, ("cot", "duong", "tron"))
+
+    def test_valid_charts_pass_including_negative_zero_and_huge_values(self):
+        for kieu, du_lieu, them in (
+            ("cot", ["Lúa | 12.5", "Ngô | -40", "Khoai | 0", "Đậu | 100000"],
+             "don-vi: tấn\ntruc-ngang: Cây trồng\ntruc-doc: Sản lượng\n"),
+            ("duong", ["T1 | 0.3", "T2 | 7.2", "T3 | -1"], ""),
+            ("tron", ["A | 1", "B | 100000", "C | 0.5"], ""),
+        ):
+            with self.subTest(kieu=kieu):
+                scene = self.dung(bieu_do(kieu, du_lieu, them))
+                self.assertEqual(scene.truong["du-lieu"], du_lieu)
+
+    def test_chart_kind_must_be_one_of_three(self):
+        self.parse_loi(bieu_do("cot-chong", ["A | 1", "B | 2"]), "kieu:", "cot, duong, tron")
+
+    def test_data_line_needs_a_label_a_bar_and_a_dot_decimal_number(self):
+        for sai in ("Lúa 12", "Lúa | 1,5", "Lúa | mười", " | 3", "Lúa | 1e5", "Lúa | 12 tấn"):
+            with self.subTest(sai=sai):
+                self.parse_loi(bieu_do("cot", ["A | 1", sai]), f"du-lieu: {sai}", "<nhãn> | <số>")
+
+    def test_number_longer_than_ten_characters_is_refused(self):
+        self.dung(bieu_do("cot", ["A | 1", "B | -123456.78"]))
+        self.parse_loi(bieu_do("cot", ["A | 1", "B | 12345678901"]), "B | 1234", "10 ký tự")
+
+    def test_pie_refuses_zero_and_negative_values_at_their_line(self):
+        for sai in ("0", "-3", "0.0"):
+            with self.subTest(sai=sai):
+                self.parse_loi(bieu_do("tron", ["A | 1", f"B | {sai}", "C | 2"]), f"B | {sai}", "số dương")
+
+    def test_pie_has_no_axes_or_unit(self):
+        for truong in ("truc-ngang: x\n", "truc-doc: y\n", "don-vi: kg\n"):
+            with self.subTest(truong=truong):
+                self.parse_loi(bieu_do("tron", ["A | 1", "B | 2"], truong), truong.strip(), "tron")
+
+    def test_data_line_count_outside_two_to_eight(self):
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(doc(bieu_do("cot", ["A | 1"])))
+        self.assertIn("ít nhất 2", str(caught.exception))
+        text = doc(bieu_do("cot", [f"Mục {k} | {k}" for k in range(9)]))
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, "Mục 8 |"))
+
+    def test_chart_text_limits(self):
+        self.dung(bieu_do("cot", ["A" * 16 + " | 1", "B | 2"], "don-vi: " + "đ" * 12 + "\n"
+                          + "truc-ngang: " + "x" * 40 + "\ntruc-doc: " + "y" * 40 + "\n"))
+        self.canh_loi(bieu_do("cot", ["A" * 17 + " | 1", "B | 2"]), "AAAA", "tối đa 16")
+        self.canh_loi(bieu_do("cot", ["A | 1", "B | 2"], "don-vi: " + "đ" * 13 + "\n"), "don-vi", "tối đa 12")
+        self.canh_loi(bieu_do("cot", ["A | 1", "B | 2"], "truc-doc: " + "y" * 41 + "\n"), "truc-doc", "tối đa 40")
+        self.parse_loi(bieu_do("cot", ["==A | 1", "B | 2"]), "==A", "đóng")
+
+    def test_mind_map_fields_and_limits(self):
+        nhanh = "".join(f"nhanh: {'n' * 40}\n" for _ in range(6))
+        self.dung(f"## Cảnh 1\nloai: so-do\ntrung-tam: {'t' * 30}\nhinh: flask\n{nhanh}loi: Xin chào.\n")
+        self.canh_loi(f"## Cảnh 1\nloai: so-do\ntrung-tam: {'t' * 31}\nnhanh: a\nnhanh: b\nloi: Xin chào.\n",
+                      "trung-tam", "tối đa 30")
+        self.canh_loi(f"## Cảnh 1\nloai: so-do\ntrung-tam: T\nnhanh: a\nnhanh: {'n' * 41}\nloi: Xin chào.\n",
+                      "nnnn", "tối đa 40")
+        with self.assertRaises(parse.ParseError):
+            parse.parse(doc("## Cảnh 1\nloai: so-do\ntrung-tam: T\nnhanh: a\nloi: Xin chào.\n"))
+        text = doc("## Cảnh 1\nloai: so-do\ntrung-tam: T\n" + "".join(f"nhanh: n{k}\n" for k in range(7)) + "loi: Xin chào.\n")
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, "nhanh: n6"))
+
+    def test_timeline_fields_and_limits(self):
+        moc = "".join(f"moc: {'N' * 12} | {'m' * 60}\n" for _ in range(6))
+        scene = self.dung(f"## Cảnh 1\nloai: dong-thoi-gian\ntieu-de: Lịch sử\n{moc}loi: Xin chào.\n")
+        self.assertEqual(len(scene.truong["moc"]), 6)
+        self.canh_loi("## Cảnh 1\nloai: dong-thoi-gian\ntieu-de: A\nmoc: " + "N" * 13 + " | mô tả\nmoc: 1945 | b\nloi: Xin chào.\n",
+                      "NNNN", "tối đa 12")
+        self.canh_loi("## Cảnh 1\nloai: dong-thoi-gian\ntieu-de: A\nmoc: 1930 | " + "m" * 61 + "\nmoc: 1945 | b\nloi: Xin chào.\n",
+                      "mmmm", "tối đa 60")
+        self.parse_loi("## Cảnh 1\nloai: dong-thoi-gian\ntieu-de: A\nmoc: 1930 thành lập\nmoc: 1945 | b\nloi: Xin chào.\n",
+                       "1930 thành lập", "<nhãn> | <mô tả>")
+        with self.assertRaises(parse.ParseError):
+            parse.parse(doc("## Cảnh 1\nloai: dong-thoi-gian\ntieu-de: A\nmoc: 1930 | a\nloi: Xin chào.\n"))
+        text = doc("## Cảnh 1\nloai: dong-thoi-gian\ntieu-de: A\n" + "".join(f"moc: {k} | m{k}\n" for k in range(7))
+                   + "loi: Xin chào.\n")
+        with self.assertRaises(parse.ParseError) as caught:
+            parse.parse(text)
+        self.assertEqual(caught.exception.line_no, line_of(text, "moc: 6 |"))
+
+    def test_formula_parts_split_on_spaced_bar(self):
+        self.dung("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: T = 2π√(l/g) | = 2π√(1/9.8) | ≈ {{2.0}} s\nloi: Xin chào.\n")
+        self.dung("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: |x| = 2 khi x = ±2\nloi: Xin chào.\n")
+        # Giới hạn 90 ký tự tính mỗi dấu ` | ` là một khoảng trắng.
+        self.dung("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: " + "a" * 44 + " | " + "b" * 45 + "\nloi: Xin chào.\n")
+        self.canh_loi("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: " + "a" * 45 + " | " + "b" * 45 + "\nloi: Xin chào.\n",
+                      "bieu-thuc", "tối đa 90")
+
+    def test_formula_parts_errors_point_at_the_line(self):
+        self.parse_loi("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: a | b | c | d | e\nloi: Xin chào.\n", "bieu-thuc", "tối đa 4")
+        self.parse_loi("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: a |  | c\nloi: Xin chào.\n", "bieu-thuc", "trống")
+        self.parse_loi("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: **a | b**\nloi: Xin chào.\n", "bieu-thuc", "` | `")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from thi_nghiem_parts import thu_vien
 
-from . import anh, hinh
+from . import anh, hinh, parse
 from .parse import ParseError, Scene, Video
 
 LIMITS = {
@@ -20,7 +20,12 @@ LIMITS = {
     ("so-sanh", "y-trai"): 60, ("so-sanh", "y-phai"): 60,
     ("do-thi", "tieu-de"): 90, ("do-thi", "truc-ngang"): 40, ("do-thi", "truc-doc"): 40,
     ("minh-hoa", "tieu-de"): 90, ("anh", "chu-thich"): 90,
+    ("bieu-do", "tieu-de"): 90, ("bieu-do", "don-vi"): 12, ("bieu-do", "truc-ngang"): 40, ("bieu-do", "truc-doc"): 40,
+    ("so-do", "trung-tam"): 30, ("so-do", "nhanh"): 40,
+    ("dong-thoi-gian", "tieu-de"): 90,
 }
+# Trường hai phần `<nhãn> | <…>`: giới hạn của nhãn và của mô tả (None: phần sau là số, parse đã kiểm).
+LIMITS_HAI_PHAN = {("bieu-do", "du-lieu"): (16, None), ("dong-thoi-gian", "moc"): (12, 60)}
 LOI_DAI = 700
 MAX_THAM_SO = 3
 MAX_DO = 3
@@ -184,19 +189,33 @@ def _kiem_hinh_anh(scene: Scene, thu_muc: Path) -> None:
             raise CanhError(scene.so, f"{exc} (dòng {no}).") from exc
 
 
+def _kiem_do_dai(so: int, key: str, value: str, no: int, gioi_han: int, cum: bool) -> None:
+    kiem_danh_dau(key, value, no, cum)
+    so_ky_tu = hien_thi(value, cum)
+    if so_ky_tu > gioi_han:
+        raise CanhError(so, f"`{key}` dài {so_ky_tu} ký tự, tối đa {gioi_han} (dòng {no}). Rút gọn nội dung.")
+
+
 def kiem(video: Video, thu_muc: Path) -> list:
     warnings: list = []
     for scene in video.canh:
         for key, values in scene.truong.items():
+            hai_phan = LIMITS_HAI_PHAN.get((scene.loai, key))
+            if hai_phan is not None:
+                tach = parse.tach_du_lieu if key == "du-lieu" else parse.tach_moc
+                for value, no in zip(values, scene.dong_truong[key]):
+                    for chu, gioi_han in zip(tach(value), hai_phan):
+                        if gioi_han is not None:
+                            _kiem_do_dai(scene.so, key, chu, no, gioi_han, True)
+                continue
             gioi_han = LIMITS.get((scene.loai, key))
             if gioi_han is None:
                 continue
             for value, no in zip(values, scene.dong_truong[key]):
                 cum = (scene.loai, key) not in KHONG_CUM
-                kiem_danh_dau(key, value, no, cum)
-                so_ky_tu = hien_thi(value, cum)
-                if so_ky_tu > gioi_han:
-                    raise CanhError(scene.so, f"`{key}` dài {so_ky_tu} ký tự, tối đa {gioi_han} (dòng {no}). Rút gọn nội dung.")
+                if (scene.loai, key) == ("cong-thuc", "bieu-thuc"):
+                    value = value.replace(parse.PHAN_CONG_THUC, " ")
+                _kiem_do_dai(scene.so, key, value, no, gioi_han, cum)
         if len(scene.loi) > LOI_DAI:
             warnings.append(f"Cảnh {scene.so}: lời dài {len(scene.loi)} ký tự (quá {LOI_DAI}); nên tách thành hai cảnh.")
         if scene.loai == "thi-nghiem":

@@ -34,7 +34,15 @@ SCENE_SPEC = {
     "thi-nghiem": (("mau",), ("do",), {"tham-so": (0, 99)}),
     "minh-hoa": (("tieu-de",), (), {"hinh": (1, 3)}),
     "anh": (("anh", "chu-thich"), ("nguon",), {}),
+    "bieu-do": (("tieu-de", "kieu"), ("don-vi", "truc-ngang", "truc-doc"), {"du-lieu": (2, 8)}),
+    "so-do": (("trung-tam",), ("hinh",), {"nhanh": (2, 6)}),
+    "dong-thoi-gian": (("tieu-de",), (), {"moc": (2, 6)}),
 }
+BIEU_DO_KIEU = ("cot", "duong", "tron")
+SO_DAI = 10
+# `bieu-thuc` của `cong-thuc` tách phần bằng ` | ` (dấu gạch đứng có khoảng trắng hai bên); tối đa 4 phần.
+PHAN_CONG_THUC = " | "
+MAX_PHAN = 4
 SCENE_TYPES = tuple(SCENE_SPEC)
 # Trường `chuyen:` (mọi loại cảnh, từ cảnh 2) ghi đè khoá đầu `chuyen-canh` cho riêng cảnh đó.
 SCENE_KIEU_CHUYEN = ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "khong")
@@ -44,6 +52,57 @@ _SCENE_RE = re.compile(r"^##\s+Cảnh\s+(\d+)\s*$")
 _URL_RE = re.compile(r"https?://|www\.", re.IGNORECASE)
 _POINT_RE = re.compile(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$")
 _PARAM_RE = re.compile(r"^\d+(?:\.\d+)?\s+[a-z0-9-]+\s+-?\d+(?:\.\d+)?$")
+_DATA_RE = re.compile(r"^(.*?\S)\s*\|\s*(-?\d+(?:\.\d+)?)$")
+_MOC_RE = re.compile(r"^(.*?\S)\s*\|\s*(\S.*)$")
+
+
+def tach_du_lieu(value: str) -> tuple:
+    """`<nhãn> | <số>` -> (nhãn, chuỗi số); None nếu sai dạng. Tách ở dấu `|` cuối cùng."""
+    match = _DATA_RE.match(value)
+    return (match.group(1), match.group(2)) if match else None
+
+
+def tach_moc(value: str) -> tuple:
+    """`<nhãn> | <mô tả>` -> (nhãn, mô tả); None nếu sai dạng. Tách ở dấu `|` đầu tiên."""
+    match = _MOC_RE.match(value)
+    return (match.group(1), match.group(2).strip()) if match else None
+
+
+def phan_cong_thuc(value: str) -> list:
+    return value.split(PHAN_CONG_THUC)
+
+
+def _kiem_du_lieu(truong: dict, dong_truong: dict) -> None:
+    kieu, no_kieu = truong["kieu"][0], dong_truong["kieu"][0]
+    if kieu not in BIEU_DO_KIEU:
+        raise ParseError(no_kieu, f"`kieu` phải là một trong: {', '.join(BIEU_DO_KIEU)}.")
+    if kieu == "tron":
+        for key in ("truc-ngang", "truc-doc", "don-vi"):
+            if key in truong:
+                raise ParseError(dong_truong[key][0], f"Biểu đồ `tron` ghi phần trăm, không có trục hay đơn vị; bỏ dòng `{key}`.")
+    for value, no in zip(truong["du-lieu"], dong_truong["du-lieu"]):
+        cap = tach_du_lieu(value)
+        if cap is None:
+            raise ParseError(no, "Dòng `du-lieu` phải có dạng `<nhãn> | <số>`, ví dụ `Lúa | 12.5` (dấu thập phân là dấu chấm).")
+        if len(cap[1]) > SO_DAI:
+            raise ParseError(no, f"Số `{cap[1]}` dài quá {SO_DAI} ký tự; đổi sang đơn vị lớn hơn.")
+        if kieu == "tron" and float(cap[1]) <= 0:
+            raise ParseError(no, f"Biểu đồ `tron` chỉ nhận số dương; `{cap[1]}` không vẽ được thành lát.")
+
+
+def _kiem_bieu_thuc(value: str, no: int) -> None:
+    phan = phan_cong_thuc(value)
+    if len(phan) == 1:
+        return
+    if len(phan) > MAX_PHAN:
+        raise ParseError(no, f"`bieu-thuc` có {len(phan)} phần, tối đa {MAX_PHAN} phần tách bằng ` | `.")
+    if any(not p.strip() for p in phan):
+        raise ParseError(no, "`bieu-thuc` có phần trống giữa hai dấu ` | `.")
+    for p in phan:
+        dem = (p.count("**"), p.replace("**", "").count("~"), p.replace("**", "").count("^"),
+               p.count("{{") - p.count("}}"))
+        if any(d % 2 for d in dem[:3]) or dem[3]:
+            raise ParseError(no, "`**`, `~`, `^`, `{{…}}` phải mở và đóng trong cùng một phần; không cắt ngang dấu ` | `.")
 
 
 class ParseError(Exception):
@@ -160,7 +219,14 @@ def _finish(so: int, dong0: int, fields: list) -> Scene:
     for value, no in zip(truong.get("tham-so", []), dong_truong.get("tham-so", [])):
         if _PARAM_RE.match(value) is None:
             raise ParseError(no, "Dòng `tham-so` phải có dạng `<giây> <mã> <giá trị>`, ví dụ `0 chieu-dai 0.4`.")
-    loi = truong.pop("loi")[0]
+    if loai == "bieu-do":
+        _kiem_du_lieu(truong, dong_truong)
+    for value, no in zip(truong.get("moc", []), dong_truong.get("moc", [])):
+        if tach_moc(value) is None:
+            raise ParseError(no, "Dòng `moc` phải có dạng `<nhãn> | <mô tả>`, ví dụ `1945 | Cách mạng tháng Tám`.")
+    if loai == "cong-thuc":
+        _kiem_bieu_thuc(truong["bieu-thuc"][0], dong_truong["bieu-thuc"][0])
+    loi =truong.pop("loi")[0]
     truong.pop("loai")
     dong_truong.pop("loai")
     dong_truong.pop("loi")

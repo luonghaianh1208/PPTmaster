@@ -14,7 +14,8 @@ class SceneRuntimeTest(unittest.TestCase):
     @unittest.skipUnless(HAS_NODE, NEED_NODE)
     def test_runtime_passes_its_node_tests(self):
         js = TOOLS_VI / "tests" / "js"
-        proc = subprocess.run([shutil.which("node"), "--test", str(js / "test_canh.js"), str(js / "test_chuyen_dong.js")],
+        proc = subprocess.run([shutil.which("node"), "--test", str(js / "test_canh.js"), str(js / "test_chuyen_dong.js"),
+                               str(js / "test_bieu_do.js")],
                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
         self.assertEqual(proc.returncode, 0, proc.stdout[-3000:] + proc.stderr[-1500:])
 
