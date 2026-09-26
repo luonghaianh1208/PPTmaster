@@ -10,14 +10,14 @@ META_CHOICES = {
     "phong-cach": ("viet-tay",),
     "giong": ("nu", "nam"),
     "toc-do": ("cham", "vua", "nhanh"),
-    "phu-de": ("hinh", "file", "khong"),
+    "phu-de": ("hinh", "file", "khong", "karaoke"),
     "ban-tay": ("co", "khong"),
     "may-quay": ("co", "khong"),
     "chuyen-canh": ("lau-bang", "lat-trang", "truot", "phong", "mo-man", "luan-phien", "khong"),
     "chu-dong": ("co", "khong"),
 }
 META_DEFAULTS = {
-    "phong-cach": "viet-tay", "giong": "nu", "toc-do": "vua", "phu-de": "hinh",
+    "phong-cach": "viet-tay", "giong": "nu", "toc-do": "vua", "phu-de": "karaoke",
     "ban-tay": "co", "may-quay": "co", "chuyen-canh": "lau-bang",
     "chu-dong": "co",
 }

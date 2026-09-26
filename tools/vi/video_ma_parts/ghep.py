@@ -10,6 +10,7 @@ from pathlib import Path
 
 from video_parts import media, srt
 
+from . import karaoke
 from .lich import DAN_DAU, FPS
 from .phong import FONT as ITIM_FONT, TEN as ITIM_TEN
 
@@ -55,7 +56,10 @@ def lenh_video(danh_sach_am: Path, out_mp4: Path, fps: int, phu_de_tuong_doi) ->
         "-f", "concat", "-safe", "0", "-i", str(danh_sach_am),
     ]
     if phu_de_tuong_doi:
-        cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:fontsdir={FONTS_REL}:force_style='{STYLE}'"]
+        if str(phu_de_tuong_doi).endswith(".ass"):
+            cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:fontsdir={FONTS_REL}"]
+        else:
+            cmd += ["-vf", f"subtitles={phu_de_tuong_doi}:fontsdir={FONTS_REL}:force_style='{STYLE}'"]
     cmd += ["-r", str(fps), "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out_mp4)]
     return cmd
@@ -92,6 +96,12 @@ def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps:
         fonts_dir.mkdir(exist_ok=True)
         shutil.copy2(ITIM_FONT, fonts_dir / ITIM_FONT.name)
         burn = ".khung/phu-de.srt"
+    elif phu_de == "karaoke":
+        (lam / "phu-de.ass").write_text(karaoke.tao_ass(cac_lich), encoding="utf-8")
+        fonts_dir = lam / "fonts"
+        fonts_dir.mkdir(exist_ok=True)
+        shutil.copy2(ITIM_FONT, fonts_dir / ITIM_FONT.name)
+        burn = ".khung/phu-de.ass"
     elif phu_de == "file":
         (thu_muc / "phu-de.srt").write_text(cues, encoding="utf-8")
         files.append("phu-de.srt")

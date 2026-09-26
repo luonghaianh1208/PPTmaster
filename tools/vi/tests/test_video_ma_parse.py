@@ -32,7 +32,7 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual([c.so for c in video.canh], list(range(1, 9)))
         self.assertEqual(video.meta["giong"], "nu")
         self.assertEqual(video.meta["toc-do"], "vua")
-        self.assertEqual(video.meta["phu-de"], "hinh")
+        self.assertEqual(video.meta["phu-de"], "karaoke")
         self.assertEqual(video.meta["phong-cach"], "viet-tay")
 
     def test_sample_passes_the_limits_without_warnings(self):

@@ -93,6 +93,11 @@ class CommandTest(unittest.TestCase):
         cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), lich.FPS, None)
         self.assertNotIn("-vf", cmd)
 
+    def test_video_command_burns_ass_karaoke_without_force_style(self):
+        cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), lich.FPS, ".khung/phu-de.ass")
+        vf = cmd[cmd.index("-vf") + 1]
+        self.assertEqual(vf, "subtitles=.khung/phu-de.ass:fontsdir=.khung/fonts")
+
 
 class AssembleTest(unittest.TestCase):
     def setUp(self):
@@ -158,7 +163,8 @@ class AssembleTest(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("-r") + 1], "25")
 
     def test_subtitle_modes(self):
-        for mode, expect_srt, expect_burn in (("hinh", False, True), ("file", True, False), ("khong", False, False)):
+        for mode, expect_srt, expect_burn in (("hinh", False, True), ("file", True, False), ("khong", False, False),
+                                              ("karaoke", False, True)):
             with self.subTest(mode=mode):
                 thu_muc = self.project(f"p-{mode}")
                 calls = []
@@ -167,6 +173,27 @@ class AssembleTest(unittest.TestCase):
                 self.assertEqual("phu-de.srt" in files, expect_srt)
                 joined = " ".join(calls[-1][0])
                 self.assertEqual("subtitles=" in joined, expect_burn)
+
+    def test_karaoke_mode_writes_ass_with_kf_tags_and_bundles_the_itim_font(self):
+        thu_muc = self.project("p-karaoke")
+        plan = [canh_lich(1, 0.0, 6.0, 4.0, ["Xin chao cac em."], [0.0])]
+        plan[0].moc_tu = [
+            {"t": lich.DAN_DAU + 0.0, "d": 0.3, "chu": "Xin", "khoa": "xin"},
+            {"t": lich.DAN_DAU + 0.4, "d": 0.3, "chu": "chao", "khoa": "chao"},
+            {"t": lich.DAN_DAU + 0.8, "d": 0.3, "chu": "cac", "khoa": "cac"},
+            {"t": lich.DAN_DAU + 1.2, "d": 0.3, "chu": "em.", "khoa": "em"},
+        ]
+        calls = []
+        ghep.ghep_video(thu_muc, plan, self.giong(thu_muc)[:1], "karaoke", run=self.fake_run(thu_muc, calls))
+        ass_text = (thu_muc / ".khung" / "phu-de.ass").read_text(encoding="utf-8")
+        self.assertIn("[Script Info]", ass_text)
+        self.assertIn("[V4+ Styles]", ass_text)
+        self.assertIn("[Events]", ass_text)
+        self.assertIn(r"\kf", ass_text)
+        self.assertTrue((thu_muc / ".khung" / "fonts" / "Itim-Regular.ttf").is_file())
+        joined = " ".join(calls[-1][0])
+        self.assertIn("subtitles=.khung/phu-de.ass:fontsdir=.khung/fonts", joined)
+        self.assertNotIn("force_style", joined)
 
     def test_braces_are_escaped_only_in_burned_subtitles(self):
         plan = [canh_lich(1, 0.0, 6.0, 4.0, ["Tập hợp A = {1; 2; 3}."], [0.0])]
