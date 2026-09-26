@@ -1,5 +1,6 @@
 """Test ghép video: lệnh FFmpeg, phụ đề, danh sách nối tiếng. Không chạy FFmpeg thật."""
 
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -49,6 +50,34 @@ class CommandTest(unittest.TestCase):
         self.assertIn(f"adelay={int(round(lich.DAN_DAU * 1000))}:all=1", joined)
         self.assertIn("apad=whole_dur=6.000", joined)
         self.assertEqual(cmd[cmd.index("-t") + 1], "6.000")
+
+    def test_audio_command_mixes_a_quiet_fixed_seed_noise_floor(self):
+        cmd = ghep.lenh_am_canh(Path("giong/canh-1.mp3"), Path("am-1.wav"), 6.0)
+        joined = " ".join(cmd)
+        self.assertIn("anoisesrc=", joined)
+        self.assertIn(f"seed={ghep.HAT_NHIEU}", joined)
+        self.assertIn("amix=inputs=2:duration=first:normalize=0", joined)
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "máy không có FFmpeg")
+    def test_scene_audio_never_contains_digital_silence(self):
+        """Loa Bluetooth/HDMI tự tắt khi gặp im lặng tuyệt đối và nuốt âm đầu của câu sau."""
+        import struct
+        import subprocess
+        import wave
+        with tempfile.TemporaryDirectory() as tmp:
+            mp3 = Path(tmp) / "g.mp3"
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
+                            "sine=frequency=440:duration=0.5,apad=pad_dur=1.0,asetrate=44100", "-q:a", "5", str(mp3)], check=True)
+            wav = Path(tmp) / "a.wav"
+            subprocess.run(ghep.lenh_am_canh(mp3, wav, 3.0), check=True)
+            with wave.open(str(wav)) as w:
+                mau = struct.unpack("<%dh" % w.getnframes(), w.readframes(w.getnframes()))
+                tan_so = w.getframerate()
+            cua_so = tan_so // 20
+            im_tuyet_doi = [i for i in range(0, len(mau) - cua_so, cua_so) if not any(mau[i:i + cua_so])]
+            self.assertEqual(im_tuyet_doi, [])
+            dinh_nen = max(abs(x) for x in mau[: tan_so // 2])
+            self.assertLess(dinh_nen, 400, "lớp nền phải rất nhỏ (dưới khoảng −38 dBFS đỉnh)")
 
     def test_video_command_uses_scene_fps_frames_and_30_fps_output(self):
         cmd = ghep.lenh_video(Path("am.txt"), Path(".khung/video.mp4"), lich.FPS, ".khung/phu-de.srt")

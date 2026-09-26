@@ -14,6 +14,8 @@ from .lich import DAN_DAU, FPS
 from .phong import FONT as ITIM_FONT, TEN as ITIM_TEN
 
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
+BIEN_DO_NHIEU = 0.002
+HAT_NHIEU = 1234
 STYLE = f"FontName={ITIM_TEN},FontSize=16,Outline=1.5,Shadow=0,Spacing=0.5,MarginV=22"
 FONTS_REL = ".khung/fonts"
 
@@ -32,9 +34,16 @@ def cues_phu_de(cac_lich: list) -> list:
 
 
 def lenh_am_canh(mp3: Path, wav: Path, thoi_luong: float) -> list:
+    # Lớp nhiễu hồng rất nhỏ: loa Bluetooth/HDMI tự tắt khi gặp im lặng tuyệt đối và nuốt âm đầu câu sau.
+    nhieu = f"anoisesrc=d={thoi_luong:.3f}:c=pink:r=44100:a={BIEN_DO_NHIEU}:seed={HAT_NHIEU}"
+    loc = (
+        f"[0:a]aresample=44100,aformat=channel_layouts=mono,adelay={int(round(DAN_DAU * 1000))}:all=1,"
+        f"apad=whole_dur={thoi_luong:.3f}[g];[1:a]aformat=channel_layouts=mono[n];"
+        "[g][n]amix=inputs=2:duration=first:normalize=0[a]"
+    )
     return [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(mp3),
-        "-af", f"adelay={int(round(DAN_DAU * 1000))}:all=1,apad=whole_dur={thoi_luong:.3f}",
+        "-f", "lavfi", "-i", nhieu, "-filter_complex", loc, "-map", "[a]",
         "-t", f"{thoi_luong:.3f}", "-ar", "44100", "-ac", "1", "-c:a", "pcm_s16le", str(wav),
     ]
 
