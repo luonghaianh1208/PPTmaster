@@ -303,6 +303,30 @@ class NhanTest(unittest.TestCase):
                 err = self.kiem_loi(f"## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: Được {sai} lần\nloi: Xin chào.\n", "y: Được")
                 self.assertIn("{{", err.message)
 
+    def test_cluster_with_unbalanced_parentheses_is_an_error(self):
+        err = self.kiem_loi("## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: Hàm ((f(x))) tăng\nloi: Xin chào.\n", "y: Hàm")
+        self.assertIn("ngoặc", err.message)
+
+    def test_emphasis_crossing_bold_or_sub_is_an_error(self):
+        for sai in ("**a ==b** c==", "==a **b== c**", "==H~2== O~"):
+            with self.subTest(sai=sai):
+                err = self.kiem_loi(f"## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: Ý {sai}\nloi: Xin chào.\n", "y: Ý")
+                self.assertIn("cắt ngang", err.message)
+
+    def test_formula_keeps_double_parentheses_and_underscores_literal(self):
+        text = doc("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: y = ((a+b))__c + f((x)) == {{2}}\n"
+                   "giai-thich: ((a)) là hệ số\nloi: Xin chào.\n")
+        self.assertEqual(kiem.kiem(parse.parse(text), Path(".")), [])
+        self.assertEqual(kiem.hien_thi("y = ((a+b))__c", cum=False), len("y = ((a+b))__c"))
+        self.kiem_loi("## Cảnh 1\nloai: cong-thuc\nbieu-thuc: y = {{1,5}}\nloi: Xin chào.\n", "bieu-thuc:")
+
+    def test_fill_in_blank_and_spaced_equals_are_literal(self):
+        text = doc("## Cảnh 1\nloai: y-tung-y\ntieu-de: Điền ____ vào chỗ trống\ny: a == b và ___ nhé\n"
+                   "y: ==x== và __y__\nloi: Xin chào.\n")
+        self.assertEqual(kiem.kiem(parse.parse(text), Path(".")), [])
+        self.assertEqual(kiem.hien_thi("Điền ____ vào"), len("Điền ____ vào"))
+        self.kiem_loi("## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: a ==b và c\nloi: Xin chào.\n", "y: a ==b")
+
     def test_length_limit_counts_only_visible_text(self):
         chu = "==" + "a" * 60 + "== {{1500}}"
         text = doc(f"## Cảnh 1\nloai: y-tung-y\ntieu-de: A\ny: {'a' * 55} {{{{12}}}}\nloi: Xin chào.\n")

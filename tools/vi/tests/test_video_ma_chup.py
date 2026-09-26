@@ -670,7 +670,11 @@ class NhanChromiumTest(unittest.TestCase):
                         + "".join(f"y-phai: {cum('__', 60, '__')}\n" for _ in range(4))),
             "cot-hinh": "loai: y-tung-y\ntieu-de: " + cum("((", 90, "))") + "\nhinh: flask\n"
                         + "".join(f"y: {cum('((', 60, '))')}\n" for _ in range(6)),
-            "anh": "loai: khai-niem\nthuat-ngu: A\ndinh-nghia: " + cum("((", 200, "))") + "\n",
+            "khai-niem-cot": ("loai: khai-niem\nthuat-ngu: " + cum("((", 60, "))") + "\nhinh: flask\ndinh-nghia: "
+                              + cum("((", 70, ")) ") + cum("((", 70, ")) ") + cum("((", 78, "))") + "\n"),
+            "cong-thuc-cot": ("loai: cong-thuc\nbieu-thuc: y = ((a+b))__c\nhinh: flask\n"
+                              + "".join(f"giai-thich: {cum('((', 60, '))')}\n" for _ in range(4))),
+            "dinh-nghia-khoanh":"loai: khai-niem\nthuat-ngu: A\ndinh-nghia: " + cum("((", 200, "))") + "\n",
         }
         for loai, noi_dung in casos.items():
             with self.subTest(loai=loai):
@@ -685,6 +689,81 @@ class NhanChromiumTest(unittest.TestCase):
                     self.assertGreaterEqual(min(x1, y1), 0)
                     self.assertLessEqual(x2, 1280)
                     self.assertLessEqual(y2, 620)
+
+    # Mỗi vòng elip (mỗi đoạn `M` của path) và hộp các chữ không thuộc cụm khoanh nào, toạ độ khung ở Z = 1.
+    VONG_VA_CHU = """(id) => {
+        const k = document.getElementById('khung').getBoundingClientRect();
+        const vong = [...document.querySelectorAll('path.nhan-net.khoanh')].flatMap((p) =>
+            p.getAttribute('d').split('M').filter((s) => s.trim()).map((s) => {
+                const so = s.match(/-?\\d+(\\.\\d+)?/g).map(Number);
+                const xs = so.filter((_, i) => i % 2 === 0), ys = so.filter((_, i) => i % 2 === 1);
+                return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }));
+        const el = document.querySelector('[data-id="' + id + '"]');
+        const di = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        const rg = document.createRange(); const chu = []; let n;
+        while ((n = di.nextNode())) {
+            if (n.parentElement.closest('.cum.khoanh')) { continue; }
+            for (let i = 0; i < n.data.length; i++) {
+                if (/\\s/.test(n.data[i])) { continue; }
+                rg.setStart(n, i); rg.setEnd(n, i + 1);
+                const r = rg.getBoundingClientRect();
+                chu.push([n.data[i], r.left - k.left, r.top - k.top, r.right - k.left, r.bottom - k.top]);
+            }
+        }
+        return {vong, chu}; }"""
+
+    def test_circle_clears_neighbouring_letters_and_the_lines_above_and_below(self):
+        casos = {
+            "dinh-nghia": ("loai: khai-niem\nthuat-ngu: Chu kì\ndinh-nghia: Thời gian để vật thực hiện một dao động "
+                           "toàn phần, đo bằng giây, rồi thêm chữ cho dài ra hai dòng để ((một dao động)) nằm giữa "
+                           "hai dòng chữ khác và ((cụm này khá dài nên sẽ phải xuống dòng ở giữa cụm khoanh)) nhé.\n"),
+            "y-0": "loai: y-tung-y\ntieu-de: A\ny: Thời gian để vật thực hiện ((một dao động)) toàn phần\n",
+        }
+        for chu_dong in (True, False):
+            for id_muc, noi_dung in casos.items():
+                with self.subTest(muc=id_muc, chu_dong=chu_dong):
+                    du, _ = du_cua(noi_dung, giay=10.0)
+                    du["co"]["chuDong"] = chu_dong
+                    chup.mo_trang(self.page, trang.dung_trang(du))
+                    self.assertEqual(self.page.evaluate("THI_VIDEO.kiemTran()"), [])
+                    kq = self.page.evaluate(self.VONG_VA_CHU, id_muc)
+                    self.assertGreaterEqual(len(kq["vong"]), 2 if id_muc == "dinh-nghia" else 1)
+                    if id_muc == "dinh-nghia":
+                        self.assertGreaterEqual(len(kq["vong"]), 3, "cụm hai dòng phải có một vòng mỗi dòng")
+                    for x1, y1, x2, y2 in kq["vong"]:
+                        for c, a1, b1, a2, b2 in kq["chu"]:
+                            cham = a1 < x2 - 0.5 and a2 > x1 + 0.5 and b1 < y2 - 0.5 and b2 > y1 + 0.5
+                            self.assertFalse(cham, f"vòng {[x1, y1, x2, y2]} chạm chữ '{c}' {[a1, b1, a2, b2]}")
+
+    def test_bouncing_emphasis_keeps_a_gap_to_its_neighbours(self):
+        noi_dung = "loai: y-tung-y\ntieu-de: A\ny: Thời gian để ==vật== thực hiện ((một dao động)) toàn phần\n"
+        du, _ = du_cua(noi_dung, giay=10.0)
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        m = self.muc("y-0")
+        noi = m["batDau"] + m["thoiLuong"] + 1.0
+        du["tu"] = [{"t": noi + 0.01 * i, "d": 0.01, "chu": w, "khoa": w.lower()}
+                    for i, w in enumerate(("vật", "một", "dao", "động"))]
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.dat(noi + 0.225)
+        kq = self.page.evaluate("""() => [...document.querySelectorAll('[data-id=y-0] .cum')].map((sp) => {
+            const r = sp.getBoundingClientRect();
+            const rg = document.createRange();
+            const ke = (n, i) => { rg.setStart(n, i); rg.setEnd(n, i + 1); return rg.getBoundingClientRect(); };
+            const truoc = sp.previousSibling, sau = sp.nextSibling;
+            const a = ke(truoc, truoc.data.trimEnd().length - 1), b = ke(sau, sau.data.length - sau.data.trimStart().length);
+            return {tf: sp.style.transform, trai: r.left - a.right, phai: b.left - r.right}; })""")
+        self.assertEqual(len(kq), 2)
+        for c in kq:
+            self.assertTrue(c["tf"].startswith("scale(1.") and c["tf"] != "scale(1)", c)
+            self.assertGreaterEqual(c["trai"], 1, c)
+            self.assertGreaterEqual(c["phai"], 1, c)
+
+    def test_kiem_tran_reports_an_ellipse_below_the_subtitle_line(self):
+        du, _ = du_cua("loai: y-tung-y\ntieu-de: A\ny: Một ((hai)) ba\n")
+        chup.mo_trang(self.page, trang.dung_trang(du))
+        self.page.evaluate("document.querySelector('[data-id=\"y-0\"]').style.top = '586px'")
+        loi = self.page.evaluate("THI_VIDEO.kiemTran()")
+        self.assertIn("nhan-y-0-0", loi)
 
     def test_kiem_tran_still_catches_overflow_with_emphasis(self):
         du, _ = du_cua("loai: tieu-de\nchu: ((" + "A" * 80 + "))\n")

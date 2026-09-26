@@ -9,7 +9,7 @@
       var bieuThuc = t['bieu-thuc'][0];
       var kq = [];
       kq.push(B.net('khung', V.hopQua(100, 190, cot ? 760 : 1080, 150, 21), 0.1, 0.7, {}));
-      var bt = B.chu('bieu-thuc', bieuThuc, 120, 215, cot ? 720 : 1040, 120, cot && V.demKyTu(bieuThuc) > 30 ? 30 : 40, 0.9, { can: 'giua', mau: 'nhan' });
+      var bt = B.chu('bieu-thuc', bieuThuc, 120, 215, cot ? 720 : 1040, 120, cot && V.demKyTu(bieuThuc, true) > 30 ? 30 : 40, 0.9, { can: 'giua', mau: 'nhan', khongCum: true });
       kq.push(bt);
       (t['giai-thich'] || []).forEach(function (g, k) {
         var bd = Math.max(du.moc[k], bt.batDau + bt.thoiLuong + 0.3);

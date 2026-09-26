@@ -7,8 +7,8 @@
   var CO_TAY = 0.85;
   var NS = 'http://www.w3.org/2000/svg';
   var DANH_DAU = /\*\*(.+?)\*\*|~([^~]+)~|\^([^\^]+)\^/g;
-  // Cùng ngữ pháp với kiem.py (_CUM_RE, _SO_DUNG).
-  var CUM = /==(.+?)==|\(\((.+?)\)\)|__(.+?)__/g;
+  // Cùng ngữ pháp với kiem.py (_CUM_RE, _SO_DUNG). `____` (ô trống) và ` == ` có khoảng trắng hai bên là chữ thường.
+  var CUM = /(?<!=)==(?![=\s])(.+?)(?<![=\s])==(?!=)|\(\((.+?)\)\)|(?<!_)__(?![_\s])(.+?)(?<![_\s])__(?!_)/g;
   var SO = /\{\{(-?\d+(?:\.\d+)?)\}\}/g;
 
   function kep(x, a, b) { return x < a ? a : (x > b ? b : x); }
@@ -56,8 +56,10 @@
     return kq;
   }
   // Chữ -> các phần {cum: null | {kieu, k}, doan: [...]}. Cụm nhấn `==x==` tô, `((x))` khoanh, `__x__` gạch.
-  function phanTich(chu) {
+  // `khongCum` (biểu thức của cong-thuc): không tách cụm, `((` và `__` giữ nguyên là chữ.
+  function phanTich(chu, khongCum) {
     chu = String(chu);
+    if (khongCum) { return chu ? [{ cum: null, doan: tachDoan(chu, { so: 0, cum: 0 }) }] : []; }
     var phan = [];
     var dem = { so: 0, cum: 0 };
     var vt = 0;
@@ -75,12 +77,19 @@
   function demPhan(phan) {
     return phan.reduce(function (n, p) { return p.doan.reduce(function (s, o) { return s + o.chu.length; }, n); }, 0);
   }
-  function demKyTu(chu) { return demPhan(phanTich(chu)); }
+  function demKyTu(chu, khongCum) { return demPhan(phanTich(chu, khongCum)); }
+  // Bề rộng ước lượng theo số ký tự: đệm hai đầu cụm khoanh (~1,2 ký tự) và lề cụm khi chu-dong (~0,5 ký tự) cũng chiếm chỗ.
+  function demRong(chu, chuDong) {
+    var phan = phanTich(chu);
+    return phan.reduce(function (n, p) {
+      return n + (p.cum ? (p.cum.kieu === 'khoanh' ? 1.2 : 0) + (chuDong ? 0.5 : 0) : 0);
+    }, demPhan(phan));
+  }
   // Vị trí (theo chữ hiển thị) và giá trị của từng số chạy.
-  function viTriSo(chu) {
+  function viTriSo(chu, khongCum) {
     var kq = [];
     var vt = 0;
-    phanTich(chu).forEach(function (p) {
+    phanTich(chu, khongCum).forEach(function (p) {
       p.doan.forEach(function (o) {
         if (o.so !== undefined) { kq.push({ k: o.so, viTri: vt, dai: o.chu.length, gtri: o.gtri, chuSo: o.chuSo, chu: o.chu }); }
         vt += o.chu.length;
@@ -119,8 +128,8 @@
   // Hiện n ký tự đầu; khi 0 < n < tổng, chèn span.ngoi rỗng ngay sau ký tự thứ n (điểm ngòi bút).
   // Dấu đánh dấu không đếm. Cụm bọc span.cum, số bọc span.so; phần chưa viết nằm trong span.an để bố cục không nhảy.
   // `so`: chuỗi đang hiện của từng số chạy (bỏ trống là giá trị cuối). `nay(i)`: {s, y, a} của ký tự i (chế độ nảy).
-  function catDanhDau(chu, n, so, nay) {
-    var phan = phanTich(chu);
+  function catDanhDau(chu, n, so, nay, khongCum) {
+    var phan = phanTich(chu, khongCum);
     var con = nay ? Infinity : n;
     var giua = !nay && n > 0 && n < demPhan(phan);
     var i = 0;
@@ -153,7 +162,7 @@
     });
     return html;
   }
-  function thoiGianViet(chu) { return Math.max(0.5, demKyTu(chu) / TOC_DO_VIET); }
+  function thoiGianViet(chu, khongCum) { return Math.max(0.5, demKyTu(chu, khongCum) / TOC_DO_VIET); }
 
   function rng(hat) {
     var a = hat | 0;
@@ -217,7 +226,7 @@
       batDau = dau(batDau, 0.6);
       // Chữ nảy (tiêu đề khi chu-dong): nảy từng ký tự thay cho bút viết; không có bàn tay.
       var nay = !!(tuy && tuy.nay);
-      var dai = Math.max(0.3, Math.min(nay ? root.THI_DONG.thoiGianNay(demKyTu(noiDung)) : thoiGianViet(noiDung), gh - 0.2 - batDau));
+      var dai = Math.max(0.3, Math.min(nay ? root.THI_DONG.thoiGianNay(demKyTu(noiDung)) : thoiGianViet(noiDung, tuy && tuy.khongCum), gh - 0.2 - batDau));
       if (nay) { tuy = gan({ tay: false }, tuy); }
       return gan({ id: id, kieu: 'chu', chu: noiDung, x: x, y: y, rong: rong, cao: cao, co: co, batDau: batDau, thoiLuong: dai, can: 'trai', mau: '' }, tuy);
     }
@@ -283,6 +292,7 @@
       nen.src = du.nenTruoc;
       khung.appendChild(nen);
     }
+    if (co.chuDong) { khung.className = 'chu-dong'; }
     var goc = document.createElement('div');
     goc.id = 'bang';
     khung.appendChild(goc);
@@ -326,7 +336,7 @@
     ds.forEach(function (o) {
       var m = o.m;
       if (m.kieu !== 'chu' || m.dong) { return; }
-      var tong = demKyTu(m.chu);
+      var tong = demKyTu(m.chu, m.khongCum);
       var keo = m.nay ? Math.max(1, D.thoiGianNay(tong) / m.thoiLuong) : 1;
       // Lúc ký tự thứ i hiện ra (viết tay: khi round(p * tổng) > i; nảy: lúc ký tự i bắt đầu nảy).
       var luc = function (i) {
@@ -334,15 +344,16 @@
       };
       o.tong = tong;
       o.keo = keo;
-      o.so = viTriSo(m.chu).map(function (s) {
+      o.so = viTriSo(m.chu, m.khongCum).map(function (s) {
         var bd = luc(s.viTri);
         return { gtri: s.gtri, chuSo: s.chuSo, batDau: bd, dai: Math.min(0.8, Math.max(0, gh - 0.2 - bd)) };
       });
-      o.cum = N.tachCum(m.chu).map(function (c) {
+      o.cum = (m.khongCum ? [] : N.tachCum(m.chu)).map(function (c) {
         var cuoi = c.viTri + Math.max(1, c.dai) - 1;
         var xong = m.nay ? m.batDau + (D.LECH_NAY * cuoi + D.NAY) / keo : luc(cuoi);
-        var no = Math.max(N.thoiDiemNhan(c, du.tu || [], m.batDau, xong), xong);
-        c.no = Math.max(0, Math.min(no, gh - 0.2 - N.NO));
+        var lich = N.lichNo(N.thoiDiemNhan(c, du.tu || [], m.batDau, xong), xong, gh);
+        c.no = lich.no;
+        c.daiNo = lich.dai;
         c.hat = ++hatNhan;
         if (c.kieu !== 'to') {
           c.net = document.createElementNS(NS, 'path');
@@ -363,11 +374,11 @@
         var tt = m.batDau + (t - m.batDau) * o.keo;
         html = catDanhDau(m.chu, o.tong, so, function (i) { return D.nayChu(i, o.tong, tt, m.batDau); });
       } else {
-        html = catDanhDau(m.chu, Math.round(tienDo(t, m.batDau, m.thoiLuong) * o.tong), so);
+        html = catDanhDau(m.chu, Math.round(tienDo(t, m.batDau, m.thoiLuong) * o.tong), so, null, m.khongCum);
       }
       o.el.innerHTML = m.day ? '<span class="trong">' + html + '</span>' : html;
       o.cum.forEach(function (c) {
-        var p = tienDo(t, c.no, N.NO);
+        var p = tienDo(t, c.no, c.daiNo);
         var pe = D.easeInOut(p);
         var sp = o.el.querySelector('[data-cum="' + c.k + '"]');
         if (c.kieu === 'to') {
@@ -377,7 +388,7 @@
           c.net.style.opacity = pe > 0 ? '1' : '0';
         }
         // Cụm một dòng nảy nhẹ 1 → 1,12 → 1 (cần inline-block; cụm nhiều dòng giữ nguyên để không đổi ngắt dòng).
-        // Cụm dài nảy ít hơn (phình tối đa 8 px) để không đè lên chữ hai bên.
+        // Độ phình giới hạn theo chỗ trống hai bên (đo trong doHop) để không chạm chữ bên cạnh.
         if (co.chuDong && c.motDong) {
           sp.style.display = 'inline-block';
           sp.style.transform = p > 0 && p < 1 ? 'scale(' + lam3(1 + c.nay * Math.sin(Math.PI * p)) + ')' : 'none';
@@ -406,6 +417,30 @@
         }
       });
       if (loai.capNhat) { loai.capNhat(goc, du, t); }
+    }
+
+    // Chỗ trống (px) giữa cụm `sp` và chữ gần nhất cùng dòng bên trái/phải (hoặc mép ô chữ).
+    function choTrong(el, sp) {
+      var r = sp.getBoundingClientRect();
+      var eb = el.getBoundingClientRect();
+      var trai = r.left - eb.left;
+      var phai = eb.right - r.right;
+      var di = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      var rg = document.createRange();
+      var n;
+      while ((n = di.nextNode())) {
+        if (sp.contains(n)) { continue; }
+        for (var i = 0; i < n.data.length; i++) {
+          if (/\s/.test(n.data[i])) { continue; }
+          rg.setStart(n, i);
+          rg.setEnd(n, i + 1);
+          var c = rg.getBoundingClientRect();
+          if (c.width <= 0 || c.bottom <= r.top + 2 || c.top >= r.bottom - 2) { continue; }
+          if (c.right <= r.left + 0.5) { trai = Math.min(trai, r.left - c.right); }
+          else if (c.left >= r.right - 0.5) { phai = Math.min(phai, c.left - r.right); }
+        }
+      }
+      return Math.min(trai, phai);
     }
 
     // Hộp bao và điểm đầu/cuối của từng mục ở trạng thái cuối, đo khi Z = 1. Đo một lần, sau khi font đã nạp.
@@ -448,16 +483,15 @@
             return { x: r.left - k.left, y: r.top - k.top, w: r.width, h: r.height };
           }).filter(function (r) { return r.w > 0; });
           c.motDong = cac.length === 1;
-          c.nay = c.motDong ? Math.min(0.12, 8 / Math.max(1, cac[0].w)) : 0;
+          c.nay = c.motDong && co.chuDong ? Math.max(0, Math.min(0.12, 2 * (choTrong(o.el, sp) - 1) / Math.max(1, cac[0].w))) : 0;
           if (!c.net || !cac.length) { return; }
           if (c.kieu === 'gach') {
             c.net.setAttribute('d', N.duongGach(cac, c.hat));
           } else {
-            var x1 = Math.min.apply(null, cac.map(function (r) { return r.x; }));
-            var y1 = Math.min.apply(null, cac.map(function (r) { return r.y; }));
-            var x2 = Math.max.apply(null, cac.map(function (r) { return r.x + r.w; }));
-            var y2 = Math.max.apply(null, cac.map(function (r) { return r.y + r.h; }));
-            c.net.setAttribute('d', N.duongKhoanh({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, c.hat));
+            // Một vòng mỗi dòng; cao hơn dòng chữ tối đa 3 px, không chạm dòng trên/dưới (khoảng giữa hai dòng − 1 px).
+            var dong = parseFloat(getComputedStyle(o.el).lineHeight) || 0;
+            var day = Math.min(3, Math.min.apply(null, cac.map(function (r) { return dong - r.h; })) - 1);
+            c.net.setAttribute('d', N.duongKhoanh(cac, c.hat, day));
           }
         });
       });
@@ -543,7 +577,7 @@
   root.THI_CANH = root.THI_CANH || {};
   root.THI_VIDEO = {
     LAU_BANG: LAU_BANG,
-    kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau, phanTich: phanTich, viTriSo: viTriSo,
+    kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau, phanTich: phanTich, demRong: demRong, viTriSo: viTriSo,
     thoiGianViet: thoiGianViet, duongQua: duongQua, hopQua: hopQua, vongTron: vongTron, muiTen: muiTen,
     rng: rng, vuaKhung: vuaKhung, tao: tao, khoiDong: khoiDong, san: false
   };

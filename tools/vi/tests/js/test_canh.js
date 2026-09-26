@@ -391,3 +391,24 @@ test('tieu-de chu-dong: chu nay tung ky tu, khong ban tay, xong truoc cuoi canh;
     });
   });
 });
+
+test('cong-thuc: bieu-thuc khong tach cum nhan (khongCum), giai-thich van tach', function () {
+  var d = tatCa(12)['cong-thuc'];
+  d.truong['bieu-thuc'] = ['y = ((a+b))__c'];
+  var ds = C['cong-thuc'].muc(d);
+  assert.strictEqual(tim(ds, 'bieu-thuc').khongCum, true);
+  assert.ok(!tim(ds, 'giai-thich-0').khongCum);
+  assert.ok(Math.abs(tim(ds, 'bieu-thuc').thoiLuong - V.thoiGianViet('y = ((a+b))__c', true)) < 1e-9);
+});
+
+test('y-tung-y cot hinh: cum khoanh o gioi han 60 ky tu thi chu nho hon de dem khong day xuong dong', function () {
+  var bo = boMoi(12);
+  var y = voiHinh(bo, 'y-tung-y', 'hinh');
+  y.truong.y = ['x'.repeat(60), 'ngắn'];
+  var co = function () { return tim(C['y-tung-y'].muc(y), 'y-0').co; };
+  assert.strictEqual(co(), 26, 'khong co cum thi giu co cu');
+  y.truong.y = ['((' + 'x'.repeat(60) + '))', 'ngắn'];
+  assert.strictEqual(co(), 24);
+  y.truong.y = ['((' + 'x'.repeat(50) + '))', 'ngắn'];
+  assert.strictEqual(co(), 26);
+});

@@ -7,8 +7,9 @@
       var t = du.truong;
       var cot = B.coCot;
       var kq = B.tieuDe(t['tieu-de'][0], 0.2, cot ? 800 : 1160);
-      var dai = Math.max.apply(null, t.y.map(function (y) { return V.demKyTu(y); }));
-      var co = cot && dai > 45 ? 26 : 30;
+      var dai = Math.max.apply(null, t.y.map(function (y) { return V.demRong(y, du.co && du.co.chuDong); }));
+      // Ý dài quá 60 (vì đệm cụm khoanh) thì nhỏ thêm một cỡ để không xuống dòng quá ô.
+      var co = cot && dai > 45 ? (dai > 60 ? 24 : 26) : 30;
       t.y.forEach(function (y, k) {
         var top = 186 + k * 74;
         kq.push(B.net('cham-' + k, V.vongTron(96, top + 22, 9), du.moc[k], 0.3, { mau: 'nhan' }));

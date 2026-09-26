@@ -25,10 +25,14 @@ LOI_DAI = 700
 MAX_THAM_SO = 3
 MAX_DO = 3
 _MARKUP_RE = re.compile(r"\*\*|~|\^")
-# Cùng ngữ pháp với catDanhDau trong runtime/khung-video.js.
-_CUM_RE = re.compile(r"==(.+?)==|\(\((.+?)\)\)|__(.+?)__")
+# Cùng ngữ pháp với catDanhDau trong runtime/khung-video.js. `____` (ô trống, 3+ gạch) và ` == ` có khoảng trắng
+# hai bên là chữ thường, không mở cụm.
+_CUM_RE = re.compile(r"(?<!=)==(?![=\s])(.+?)(?<![=\s])==(?!=)|\(\((.+?)\)\)|(?<!_)__(?![_\s])(.+?)(?<![_\s])__(?!_)")
+_DAU_RE = re.compile(r"(?<!=)==(?!=)|(?<!_)__(?!_)|\(\(")
 _SO_RE = re.compile(r"\{\{(.*?)\}\}")
 _SO_DUNG = re.compile(r"-?\d+(?:\.\d+)?")
+# Trường công thức: `((`, `__` là toán, không phải cụm nhấn.
+KHONG_CUM = {("cong-thuc", "bieu-thuc")}
 MAX_CUM = 3
 
 
@@ -45,31 +49,62 @@ def _trong_cum(m: re.Match) -> str:
     return next(g for g in m.groups() if g is not None)
 
 
-def hien_thi(chu: str) -> int:
-    chu = _CUM_RE.sub(_trong_cum, chu)
+def hien_thi(chu: str, cum: bool = True) -> int:
+    if cum:
+        chu = _CUM_RE.sub(_trong_cum, chu)
     chu = _SO_RE.sub(lambda m: m.group(1).replace(".", ","), chu)
     return len(_MARKUP_RE.sub("", chu))
 
 
-def kiem_danh_dau(key: str, value: str, no: int) -> None:
-    """Cụm nhấn `==`, `((…))`, `__` và số chạy `{{…}}`: không lồng, có đóng, tối đa 3 cụm, số dùng dấu chấm."""
-    cac_cum = list(_CUM_RE.finditer(value))
-    for m in cac_cum:
-        trong = _trong_cum(m)
-        if _CUM_RE.search(trong) or any(dau in trong for dau in ("==", "((", "__")):
-            raise ParseError(no, f"`{key}` có cụm nhấn lồng trong cụm khác (`{m.group(0)}`). Mỗi cụm nhấn đứng riêng.")
-    con_lai = _CUM_RE.sub("", value)
-    for dau, dong in (("==", "=="), ("((", "))"), ("__", "__")):
-        if dau in con_lai:
-            raise ParseError(no, f"`{key}` có `{dau}` chưa đóng bằng `{dong}`.")
-    if len(cac_cum) > MAX_CUM:
-        raise ParseError(no, f"`{key}` có {len(cac_cum)} cụm nhấn, tối đa {MAX_CUM} cụm mỗi dòng.")
+def _dau_mo(chu: str) -> str | None:
+    """Dấu mở cụm còn trong chữ (bỏ qua `==`/`__` có khoảng trắng hai bên)."""
+    for m in _DAU_RE.finditer(chu):
+        truoc = m.start() == 0 or chu[m.start() - 1].isspace()
+        sau = m.end() == len(chu) or chu[m.end()].isspace()
+        if m.group(0) == "((" or not (truoc and sau):
+            return m.group(0)
+    return None
+
+
+def _dem_dinh_dang(chu: str) -> tuple:
+    return (chu.count("**"), chu.replace("**", "").count("~"), chu.replace("**", "").count("^"))
+
+
+def kiem_danh_dau(key: str, value: str, no: int, cum: bool = True) -> None:
+    """Cụm nhấn `==`, `((…))`, `__` và số chạy `{{…}}`: không lồng, không cắt ngang `**`/`~`/`^`, có đóng,
+    ngoặc trong cụm cân, tối đa 3 cụm, số dùng dấu chấm. `cum=False` (công thức) chỉ kiểm số."""
+    if cum:
+        _kiem_cum(key, value, no)
     for m in _SO_RE.finditer(value):
         if _SO_DUNG.fullmatch(m.group(1)) is None:
             raise ParseError(no, f"`{key}`: `{m.group(0)}` phải là một số, dấu thập phân là dấu chấm (ví dụ `{{{{1500.5}}}}`).")
     con_lai = _SO_RE.sub("", value)
     if "{{" in con_lai or "}}" in con_lai:
         raise ParseError(no, f"`{key}` có `{{{{` hoặc `}}}}` chưa thành cặp; số chạy viết dạng `{{{{12}}}}`.")
+
+
+def _kiem_cum(key: str, value: str, no: int) -> None:
+    cac_cum = list(_CUM_RE.finditer(value))
+    for m in cac_cum:
+        trong = _trong_cum(m)
+        if _CUM_RE.search(trong) or _dau_mo(trong):
+            raise ParseError(no, f"`{key}` có cụm nhấn lồng trong cụm khác (`{m.group(0)}`). Mỗi cụm nhấn đứng riêng.")
+        if trong.count("(") != trong.count(")"):
+            raise ParseError(no, f"`{key}`: ngoặc trong cụm `{m.group(0)}` không cân. Công thức có ngoặc thì bỏ "
+                                 "khoanh `((…))`, dùng `==…==` hoặc viết ngoặc đủ cặp bên trong.")
+    dau = _dau_mo(_CUM_RE.sub("", value))
+    if dau:
+        dong = "))" if dau == "((" else dau
+        raise ParseError(no, f"`{key}` có `{dau}` chưa đóng bằng `{dong}`.")
+    if len(cac_cum) > MAX_CUM:
+        raise ParseError(no, f"`{key}` có {len(cac_cum)} cụm nhấn, tối đa {MAX_CUM} cụm mỗi dòng.")
+    # `**`, `~`, `^` phải mở và đóng cùng phía của cụm (trong cụm hoặc ngoài cụm), không cắt ngang ranh giới.
+    tong = _dem_dinh_dang(value)
+    cac_manh = [_trong_cum(m) for m in cac_cum] + _CUM_RE.split(value)[::4]
+    for i, loai in enumerate(("**", "~", "^")):
+        if tong[i] % 2 == 0 and any(_dem_dinh_dang(manh or "")[i] % 2 for manh in cac_manh):
+            raise ParseError(no, f"`{key}`: `{loai}` cắt ngang ranh giới cụm nhấn. Đặt `{loai}…{loai}` trọn trong "
+                                 "cụm hoặc trọn ngoài cụm.")
 
 
 def tham_so_theo_thoi_gian(scene: Scene) -> dict:
@@ -157,8 +192,9 @@ def kiem(video: Video, thu_muc: Path) -> list:
             if gioi_han is None:
                 continue
             for value, no in zip(values, scene.dong_truong[key]):
-                kiem_danh_dau(key, value, no)
-                so_ky_tu = hien_thi(value)
+                cum = (scene.loai, key) not in KHONG_CUM
+                kiem_danh_dau(key, value, no, cum)
+                so_ky_tu = hien_thi(value, cum)
                 if so_ky_tu > gioi_han:
                     raise CanhError(scene.so, f"`{key}` dài {so_ky_tu} ký tự, tối đa {gioi_han} (dòng {no}). Rút gọn nội dung.")
         if len(scene.loi) > LOI_DAI:

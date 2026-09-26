@@ -15,6 +15,10 @@ html, body { margin: 0; padding: 0; background: #fbfaf5; }
 .chu .cum.to { background-image: linear-gradient(#fde047, #fde047); background-repeat: no-repeat;
   background-position: 0 0; background-size: 0% 100%; }
 .chu .cum { transform-origin: 50% 60%; }
+/* Cụm khoanh có đệm ngang ở hai đầu cụm để vòng elip không cắt chữ bên cạnh. */
+.chu .cum.khoanh { padding: 0 0.3em; }
+/* chu-dong: cụm được nảy có thêm lề nhỏ để còn chỗ phình. */
+#khung.chu-dong .chu .cum { margin: 0 0.12em; }
 .chu .so { position: relative; }
 .chu .so-cuoi { visibility: hidden; }
 .chu .so-chay { position: absolute; left: 0; top: 0; white-space: nowrap; }

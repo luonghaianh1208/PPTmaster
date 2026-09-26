@@ -163,18 +163,61 @@ test('catDanhDau che do nay: moi chu mot span, tu khong bi ngat, chu hien thi du
   assert.ok(dau.indexOf('opacity:0.25') >= 0, dau);
 });
 
-test('duongKhoanh: vong kin quanh hop, xac dinh, nam trong khung va tren y 620', function () {
-  var d = N.duongKhoanh({ x: 100, y: 200, w: 180, h: 40 }, 3);
-  assert.strictEqual(d, N.duongKhoanh({ x: 100, y: 200, w: 180, h: 40 }, 3));
-  var so = d.match(/-?\d+(\.\d+)?/g).map(Number);
+function soCua(d) { return d.match(/-?\d+(\.\d+)?/g).map(Number); }
+function bien(d) {
+  var so = soCua(d);
   var xs = so.filter(function (_, i) { return i % 2 === 0; });
   var ys = so.filter(function (_, i) { return i % 2 === 1; });
-  assert.ok(Math.min.apply(null, xs) < 100 && Math.max.apply(null, xs) > 280);
-  assert.ok(Math.min.apply(null, ys) < 200 && Math.max.apply(null, ys) > 240);
-  var sat = N.duongKhoanh({ x: 1150, y: 585, w: 125, h: 30 }, 1).match(/-?\d+(\.\d+)?/g).map(Number);
-  sat.forEach(function (v, i) {
-    if (i % 2 === 0) { assert.ok(v >= 0 && v <= 1280, 'x ' + v); } else { assert.ok(v >= 0 && v <= 620, 'y ' + v); }
-  });
-  var g = N.duongGach([{ x: 10, y: 600, w: 100, h: 30 }], 2).match(/-?\d+(\.\d+)?/g).map(Number);
-  g.forEach(function (v, i) { if (i % 2 === 1) { assert.ok(v <= 620, 'gach y ' + v); } });
+  return [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)];
+}
+
+test('duongKhoanh: vong quanh hop co dem, sat hop (ngang +4, doc +day), xac dinh', function () {
+  var hop = { x: 100, y: 200, w: 180, h: 40 };
+  var d = N.duongKhoanh([hop], 3, 3);
+  assert.strictEqual(d, N.duongKhoanh([hop], 3, 3));
+  var b = bien(d);
+  assert.ok(b[0] >= 100 - 4 - 0.05 && b[2] <= 280 + 4 + 0.05, 'ngang ' + b);
+  assert.ok(b[1] >= 200 - 3 - 0.05 && b[3] <= 240 + 3 + 0.05, 'doc ' + b);
+  assert.ok(b[0] < 100 && b[2] > 280 && b[1] < 200 && b[3] > 240, 'bao quanh hop ' + b);
+  var hep = bien(N.duongKhoanh([hop], 3, 1));
+  assert.ok(hep[1] >= 200 - 1 - 0.05 && hep[3] <= 240 + 1 + 0.05, 'day nho thi sat dong tren duoi ' + hep);
+});
+
+test('duongKhoanh: cum nhieu dong co mot vong moi dong', function () {
+  var d = N.duongKhoanh([{ x: 600, y: 200, w: 300, h: 38 }, { x: 100, y: 242, w: 200, h: 38 }], 2, 2);
+  assert.strictEqual((d.match(/M/g) || []).length, 2);
+});
+
+test('duongKhoanh / duongGach khong kep vao khung: sat mep thi hinh hoc vuot ra de kiemTran bao', function () {
+  var b = bien(N.duongKhoanh([{ x: 1150, y: 585, w: 125, h: 36 }], 1, 3));
+  assert.ok(b[3] > 620 && b[2] > 1276, String(b));
+  var g = bien(N.duongGach([{ x: 10, y: 600, w: 100, h: 30 }], 2));
+  assert.ok(g[3] > 620, String(g));
+});
+
+test('lichNo: khong bao gio no truoc khi cum viet xong; cuoi canh thi rut ngan hieu ung', function () {
+  assert.deepStrictEqual(N.lichNo(3, 2, 10), { no: 3, dai: 0.45 });
+  assert.deepStrictEqual(N.lichNo(1, 2, 10), { no: 2, dai: 0.45 });
+  var muon = N.lichNo(9.7, 5, 10);
+  assert.ok(gan(muon.no, 10 - 0.2 - 0.45) && gan(muon.dai, 0.45), JSON.stringify(muon));
+  var sat = N.lichNo(9.9, 9.6, 10);
+  assert.strictEqual(sat.no, 9.6);
+  assert.ok(gan(sat.dai, 0.2), JSON.stringify(sat));
+  var het = N.lichNo(9.9, 9.8, 10);
+  assert.strictEqual(het.no, 9.8);
+  assert.strictEqual(het.dai, 0);
+});
+
+test('cu phap: ____ (o trong) va " == " co khoang trang la chu thuong; ==x== va __x__ van la cum', function () {
+  assert.deepStrictEqual(N.tachCum('Điền ____ vào chỗ trống'), []);
+  assert.strictEqual(V.demKyTu('Điền ____ vào'), 'Điền ____ vào'.length);
+  assert.deepStrictEqual(N.tachCum('a == b và c == d'), []);
+  assert.strictEqual(V.catDanhDau('a == b', 99), 'a == b');
+  assert.deepStrictEqual(N.tachCum('==x== và __y__ và ____').map(function (c) { return c.noiDung; }), ['x', 'y']);
+});
+
+test('khongCum (bieu-thuc cua cong-thuc): (( va __ giu nguyen la chu', function () {
+  assert.strictEqual(V.demKyTu('T = ((a+b))__c', true), 'T = ((a+b))__c'.length);
+  assert.strictEqual(V.catDanhDau('((a)) {{2}}', 99, null, null, true), '((a)) <span class="so" data-so="0">2</span>');
+  assert.strictEqual(V.thoiGianViet('==' + 'x'.repeat(40) + '==', true), 44 / 20, 'khong tach cum nen dau cung dem');
 });
