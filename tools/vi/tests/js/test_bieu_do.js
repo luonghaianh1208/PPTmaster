@@ -201,6 +201,35 @@ test('so do: moi so nhanh 2-6 co goc co dinh, o nhan khong chong nhau va khong d
   });
 });
 
+test('so do: may quay khong day o nhanh da ve xuong vung phu de (day <= 620) o moi thoi diem', function () {
+  require(path.join(RT, 'may-quay.js'));
+  var Q = globalThis.THI_MAY_QUAY;
+  function hop(m) {
+    if (m.kieu === 'chu') { return { x: m.x, y: m.y, w: m.rong, h: m.cao }; }
+    if (m.kieu === 'hinh') { return { x: m.x, y: m.y, w: m.kich, h: m.kich }; }
+    var s = toaDo(m.d);
+    var xs = s.filter(function (_, i) { return i % 2 === 0; }), ys = s.filter(function (_, i) { return i % 2 === 1; });
+    var x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys);
+    return { x: x0, y: y0, w: Math.max.apply(null, xs) - x0, h: Math.max.apply(null, ys) - y0 };
+  }
+  [2, 3, 4, 5, 6].forEach(function (n) {
+    var gh = 16;
+    var nhanh = Array.apply(null, Array(n)).map(function (_, k) { return 'Nhánh số ' + k; });
+    var ds = C['so-do'].muc(du('so-do', gh, mocDeu(n, gh), { 'trung-tam': ['Chu kì con lắc đơn'], nhanh: nhanh }));
+    var cacHop = {};
+    ds.forEach(function (m) { cacHop[m.id] = hop(m); });
+    for (var i = 0; i <= 320; i++) {
+      var t = gh * i / 320;
+      var s = Q.tinh(ds, cacHop, t, gh, {});
+      ds.forEach(function (m) {
+        if (m.batDau > t) { return; }
+        var b = cacHop[m.id];
+        assert.ok(s.z * (b.y + b.h) + s.ty <= 620 + 1e-6, n + ' nhanh, t=' + t.toFixed(2) + ': ' + m.id + ' xuong vung phu de');
+      });
+    }
+  });
+});
+
 test('dong thoi gian: truc ve truoc 0,6 s; tren 4 moc thi xen ke cao thap, o cung phia khong cham', function () {
   [2, 4, 5, 6].forEach(function (n) {
     var moc = Array.apply(null, Array(n)).map(function (_, k) { return (1900 + k) + ' | Mô tả ' + k; });

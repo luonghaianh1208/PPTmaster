@@ -3,6 +3,8 @@
   var V = root.THI_VIDEO;
   // Nút trung tâm là elip ở (CX, CY); ô nhánh (W × H) đặt trên elip lớn (RX, RY) theo góc cố định theo số nhánh
   // (độ, 0 là bên phải, chiều kim đồng hồ), nhánh 0 ở trên bên phải rồi đi vòng. Mọi ô nằm trong y 110..590.
+  // Máy quay giữ toàn cảnh sơ đồ (mọi mục `quay: false`): phóng vào một ô nhánh ở trên đẩy các ô dưới (tới y 590)
+  // xuống vùng phụ đề, và làm mất quan hệ giữa các nhánh với nút trung tâm.
   var CX = 640, CY = 350, RX = 420, RY = 200, W = 330, H = 80;
   var GOC = {
     2: [0, 180],
@@ -46,11 +48,11 @@
       var coHinh = !!du.hinh;
       var rx = 190, ry = coHinh ? 95 : 70;
       var kq = [];
-      kq.push(B.net('vong-tam', elip(rx, ry, 11), 0.2, 0.6, { mau: 'nhan', day: 5 }));
+      kq.push(B.net('vong-tam', elip(rx, ry, 11), 0.2, 0.6, { mau: 'nhan', day: 5, quay: false }));
       var tam = t['trung-tam'][0];
       var co = V.demKyTu(tam) > 20 ? 26 : 30;
-      if (coHinh) { kq.push(B.hinh('hinh', du.hinh, CX - 30, CY - 82, 60, 0.3, { mau: 'nhan' })); }
-      kq.push(B.chu('trung-tam', tam, CX - 145, coHinh ? CY - 18 : CY - 37, 290, 74, co, 0.5, { can: 'giua', mau: 'nhan giua-doc', day: true }));
+      if (coHinh) { kq.push(B.hinh('hinh', du.hinh, CX - 30, CY - 82, 60, 0.3, { mau: 'nhan', quay: false })); }
+      kq.push(B.chu('trung-tam', tam, CX - 145, coHinh ? CY - 18 : CY - 37, 290, 74, co, 0.5, { can: 'giua', mau: 'nhan giua-doc', day: true, quay: false }));
       var n = t.nhanh.length;
       // Mọi ô nhánh cùng cỡ chữ: có nhánh dài hơn 30 ký tự thì cả sơ đồ dùng chữ nhỏ hơn.
       var coNhanh = t.nhanh.some(function (c) { return V.demKyTu(c) > 30; }) ? 22 : 24;
@@ -65,10 +67,10 @@
         var toi = [bx - dx * c - 6 * dx / dai, by - dy * c - 6 * dy / dai];
         var mau = 'm' + k;
         var chu = t.nhanh[k];
-        kq.push(B.net('nhanh-' + k, cong(tu, toi, k % 2 ? -26 : 26, 70 + k), du.moc[k], 0.5, { mau: mau, am: 'ting' }));
-        kq.push(B.net('o-' + k, V.hopQua(lam(bx - W / 2), lam(by - H / 2), W, H, 30 + k), du.moc[k] + 0.35, 0.4, { mau: mau }));
+        kq.push(B.net('nhanh-' + k, cong(tu, toi, k % 2 ? -26 : 26, 70 + k), du.moc[k], 0.5, { mau: mau, am: 'ting', quay: false }));
+        kq.push(B.net('o-' + k, V.hopQua(lam(bx - W / 2), lam(by - H / 2), W, H, 30 + k), du.moc[k] + 0.35, 0.4, { mau: mau, quay: false }));
         kq.push(B.chu('chu-' + k, chu, bx - W / 2 + 12, by - H / 2 + 8, W - 24, H - 16, coNhanh,
-          du.moc[k] + 0.6, { can: 'giua', mau: 'giua-doc', day: true }));
+          du.moc[k] + 0.6, { can: 'giua', mau: 'giua-doc', day: true, quay: false }));
       });
       return kq;
     }

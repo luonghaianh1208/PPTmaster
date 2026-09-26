@@ -319,7 +319,7 @@ Mã loại: `so-do`.
 | `nhanh` | lặp 2–6 dòng | mỗi nhánh 40 ký tự |
 | `hinh` | không | tên biểu tượng `tabler-outline`, vẽ trong nút trung tâm |
 
-Cách hiện: nút trung tâm vẽ trước; nhánh thứ k (đường cong vẽ tay, mỗi nhánh một màu, tới ô nhãn) hiện khi câu thứ k của `loi` bắt đầu. Các nhánh rải quanh nút theo góc cố định theo số nhánh, nhánh đầu ở phía trên bên phải rồi đi theo chiều kim đồng hồ.
+Cách hiện: nút trung tâm vẽ trước; nhánh thứ k (đường cong vẽ tay, mỗi nhánh một màu, tới ô nhãn) hiện khi câu thứ k của `loi` bắt đầu. Các nhánh rải quanh nút theo góc cố định theo số nhánh, nhánh đầu ở phía trên bên phải rồi đi theo chiều kim đồng hồ. Máy quay giữ toàn cảnh sơ đồ.
 
 ```
 ## Cảnh 12
