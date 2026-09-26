@@ -95,9 +95,10 @@ class PlanTest(unittest.TestCase):
     def test_missing_marks_are_estimated_with_a_warning(self):
         plan, warnings = lich.dung_lich(self.scenes(), [giong(4.0, [], True), giong(1.0, [0.0])])
         self.assertTrue(plan[0].uoc_luong)
-        # Cảnh 1 thiếu cả mốc câu lẫn mốc từ nên cảnh báo cả hai.
-        self.assertEqual(len(warnings), 2)
-        self.assertTrue(all("Cảnh 1" in w and "ước lượng" in w for w in warnings))
+        # Cảnh 1 thiếu cả mốc câu lẫn mốc từ nên chỉ một cảnh báo gộp cả hai.
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Cảnh 1", warnings[0])
+        self.assertIn("mốc câu và mốc từng từ ước lượng", warnings[0])
 
     def test_mark_count_mismatch_falls_back_to_estimate(self):
         plan, warnings = lich.dung_lich(self.scenes(), [giong(4.0, [0.0]), giong(1.0, [0.0])])

@@ -287,21 +287,54 @@ class GiongTest(unittest.TestCase):
         self.assertIn("edge-tts", str(caught.exception))
 
 
+def _tu(*items):
+    """items: (giay, chu) -> danh sách sự kiện WordBoundary giả, thời lượng 0.09s mỗi từ."""
+    return [{"t": giay, "d": 0.09, "chu": chu} for giay, chu in items]
+
+
 class SentenceMarkFromWordsTest(unittest.TestCase):
-    def test_sentence_mark_is_first_word_of_each_sentence(self):
-        tu = [
-            {"t": 0.125, "d": 0.15, "chu": "Chu"},
-            {"t": 0.275, "d": 0.2, "chu": "kì."},
-            {"t": 2.0, "d": 0.15, "chu": "Tạm"},
-            {"t": 2.2, "d": 0.2, "chu": "biệt."},
-        ]
+    def test_clean_case_is_unchanged(self):
+        tu = _tu((0.125, "Chu"), (0.275, "kì."), (2.0, "Tạm"), (2.2, "biệt."))
         marks = giong._moc_cau_theo_tu("Chu kì. Tạm biệt.", tu)
         self.assertEqual(marks, [0.125, 2.0])
 
-    def test_missing_words_fall_back_to_the_last_known_mark(self):
-        tu = [{"t": 0.0, "d": 0.2, "chu": "Một"}]
+    def test_a_number_spoken_as_several_events_does_not_shift_the_next_sentence(self):
+        # "1500" tổng hợp thành 4 sự kiện chữ số riêng lẻ; đếm số từ kịch bản (1 từ)
+        # sẽ lệch mốc câu 2; phải so khớp theo chữ để câu 2 vẫn đúng tại 0.7.
+        tu = _tu(
+            (0.0, "Có"), (0.1, "1"), (0.2, "5"), (0.3, "0"), (0.4, "0"),
+            (0.5, "vòng"), (0.6, "quay."),
+            (0.7, "Kết"), (0.8, "thúc"), (0.9, "thí"), (1.0, "nghiệm."),
+        )
+        marks = giong._moc_cau_theo_tu("Có 1500 vòng quay. Kết thúc thí nghiệm.", tu)
+        self.assertEqual(len(marks), 2)
+        self.assertEqual(marks[0], 0.0)
+        self.assertAlmostEqual(marks[1], 0.7, places=2)
+
+    def test_a_merged_token_matches_across_its_split_events(self):
+        # Kịch bản viết liền "H2O"; dịch vụ tách thành ba sự kiện "H", "2", "O".
+        tu = _tu((0.0, "H"), (0.1, "2"), (0.2, "O"), (0.3, "là"), (0.4, "nước."), (0.5, "Ok."))
+        marks = giong._moc_cau_theo_tu("H2O là nước. Ok.", tu)
+        self.assertEqual(marks, [0.0, 0.5])
+
+    def test_a_dropped_word_mid_sentence_does_not_break_the_sentence_marks(self):
+        # Dịch vụ không phát ra sự kiện cho "các" (rớt từ), các từ khác vẫn khớp đúng.
+        tu = _tu(
+            (0.0, "Xin"), (0.1, "chào"), (0.3, "em"), (0.4, "hôm"), (0.5, "nay."),
+            (0.6, "Tạm"), (0.7, "biệt."),
+        )
+        marks = giong._moc_cau_theo_tu("Xin chào các em hôm nay. Tạm biệt.", tu)
+        self.assertEqual(marks, [0.0, 0.6])
+
+    def test_unmatchable_first_word_falls_back_to_empty_instead_of_a_wrong_mark(self):
+        # Không đủ sự kiện để tìm ra mốc câu 2 một cách chắc chắn: trả về [] để
+        # lich.dung_lich tự ước lượng lại, không bao giờ đoán mốc sai một cách âm thầm.
+        tu = _tu((0.0, "Một"))
         marks = giong._moc_cau_theo_tu("Một. Hai.", tu)
-        self.assertEqual(marks, [0.0, 0.0])
+        self.assertEqual(marks, [])
+
+    def test_no_events_at_all_falls_back_to_empty(self):
+        self.assertEqual(giong._moc_cau_theo_tu("Một. Hai.", []), [])
 
 
 if __name__ == "__main__":

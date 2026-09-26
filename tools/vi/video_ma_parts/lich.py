@@ -117,11 +117,14 @@ def dung_lich(cac_canh: list, cac_giong: list, fps: int = FPS, kiem_moc: bool = 
         cau = tach_cau(scene.loi)
         uoc = giong.uoc_luong or len(giong.moc_cau) != len(cau)
         moc_giong = moc_uoc_luong(cau, giong.giay) if uoc else list(giong.moc_cau)
-        if uoc:
-            warnings.append(f"Cảnh {scene.so}: mốc câu ước lượng theo số ký tự; hình có thể lệch tiếng vài trăm mili giây.")
         uoc_tu = giong.uoc_luong_tu or not giong.moc_tu
         tu_tho = moc_tu_uoc_luong(scene.loi, moc_giong, giong.giay) if uoc_tu else list(giong.moc_tu)
-        if uoc_tu:
+        if uoc and uoc_tu:
+            warnings.append(f"Cảnh {scene.so}: mốc câu và mốc từng từ ước lượng theo số/tỉ lệ ký tự; "
+                             "hình, nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
+        elif uoc:
+            warnings.append(f"Cảnh {scene.so}: mốc câu ước lượng theo số ký tự; hình có thể lệch tiếng vài trăm mili giây.")
+        elif uoc_tu:
             warnings.append(f"Cảnh {scene.so}: mốc từng từ ước lượng theo tỉ lệ ký tự; nhấn ý và phụ đề karaoke có thể lệch tiếng vài trăm mili giây.")
         moc_tu = [{"t": round(DAN_DAU + w["t"], 3), "d": round(w.get("d", 0.0), 3), "chu": w["chu"], "khoa": _khoa(w["chu"])}
                   for w in tu_tho]

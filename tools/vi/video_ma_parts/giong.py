@@ -20,21 +20,107 @@ FIX_GIONG = "Có mạng rồi chạy lại, hoặc đặt sẵn file giọng gio
 FIX_EDGE = "Cài edge-tts bằng: python -m pip install -r requirements.txt (ở thư mục gốc repo)."
 FIX_FILE = "Xoá hoặc thay file giọng đó rồi chạy lại."
 _MARKUP_RE = re.compile(r"\*\*|~|\^|==|\(\(|\)\)|__|\{\{|\}\}")
+_CHUAN_RE = re.compile(r"[^\w\s]", re.UNICODE)
+_TOI_DA_SU_KIEN = 6
+_TOI_DA_TU = 3
 
 
 def bam(loi: str, voice: str, rate: str) -> str:
     return hashlib.sha256(f"{voice}|{rate}|{loi}".encode("utf-8")).hexdigest()[:16]
 
 
+def _chuan_hoa(chu: str) -> str:
+    return _CHUAN_RE.sub("", chu).lower()
+
+
+def _khop_tai(chuan_tu: list, chuan_su_kien: list, i: int, j: int):
+    """Thử khớp từ `i` của kịch bản với sự kiện `j` trở đi: 1-1, 1 từ trải trên
+    nhiều sự kiện (số đọc từng chữ số, viết tắt), hoặc nhiều từ gộp vào 1 sự kiện."""
+    if i >= len(chuan_tu) or j >= len(chuan_su_kien):
+        return None
+    if chuan_tu[i] == chuan_su_kien[j]:
+        return i + 1, j + 1
+    acc = ""
+    for k in range(1, _TOI_DA_SU_KIEN + 1):
+        if j + k > len(chuan_su_kien):
+            break
+        acc += chuan_su_kien[j + k - 1]
+        if acc == chuan_tu[i]:
+            return i + 1, j + k
+        if not chuan_tu[i].startswith(acc):
+            break
+    acc = ""
+    for m in range(1, _TOI_DA_TU + 1):
+        if i + m > len(chuan_tu):
+            break
+        acc += chuan_tu[i + m - 1]
+        if acc == chuan_su_kien[j]:
+            return i + m, j + 1
+        if not chuan_su_kien[j].startswith(acc):
+            break
+    return None
+
+
+def _can_chinh_moc_cau(cau: list, tu: list):
+    """Ghép mốc đầu mỗi câu bằng cách so khớp chữ (kịch bản) với sự kiện WordBoundary.
+    Trả `None` khi không đủ tin cậy (từ đầu một câu không khớp được sau khi đã thử
+    lệch tối đa `_TOI_DA_SU_KIEN` sự kiện / `_TOI_DA_TU` từ, hoặc số sự kiện đã dùng
+    lệch quá xa tổng số sự kiện) — không bao giờ trả mốc sai một cách âm thầm."""
+    tokens: list = []
+    dau_cau: list = []
+    for c in cau:
+        dau_cau.append(len(tokens))
+        tokens.extend(c.split())
+    if not tokens or not tu:
+        return None
+
+    chuan_tu = [_chuan_hoa(w) for w in tokens]
+    chuan_su_kien = [_chuan_hoa(e["chu"]) for e in tu]
+    dau_can_khop = set(dau_cau)
+    idx_su_kien: list = [None] * len(tokens)
+    i = j = 0
+    while i < len(tokens) and j < len(tu):
+        ket = _khop_tai(chuan_tu, chuan_su_kien, i, j)
+        if ket is not None:
+            idx_su_kien[i] = j
+            i, j = ket
+            continue
+        tim = None
+        for dj in range(1, _TOI_DA_SU_KIEN + 1):
+            if _khop_tai(chuan_tu, chuan_su_kien, i, j + dj) is not None:
+                tim = ("su_kien", dj)
+                break
+        if tim is None:
+            for di in range(1, _TOI_DA_TU + 1):
+                if _khop_tai(chuan_tu, chuan_su_kien, i + di, j) is not None:
+                    tim = ("tu", di)
+                    break
+        if tim is None:
+            if i in dau_can_khop:
+                return None
+            i += 1
+            continue
+        if tim[0] == "su_kien":
+            j += tim[1]
+        else:
+            i += tim[1]
+
+    if any(idx_su_kien[p] is None for p in dau_cau):
+        return None
+    if abs(len(tu) - j) > max(3, round(len(tu) * 0.1)):
+        return None
+    return [tu[idx_su_kien[p]]["t"] for p in dau_cau]
+
+
 def _moc_cau_theo_tu(text: str, tu: list) -> list:
-    """Mốc câu = thời điểm của từ đầu mỗi câu, ghép danh sách từ theo thứ tự."""
-    moc: list = []
-    idx = 0
-    for cau in tach_cau(text):
-        so_tu = max(len(cau.split()), 1)
-        moc.append(tu[idx]["t"] if idx < len(tu) else (tu[-1]["t"] if tu else 0.0))
-        idx += so_tu
-    return moc
+    """Mốc câu = thời điểm của từ đầu mỗi câu, so khớp chữ với danh sách sự kiện.
+    Không so khớp được chắc chắn thì trả về [] để `lich.dung_lich` tự ước lượng
+    lại theo số ký tự (và nêu cảnh báo), thay vì âm thầm trả mốc sai."""
+    cau = tach_cau(text)
+    if not cau:
+        return []
+    moc = _can_chinh_moc_cau(cau, tu)
+    return moc if moc is not None else []
 
 
 async def _tong_hop(text: str, voice: str, rate: str, out_path: Path) -> dict:
