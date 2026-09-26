@@ -77,7 +77,7 @@ def doc(thu_muc_du_an: Path, ten_file: str, nguon_tay: str | None, run=subproces
     if not duong_dan.is_file():
         raise NhacError(f"không có file `nhac/{ten_file}`")
     if nguon_tay and nguon_tay.strip():
-        nguon = nguon_tay.strip()
+        nguon = _nfc(nguon_tay).strip()
         nguon = nguon if nguon.lower().startswith("nhạc") else "Nhạc: " + nguon
     else:
         nguon = _nguon_tu_manifest(thu_muc_du_an, ten_file)

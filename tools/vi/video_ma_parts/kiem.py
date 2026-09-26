@@ -43,12 +43,13 @@ MAX_CUM = 3
 
 
 class CanhError(Exception):
-    """Nội dung cảnh sai; luôn nêu số cảnh."""
+    """Nội dung cảnh sai; luôn nêu số cảnh (0 là khối thông tin đầu, ví dụ nhạc nền). `fix`: cách sửa riêng, nếu có."""
 
-    def __init__(self, so: int, message: str) -> None:
+    def __init__(self, so: int, message: str, fix: str | None = None) -> None:
         super().__init__(f"Cảnh {so}: {message}")
         self.so = so
         self.message = message
+        self.fix = fix
 
 
 def _trong_cum(m: re.Match) -> str:
@@ -208,9 +209,11 @@ def doc_nhac(video: Video, thu_muc: Path):
         raise CanhError(0, f"nhạc nền: {exc} (dòng {video.dong_meta.get('nhac-nen', '?')}).") from exc
 
 
-def kiem(video: Video, thu_muc: Path) -> list:
+def kiem(video: Video, thu_muc: Path, doc_nhac_nen: bool = True) -> list:
+    """`doc_nhac_nen=False`: người gọi đã đọc nhạc nền (`doc_nhac`) rồi, không đo lại bằng ffprobe."""
     warnings: list = []
-    doc_nhac(video, thu_muc)
+    if doc_nhac_nen:
+        doc_nhac(video, thu_muc)
     for scene in video.canh:
         for key, values in scene.truong.items():
             hai_phan = LIMITS_HAI_PHAN.get((scene.loai, key))

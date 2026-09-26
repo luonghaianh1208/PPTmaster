@@ -104,6 +104,11 @@ class DocTest(unittest.TestCase):
         self.assertEqual(nhac.doc(self.du_an, "em.mp3", "Êm · An · CC0", run=probe_gia())["nguon"], "Nhạc: Êm · An · CC0")
         self.assertEqual(nhac.doc(self.du_an, "em.mp3", "Nhạc: Êm", run=probe_gia())["nguon"], "Nhạc: Êm")
 
+    def test_nguon_tay_nfd_da_co_chu_nhac_khong_them_lan_nua(self):
+        v = parse.parse(unicodedata.normalize("NFD", video_md("nhac-nen: em.mp3\nnguon-nhac: Nhạc: Êm · An\n")))
+        kq = nhac.doc(self.du_an, v.meta["nhac-nen"], v.meta["nguon-nhac"], run=probe_gia())
+        self.assertEqual(kq["nguon"], unicodedata.normalize("NFC", "Nhạc: Êm · An"))
+
     def test_chan_duong_dan_ra_ngoai_nhac(self):
         (self.du_an / "ngoai.mp3").write_bytes(b"ID3")
         for ten in ("../ngoai.mp3", "con/em.mp3", "con\\em.mp3", "C:em.mp3", str((self.du_an / "ngoai.mp3").resolve()), ""):
@@ -310,6 +315,58 @@ class DungTest(unittest.TestCase):
         self.assertNotIn("nhacNguon", seen["du"][0])
         gh = seen["lich"][-1].thoi_luong
         self.assertEqual(seen["du"][-1]["nhacNguon"], {"chu": "Nhạc: Êm · An · CC0", "tu": round(gh - 4.0, 3)})
+
+    def dung(self, dong_meta, kiem_tran=()):
+        """Chạy video_ma.main (dựng) với FFmpeg/Chromium/giọng giả; trả (mã, JSON, số lần đo nhạc bằng ffprobe)."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        thu_muc = Path(tmp.name) / "bai"
+        (thu_muc / "nhac").mkdir(parents=True)
+        (thu_muc / "nhac" / "em.mp3").write_bytes(b"ID3")
+        (thu_muc / "video.md").write_text(video_md(dong_meta), encoding="utf-8")
+        giong = lich.GiongInfo(mp3=thu_muc / "x.mp3", giay=3.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
+        do = mock.Mock(return_value=30.0)
+        with contextlib.ExitStack() as st:
+            for p in (mock.patch.object(video_ma, "co_ffmpeg", return_value=True),
+                      mock.patch.object(video_ma, "co_chromium", return_value=True),
+                      mock.patch.object(video_ma.chup, "trinh_duyet", side_effect=lambda: contextlib.nullcontext(object())),
+                      mock.patch.object(video_ma.chup, "trang_moi", return_value=object()),
+                      mock.patch.object(video_ma.chup, "kiem_tran", return_value=list(kiem_tran)),
+                      mock.patch.object(video_ma.giong, "lay_giong", return_value=giong),
+                      mock.patch.object(video_ma.chup, "chup_song_song", return_value=None),
+                      mock.patch.object(video_ma.ghep, "ghep_video", return_value=["video.mp4"]),
+                      mock.patch.object(nhac, "thoi_luong", do)):
+                st.enter_context(p)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                code = video_ma.main([str(thu_muc)])
+        return code, json.loads(out.getvalue().strip()), do.call_count
+
+    def test_mot_lan_dung_chi_do_nhac_mot_lan(self):
+        code, data, lan = self.dung("nhac-nen: em.mp3\nnguon-nhac: Êm · An · CC0\n")
+        self.assertEqual(code, 0, data)
+        self.assertEqual(lan, 1)
+
+    def test_loi_nhac_nen_co_cach_sua_rieng(self):
+        code, data, _ = self.dung("nhac-nen: em.mp3\n")
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "canh")
+        self.assertEqual(data["error"]["fix"], video_ma.FIX_NHAC)
+        self.assertNotIn("nội dung cảnh", data["error"]["fix"])
+        self.assertIn("nguon-nhac", data["error"]["fix"])
+
+    def test_dong_nguon_nhac_tran_khung_co_cach_sua_rieng(self):
+        code, data, _ = self.dung("nhac-nen: em.mp3\nnguon-nhac: Êm · An · CC0\n", kiem_tran=["nhac-nguon"])
+        self.assertEqual(code, 1)
+        self.assertEqual(data["error"]["step"], "canh")
+        self.assertIn("nguồn nhạc", data["error"]["message"])
+        self.assertEqual(data["error"]["fix"], video_ma.FIX_NGUON_NHAC)
+
+    def test_tran_khung_noi_dung_canh_van_bao_nhu_cu(self):
+        code, data, _ = self.dung("nhac-nen: em.mp3\nnguon-nhac: Êm · An · CC0\n", kiem_tran=["tieu-de", "nhac-nguon"])
+        self.assertEqual(code, 1)
+        self.assertIn("`tieu-de`", data["error"]["message"])
+        self.assertEqual(data["error"]["fix"], video_ma.FIX_CANH)
 
     def test_canh_cuoi_ngan_hon_4_giay_thi_hien_ca_canh(self):
         du = {"so": 1, "thoiLuong": 2.5}

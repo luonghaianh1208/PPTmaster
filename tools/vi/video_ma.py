@@ -27,6 +27,11 @@ from video_parts import media  # noqa: E402
 FIX_INPUT = "Viết video.md trong thư mục dự án (xem docs/vi/tro-ly/video-giai-thich.md) rồi chạy lại."
 FIX_INTERNAL = "Lỗi ngoài dự kiến; dán nguyên thông báo này cho người bảo trì."
 FIX_CHUP = "Chạy lại một lần; vẫn lỗi thì dán nguyên thông báo này cho người bảo trì."
+FIX_CANH = "Rút gọn hoặc sửa nội dung cảnh đó theo thông báo."
+FIX_NHAC = ("Sửa nhạc nền theo thông báo: dòng `nhac-nen` (tên file nằm trong nhac/) và `nguon-nhac` ở khối thông tin đầu "
+            "video.md, hoặc bản ghi của file trong nhac/nguon.json; không cần nhạc nền thì xoá dòng `nhac-nen`.")
+FIX_NGUON_NHAC = ("Rút gọn dòng nguồn nhạc: ghi `nguon-nhac:` ngắn hơn ở khối thông tin đầu video.md (tên bản · tác giả · "
+                  "giấy phép), hoặc rút gọn title/creator của file trong nhac/nguon.json, rồi chạy lại.")
 GIONG_TAM = 8.0
 
 
@@ -92,8 +97,11 @@ def _trang(video, cac_lich, models, thu_muc: Path, nhac=None) -> list:
 def _kiem_tran_tat_ca(page, video, trang_html) -> None:
     for canh, html in zip(video.canh, trang_html):
         tran = chup.kiem_tran(page, html)
+        noi_dung = [muc for muc in tran if muc != "nhac-nguon"]
+        if noi_dung:
+            raise kiem.CanhError(canh.so, f"chữ ở mục `{', '.join(noi_dung)}` tràn khung. Rút ngắn nội dung hoặc chia thành hai cảnh.")
         if tran:
-            raise kiem.CanhError(canh.so, f"chữ ở mục `{', '.join(tran)}` tràn khung. Rút ngắn nội dung hoặc chia thành hai cảnh.")
+            raise kiem.CanhError(canh.so, "dòng nguồn nhạc nền (hiện cuối video) dài quá, tràn khung.", FIX_NGUON_NHAC)
 
 
 @contextlib.contextmanager
@@ -130,8 +138,8 @@ def _trang_tam(video: parse.Video, thu_muc: Path, models: dict, nhac=None) -> li
     return _trang(video, cac_lich, models, thu_muc, nhac)
 
 
-def _xem_truoc(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
-    trang_html = _trang_tam(video, thu_muc, _mo_hinh(video, thu_muc), kiem.doc_nhac(video, thu_muc))
+def _xem_truoc(video: parse.Video, thu_muc: Path, warnings: list, nhac=None) -> dict:
+    trang_html = _trang_tam(video, thu_muc, _mo_hinh(video, thu_muc), nhac)
     ra = thu_muc / "xem-truoc"
     shutil.rmtree(ra, ignore_errors=True)
     files = []
@@ -145,13 +153,13 @@ def _xem_truoc(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
             "phong_cach": video.meta["phong-cach"], "giong": None}
 
 
-def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
+def _dung(video: parse.Video, thu_muc: Path, warnings: list, nhac=None) -> dict:
+    """`nhac`: nhạc nền đã đọc ở bước kiểm (`kiem.doc_nhac`), để ffprobe chỉ đo nhạc một lần mỗi lượt."""
     if not co_ffmpeg():
         raise media.MediaError("ffmpeg", "Chưa có FFmpeg.", media.FIX_FFMPEG)
     if not co_chromium():
         raise media.MediaError("chromium", "Chưa cài Chromium hoặc playwright.", chup.FIX_CHROMIUM)
     models = _mo_hinh(video, thu_muc)
-    nhac = kiem.doc_nhac(video, thu_muc)
     with _loi_chup(), chup.trinh_duyet() as browser:
         _kiem_tran_tat_ca(chup.trang_moi(browser), video, _trang_tam(video, thu_muc, models, nhac))
     cac_giong = [_lay_giong(c, thu_muc / "giong", video.meta) for c in video.canh]
@@ -189,15 +197,16 @@ def chay(thu_muc: Path, plan_only: bool, xem_truoc: bool, warnings: list) -> dic
     if not thu_muc.is_dir() or not md.is_file():
         raise media.MediaError("input", f"Không thấy {md}.", FIX_INPUT)
     video = parse.parse(md.read_text(encoding="utf-8-sig"))
-    warnings.extend(kiem.kiem(video, thu_muc))
+    nhac = kiem.doc_nhac(video, thu_muc)
+    warnings.extend(kiem.kiem(video, thu_muc, doc_nhac_nen=False))
     if plan_only:
         return {"files": [], "so_canh": len(video.canh), "thoi_luong_giay": None,
                 "phong_cach": video.meta["phong-cach"], "giong": None}
     if xem_truoc:
         if not co_chromium():
             raise media.MediaError("chromium", "Chưa cài Chromium hoặc playwright.", chup.FIX_CHROMIUM)
-        return _xem_truoc(video, thu_muc, warnings)
-    return _dung(video, thu_muc, warnings)
+        return _xem_truoc(video, thu_muc, warnings, nhac)
+    return _dung(video, thu_muc, warnings, nhac)
 
 
 def main(argv=None) -> int:
@@ -220,7 +229,7 @@ def main(argv=None) -> int:
     except parse.ParseError as exc:
         error = {"step": "parse", "message": str(exc), "fix": "Sửa đúng dòng đó trong video.md rồi chạy lại."}
     except kiem.CanhError as exc:
-        error = {"step": "canh", "message": str(exc), "fix": "Rút gọn hoặc sửa nội dung cảnh đó theo thông báo."}
+        error = {"step": "canh", "message": str(exc), "fix": exc.fix or (FIX_NHAC if exc.so == 0 else FIX_CANH)}
     except media.MediaError as exc:
         error = {"step": exc.step, "message": str(exc), "fix": exc.fix}
     except OSError as exc:
