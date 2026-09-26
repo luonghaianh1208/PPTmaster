@@ -11,7 +11,9 @@ from pathlib import Path
 TOOLS_VI = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_VI))
 
-from video_ma_parts import karaoke, lich  # noqa: E402
+from video_ma_parts import ghep, karaoke, lich  # noqa: E402
+from video_ma_parts.phong import FONT as ITIM_FONT  # noqa: E402
+from video_parts import srt  # noqa: E402
 
 _KF_RE = re.compile(r"\\kf(\d+)")
 _KF_TAG_RE = re.compile(r"\{\\kf\d+\}")
@@ -55,8 +57,11 @@ class CauTrucTest(unittest.TestCase):
         fields = style_line.split(",")
         # Format: Name,Fontname,Fontsize,Primary,Secondary,Outline,Back,Bold,Italic,Underline,
         # StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-        self.assertEqual(fields[-2], "22")  # MarginV
-        self.assertEqual(fields[16], "2")  # Outline width
+        # PlayResX/Y = 1280x720 (không phải mặc định libass 384x288 của đường SRT cũ), nên FontSize/Outline/
+        # MarginV/Spacing phải nhân theo tỉ lệ 720/288 = 2.5 mới hiển thị đúng cỡ chữ như bản SRT cũ.
+        self.assertEqual(fields[2], "40")  # Fontsize = 16 * 2.5
+        self.assertEqual(fields[-2], "55")  # MarginV = 22 * 2.5
+        self.assertEqual(fields[16], "3")  # Outline width ~= 1.5 * 2.5
 
 
 class KfSumTest(unittest.TestCase):
@@ -137,6 +142,91 @@ class BocDongTest(unittest.TestCase):
         text = karaoke.tao_ass([cl])
         dialogues = [l for l in text.splitlines() if l.startswith("Dialogue:")]
         self.assertGreater(len(dialogues), 1)
+
+
+def _khung_tho(video: Path, giay: float, rong: int = 1280, cao: int = 720) -> bytes:
+    """Trích một khung tại `giay` giây, trả về mảng byte thô RGB24 (không qua PNG)."""
+    proc = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{giay:.3f}", "-i", str(video),
+         "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True, timeout=30)
+    assert len(proc.stdout) == rong * cao * 3, (len(proc.stdout), proc.stderr)
+    return proc.stdout
+
+
+def _hop_chu(raw: bytes, rong: int = 1280, cao: int = 720, day_duoi: int = 150, nguong: int = 80):
+    """Hộp bao các điểm ảnh sáng (chữ/viền trắng hoặc vàng) trong dải `day_duoi` điểm ảnh cuối khung.
+    Trả `{"cao", "duoi", "giua_x"}` (toạ độ tuyệt đối trong khung) hoặc `None` nếu không thấy chữ."""
+    y0 = cao - day_duoi
+    min_r = max_r = min_c = max_c = None
+    for y in range(y0, cao):
+        hang = y * rong * 3
+        for x in range(rong):
+            o = hang + x * 3
+            if max(raw[o], raw[o + 1], raw[o + 2]) > nguong:
+                if min_r is None or y < min_r:
+                    min_r = y
+                max_r = y
+                if min_c is None or x < min_c:
+                    min_c = x
+                if max_c is None or x > max_c:
+                    max_c = x
+    if min_r is None:
+        return None
+    return {"cao": max_r - min_r + 1, "duoi": max_r, "giua_x": (min_c + max_c) / 2}
+
+
+class KichThuocChuTest(unittest.TestCase):
+    """So kích thước chữ karaoke với kiểu SRT cũ (`hinh`) đã dùng ổn: cùng chữ, cùng vị trí, đốt bằng FFmpeg thật."""
+
+    CHU = "Chu ki dao dong."
+
+    def _dung(self, thu_muc: Path, vf: str, ten: str) -> Path:
+        out = thu_muc / ten
+        subprocess.run(
+            ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+             "-i", "color=c=black:s=1280x720:d=2.5", "-vf", vf, "-r", "30", "-pix_fmt", "yuv420p", str(out)],
+            cwd=thu_muc, check=True, timeout=60)
+        return out
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "máy không có FFmpeg")
+    def test_karaoke_text_height_matches_the_old_burned_srt_look(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            thu_muc = Path(tmp)
+            lam = thu_muc / ".khung"
+            fonts_dir = lam / "fonts"
+            fonts_dir.mkdir(parents=True)
+            shutil.copy2(ITIM_FONT, fonts_dir / ITIM_FONT.name)
+
+            cl = canh(1, 0.0, 1.2, [self.CHU], [lich.DAN_DAU], [
+                {"t": lich.DAN_DAU + 0.0, "d": 0.3, "chu": "Chu", "khoa": "chu"},
+                {"t": lich.DAN_DAU + 0.3, "d": 0.3, "chu": "ki", "khoa": "ki"},
+                {"t": lich.DAN_DAU + 0.6, "d": 0.3, "chu": "dao", "khoa": "dao"},
+                {"t": lich.DAN_DAU + 0.9, "d": 0.3, "chu": "dong.", "khoa": "dong"},
+            ])
+            (lam / "phu-de.ass").write_text(karaoke.tao_ass([cl]), encoding="utf-8")
+            cmd_ass = ghep.lenh_video(Path("am.txt"), Path("out-karaoke.mp4"), 30, ".khung/phu-de.ass")
+            vf_ass = cmd_ass[cmd_ass.index("-vf") + 1]
+
+            cue = srt.Cue(index=1, start=lich.DAN_DAU, end=lich.DAN_DAU + 1.2, text=self.CHU)
+            (lam / "phu-de.srt").write_text(srt.render_srt([cue]), encoding="utf-8")
+            cmd_srt = ghep.lenh_video(Path("am.txt"), Path("out-hinh.mp4"), 30, ".khung/phu-de.srt")
+            vf_srt = cmd_srt[cmd_srt.index("-vf") + 1]
+
+            video_karaoke = self._dung(thu_muc, vf_ass, "karaoke.mp4")
+            video_hinh = self._dung(thu_muc, vf_srt, "hinh.mp4")
+
+            moc = lich.DAN_DAU + 0.6
+            hop_karaoke = _hop_chu(_khung_tho(video_karaoke, moc))
+            hop_hinh = _hop_chu(_khung_tho(video_hinh, moc))
+            self.assertIsNotNone(hop_karaoke, "không thấy chữ karaoke trong khung")
+            self.assertIsNotNone(hop_hinh, "không thấy chữ SRT (hinh) trong khung")
+
+            self.assertGreaterEqual(hop_karaoke["cao"], 28, hop_karaoke)
+            ti_le = hop_karaoke["cao"] / hop_hinh["cao"]
+            self.assertTrue(0.75 <= ti_le <= 1.25, (hop_karaoke, hop_hinh, ti_le))
+            self.assertGreaterEqual(719 - hop_karaoke["duoi"], 10, "chữ phải cách mép dưới ít nhất 10px")
+            self.assertLessEqual(abs(hop_karaoke["giua_x"] - 640), 20, hop_karaoke)
 
 
 class FfmpegBurnTest(unittest.TestCase):
