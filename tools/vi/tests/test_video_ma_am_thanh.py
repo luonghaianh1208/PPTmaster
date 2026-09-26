@@ -7,6 +7,7 @@ import io
 import json
 import math
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -102,6 +103,20 @@ class LenhTronTest(unittest.TestCase):
         self.assertIn(f"volume={muc:.2f}dB", loc)
         self.assertIn("alimiter=", loc)
         self.assertIn("level=0", loc)
+
+    def muc(self, dinh):
+        loc = self.lenh(dinh=dinh)[self.lenh().index("-filter_complex") + 1]
+        return float(re.search(r"volume=(-?\d+\.\d+)dB", loc).group(1)) + am_thanh.DINH_BUS_DB
+
+    def test_giong_rat_nho_hieu_ung_van_duoi_giong_it_nhat_12_db(self):
+        for dinh in (-45.0, -40.0, -30.0):
+            with self.subTest(dinh=dinh):
+                self.assertLessEqual(self.muc(dinh), dinh - 12.0)
+
+    def test_canh_im_lang_dung_muc_san_an_toan(self):
+        muc = self.muc(-120.0)
+        self.assertAlmostEqual(muc, am_thanh.MUC_THAP_NHAT, delta=0.01)  # lệnh ghi volume 2 chữ số thập phân
+        self.assertLessEqual(muc, -70.0)
 
     def test_giu_dung_thoi_luong_canh_va_tron_khong_chuan_hoa(self):
         cmd = self.lenh()

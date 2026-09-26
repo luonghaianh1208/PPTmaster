@@ -44,7 +44,9 @@ DINH_MAU = {"but": 0.25, "ting": 0.5, "chuyen": 0.5, "tictac": 0.5, "dung": 0.5,
 GIOI_HAN = 0.5
 DINH_BUS_DB = 20 * math.log10(GIOI_HAN)
 DUOI_GIONG_DB = 20.0
-MUC_THAP_NHAT, MUC_CAO_NHAT = -50.0, -20.0
+# Sàn −80 dBFS chỉ chạm tới khi giọng gần như im lặng (cảnh im lặng đo được −120): giọng rất nhỏ (−45 dBFS) vẫn có
+# hiệu ứng thấp hơn đủ DUOI_GIONG_DB.
+MUC_THAP_NHAT, MUC_CAO_NHAT = -80.0, -20.0
 BUT_VAO, BUT_RA = 0.03, 0.06
 
 
