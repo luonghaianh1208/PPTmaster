@@ -96,13 +96,13 @@
       var ySo;
       if (kieu === 'cot') {
         var c = B.net('cot-' + k, V.duongQua([[cx - rong / 2, y0], [cx - rong / 2, yv], [cx + rong / 2, yv], [cx + rong / 2, y0]], 60 + k),
-          du.moc[k], 0.8, { mau: am ? 'do' : 'nhan', quay: false });
+          du.moc[k], 0.8, { mau: am ? 'do' : 'nhan', quay: false, am: 'ting' });
         c.to = { x: lam(cx - rong / 2), rong: lam(rong), y0: lam(y0), y: lam(yv), mau: am ? TO_COT.am : TO_COT.duong };
         kq.push(c);
         ySo = am ? yv + 2 : yv - 30;
       } else {
         if (truoc) { kq.push(B.net('doan-' + k, V.duongQua([truoc, [cx, yv]], 40 + k), du.moc[k], 0.4, { mau: 'nhan', quay: false })); }
-        kq.push(B.net('diem-' + k, V.vongTron(lam(cx), lam(yv), 8), du.moc[k], 0.3, { mau: 'do', quay: false }));
+        kq.push(B.net('diem-' + k, V.vongTron(lam(cx), lam(yv), 8), du.moc[k], 0.3, { mau: 'do', quay: false, am: 'ting' }));
         truoc = [cx, yv];
         ySo = yv - 38;
       }
@@ -134,7 +134,7 @@
       var a0 = goc, a1 = goc + 360 * d[1] / tong;
       goc = a1;
       var diem = [[TAM.x, TAM.y]].concat(duongCung(TAM.x, TAM.y, R, a0, a1), [[TAM.x, TAM.y]]);
-      var l = B.net('lat-' + k, V.duongQua(diem, 80 + k), du.moc[k], 0.8, { quay: false });
+      var l = B.net('lat-' + k, V.duongQua(diem, 80 + k), du.moc[k], 0.8, { quay: false, am: 'ting' });
       l.to = { a0: lam(a0), a1: lam(a1), mau: TO_LAT[k % TO_LAT.length] };
       kq.push(l);
       var giua = (a0 + a1) / 2 * Math.PI / 180;

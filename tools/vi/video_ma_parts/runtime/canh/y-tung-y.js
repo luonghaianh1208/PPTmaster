@@ -12,7 +12,7 @@
       var co = cot && dai > 45 ? (dai > 60 ? 24 : 26) : 30;
       t.y.forEach(function (y, k) {
         var top = 186 + k * 74;
-        kq.push(B.net('cham-' + k, V.vongTron(96, top + 22, 9), du.moc[k], 0.3, { mau: 'nhan' }));
+        kq.push(B.net('cham-' + k, V.vongTron(96, top + 22, 9), du.moc[k], 0.3, { mau: 'nhan', am: 'ting' }));
         kq.push(B.chu('y-' + k, y, 124, top, cot ? 736 : 1100, 72, co, du.moc[k], {}));
       });
       return kq.concat(B.cot());

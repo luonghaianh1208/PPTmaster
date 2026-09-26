@@ -50,7 +50,8 @@ def trinh_duyet_gia():
             mock.patch.object(video_ma, "co_chromium", return_value=True),
             mock.patch.object(video_ma.chup, "trinh_duyet", side_effect=lambda: FakeBrowser()),
             mock.patch.object(video_ma.chup, "trang_moi", return_value=object()),
-            mock.patch.object(video_ma.chup, "kiem_tran", return_value=[])]
+            mock.patch.object(video_ma.chup, "kiem_tran", return_value=[]),
+            mock.patch.object(video_ma.chup, "doc_su_kien", return_value=[])]
 
 
 def chay(args):
@@ -198,6 +199,7 @@ class CliTest(unittest.TestCase):
                 mock.patch.object(video_ma.chup, "trang_moi", return_value=object()), \
                 mock.patch.object(video_ma.chup, "kiem_tran", return_value=[]), \
                 mock.patch.object(video_ma.chup, "chup_canh", side_effect=fake_chup), \
+                mock.patch.object(video_ma.chup, "doc_su_kien", return_value=[]), \
                 mock.patch.object(video_ma.ghep, "ghep_video", side_effect=fake_ghep):
             code, data = self.one_json([str(self.dir)])
         self.assertEqual(code, 0, data)
@@ -340,7 +342,7 @@ class CliTest(unittest.TestCase):
         giong = lich.GiongInfo(mp3=self.dir / "x.mp3", giay=3.0, moc_cau=[0.0], uoc_luong=False, nguon="may")
         seen = {}
 
-        def gia(cac_du, models_js, so_khung, fps, thu_muc_anh, so_tt):
+        def gia(cac_du, models_js, so_khung, fps, thu_muc_anh, so_tt, **kw):
             seen.update(cac_du=cac_du, models_js=models_js, so_khung=so_khung, fps=fps, thu_muc_anh=thu_muc_anh, so_tt=so_tt)
 
         with contextlib.ExitStack() as stack:

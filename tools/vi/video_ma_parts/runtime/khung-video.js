@@ -315,6 +315,82 @@
     return { chu: chu, net: net, hinh: hinh, anh: anh, tieuDe: tieuDe, cot: cot, coCot: coCot, gh: gh };
   }
 
+  // Nhịp viết của mục chữ: tổng ký tự, hệ số kéo (chữ nảy), và lúc ký tự thứ i hiện ra (viết tay: khi
+  // round(p * tổng) > i; nảy: lúc ký tự i bắt đầu nảy).
+  function nhipChu(m) {
+    var D = root.THI_DONG;
+    var tong = demKyTu(m.chu, m.khongCum);
+    var keo = m.nay ? Math.max(1, D.thoiGianNay(tong) / m.thoiLuong) : 1;
+    return { tong: tong, keo: keo, luc: function (i) { return m.nay ? m.batDau + D.LECH_NAY * i / keo : lucKyTu(m, i, tong); } };
+  }
+  // Cụm nhấn của mục chữ với lúc nổ `no` và độ dài `daiNo` (thuần: dùng chung cho khung hình và âm thanh).
+  function lichCum(m, nh, tu, gh) {
+    var D = root.THI_DONG;
+    var N = root.THI_NHAN;
+    return (m.khongCum ? [] : N.tachCum(m.chu)).map(function (c) {
+      var cuoi = c.viTri + Math.max(1, c.dai) - 1;
+      var xong = m.nay ? m.batDau + (D.LECH_NAY * cuoi + D.NAY) / nh.keo : nh.luc(cuoi);
+      var lich = N.lichNo(N.thoiDiemNhan(c, tu || [], m.batDau, xong), xong, gh);
+      c.no = lich.no;
+      c.daiNo = lich.dai;
+      return c;
+    });
+  }
+
+  // Sự kiện âm thanh của cảnh [{t, loai, dai}], tính từ cùng các mục và mốc như khung hình:
+  //   but    mục chữ/nét/hình đang vẽ (dai = thời lượng vẽ; đoạn chồng nhau gộp lại, tổng co về ≤ 40% cảnh);
+  //   ting   mục có `am: 'ting'` (ý, bước, nhánh, mốc, cột, lát, lựa chọn) bắt đầu hiện;
+  //   chuyen đầu cảnh có chuyển cảnh;  tictac mỗi giây đếm ngược;  dung lúc hiện đáp án;  nhan lúc cụm nhấn nổ.
+  // Sắp theo t, không trùng, mọi t (và cuối đoạn bút) trong [0, thoiLuong − 0,1]; t làm tròn xuống mili giây.
+  var AM_LOAI = ['chuyen', 'but', 'ting', 'nhan', 'tictac', 'dung'];
+  var BUT_TOI_DA = 0.4;
+  function msDuoi(x) { return Math.floor(x * 1000 + 1e-6) / 1000; }
+  function suKienCua(du) {
+    var gh = du.thoiLuong;
+    var het = msDuoi(gh - 0.1);
+    var ds = [];
+    var but = [];
+    if (kieuChuyen(du)) { ds.push({ t: 0, loai: 'chuyen' }); }
+    root.THI_CANH[du.loai].muc(du).forEach(function (m) {
+      if (m.am === 'ting') { ds.push({ t: m.batDau, loai: 'ting' }); }
+      if (m.kieu === 'chu' && !m.dong) {
+        lichCum(m, nhipChu(m), du.tu, gh).forEach(function (c) { if (c.daiNo > 0) { ds.push({ t: c.no, loai: 'nhan' }); } });
+      }
+      // Chữ nảy, dòng số của thí nghiệm và ảnh không có ngòi bút.
+      if (m.dong || m.nay || m.kieu === 'anh') { return; }
+      (m.phan || [m]).forEach(function (p) { but.push([p.batDau, p.batDau + p.thoiLuong]); });
+    });
+    var q = du.cauHoi;
+    if (q) {
+      for (var k = 0; k < q.cho; k++) { ds.push({ t: q.batDauDem + k, loai: 'tictac' }); }
+      ds.push({ t: q.batDauGiai, loai: 'dung' });
+    }
+    // Bút: kẹp vào [0, het], gộp đoạn chồng nhau, rồi co đều độ dài nếu tổng vượt 40% cảnh.
+    but = but.map(function (d) { return [Math.max(0, d[0]), Math.min(het, d[1])]; })
+      .filter(function (d) { return d[1] > d[0]; })
+      .sort(function (a, b) { return a[0] - b[0]; });
+    var gop = [];
+    but.forEach(function (d) {
+      var cuoi = gop[gop.length - 1];
+      if (cuoi && d[0] <= cuoi[1]) { cuoi[1] = Math.max(cuoi[1], d[1]); } else { gop.push([d[0], d[1]]); }
+    });
+    var tong = gop.reduce(function (s, d) { return s + d[1] - d[0]; }, 0);
+    var co = tong > BUT_TOI_DA * gh ? BUT_TOI_DA * gh / tong : 1;
+    gop.forEach(function (d) {
+      var dai = msDuoi((d[1] - d[0]) * co);
+      if (dai > 0) { ds.push({ t: d[0], loai: 'but', dai: dai }); }
+    });
+    var da = {};
+    return ds.map(function (e) { return { t: msDuoi(e.t), loai: e.loai, dai: e.dai || 0 }; })
+      .filter(function (e) {
+        var khoa = e.loai + '@' + e.t;
+        if (e.t < 0 || e.t > het || da[khoa]) { return false; }
+        da[khoa] = true;
+        return true;
+      })
+      .sort(function (a, b) { return a.t - b.t || AM_LOAI.indexOf(a.loai) - AM_LOAI.indexOf(b.loai); });
+  }
+
   function matTran(s) {
     if (Math.abs(s.z - 1) < 1e-9 && Math.abs(s.tx) < 1e-6 && Math.abs(s.ty) < 1e-6) { return 'none'; }
     return 'matrix(' + s.z + ',0,0,' + s.z + ',' + s.tx + ',' + s.ty + ')';
@@ -404,24 +480,14 @@
     ds.forEach(function (o) {
       var m = o.m;
       if (m.kieu !== 'chu' || m.dong) { return; }
-      var tong = demKyTu(m.chu, m.khongCum);
-      var keo = m.nay ? Math.max(1, D.thoiGianNay(tong) / m.thoiLuong) : 1;
-      // Lúc ký tự thứ i hiện ra (viết tay: khi round(p * tổng) > i; nảy: lúc ký tự i bắt đầu nảy).
-      var luc = function (i) {
-        return m.nay ? m.batDau + D.LECH_NAY * i / keo : lucKyTu(m, i, tong);
-      };
-      o.tong = tong;
-      o.keo = keo;
+      var nh = nhipChu(m);
+      o.tong = nh.tong;
+      o.keo = nh.keo;
       o.so = viTriSo(m.chu, m.khongCum).map(function (s) {
-        var bd = luc(s.viTri);
+        var bd = nh.luc(s.viTri);
         return { gtri: s.gtri, chuSo: s.chuSo, batDau: bd, dai: Math.min(0.8, Math.max(0, gh - 0.2 - bd)) };
       });
-      o.cum = (m.khongCum ? [] : N.tachCum(m.chu)).map(function (c) {
-        var cuoi = c.viTri + Math.max(1, c.dai) - 1;
-        var xong = m.nay ? m.batDau + (D.LECH_NAY * cuoi + D.NAY) / keo : luc(cuoi);
-        var lich = N.lichNo(N.thoiDiemNhan(c, du.tu || [], m.batDau, xong), xong, gh);
-        c.no = lich.no;
-        c.daiNo = lich.dai;
+      o.cum = lichCum(m, nh, du.tu, gh).map(function (c) {
         c.hat = ++hatNhan;
         if (c.kieu !== 'to') {
           c.net = document.createElementNS(NS, 'path');
@@ -667,6 +733,11 @@
       }
       return loi;
     };
+    var suKien = null;
+    root.THI_VIDEO.suKien = function () {
+      if (!suKien) { suKien = suKienCua(du); }
+      return suKien;
+    };
     dat(0, true);
     root.THI_VIDEO.san = true;
   }
@@ -676,6 +747,6 @@
     LAU_BANG: LAU_BANG,
     kep: kep, tienDo: tienDo, thoat: thoat, demKyTu: demKyTu, catDanhDau: catDanhDau, phanTich: phanTich, demRong: demRong, viTriSo: viTriSo,
     thoiGianViet: thoiGianViet, kyTuHien: kyTuHien, lucKyTu: lucKyTu, tachPhan: tachPhan, duongQua: duongQua, hopQua: hopQua, vongTron: vongTron, muiTen: muiTen,
-    rng: rng, vuaKhung: vuaKhung, tao: tao, khoiDong: khoiDong, san: false
+    rng: rng, vuaKhung: vuaKhung, tao: tao, khoiDong: khoiDong, suKienCua: suKienCua, san: false
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

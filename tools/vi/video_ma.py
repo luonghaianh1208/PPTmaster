@@ -162,10 +162,14 @@ def _dung(video: parse.Video, thu_muc: Path, warnings: list) -> dict:
     try:
         so_tt = chup.so_tien_trinh()
         log(f"Chụp {sum(so_khung)} khung ({lich.FPS} khung/giây) bằng {len(chup.chia_dai(so_khung, so_tt))} tiến trình Chromium...")
+        # Hiệu ứng âm thanh: sự kiện đọc từ chính trang của mỗi cảnh trong lượt chụp (một nguồn thời gian).
+        co_am = video.meta["am-thanh"] == "co"
         with _loi_chup():
-            chup.chup_song_song(cac_du, models_js, so_khung, lich.FPS, thu_muc_khung, so_tt)
+            ket = chup.chup_song_song(cac_du, models_js, so_khung, lich.FPS, thu_muc_khung, so_tt,
+                                      thu_muc_su_kien=lam / "su-kien" if co_am else None)
+        su_kien = [ket.get(du["so"], []) for du in cac_du] if co_am and ket is not None else None
         log("Ghép video bằng FFmpeg...")
-        files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"])
+        files = ghep.ghep_video(thu_muc, cac_lich, cac_giong, video.meta["phu-de"], su_kien=su_kien)
     finally:
         shutil.rmtree(lam, ignore_errors=True)
     if video.meta["phu-de"] != "file":

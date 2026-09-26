@@ -26,7 +26,7 @@
         var x = AX0 + (k + 0.5) * o;
         var trai = Math.max(24, x - w / 2), phai = Math.min(1256, x + w / 2);
         var duoi = xen && k % 2 === 1;
-        kq.push(B.net('cham-' + k, V.vongTron(Math.round(x * 10) / 10, AY, 10), du.moc[k], 0.3, { mau: 'do' }));
+        kq.push(B.net('cham-' + k, V.vongTron(Math.round(x * 10) / 10, AY, 10), du.moc[k], 0.3, { mau: 'do', am: 'ting' }));
         var nhan = B.chu('nhan-' + k, hai[0], trai, duoi ? AY + 26 : AY - 64, phai - trai, 38, 26, du.moc[k] + 0.25,
           { can: 'giua', mau: 'nhan' });
         kq.push(nhan);

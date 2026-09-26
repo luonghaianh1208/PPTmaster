@@ -107,7 +107,7 @@
       o.forEach(function (b, k) {
         var bd = du.moc[k + 1];
         viet.push(B.net('o-' + k, V.hopQua(b.x, b.y, b.w, b.h, 20 + k) + ' ' + V.vongTron(b.x + 48, b.y + b.h / 2, 26), bd, 0.5,
-          { mau: 'o-' + k, day: 3, quay: false }));
+          { mau: 'o-' + k, day: 3, quay: false, am: 'ting' }));
         viet.push(B.chu('ky-' + k, CHU[k], b.x + 22, b.y + b.h / 2 - 22, 52, 44, 30, bd,
           { can: 'giua', mau: 'nhan giua-doc', day: true, quay: false }));
         viet.push(B.chu('lc-' + k, t['lua-chon'][k], b.x + 88, b.y + 8, b.w - 118, b.h - 16, coLc, bd,

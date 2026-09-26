@@ -65,7 +65,7 @@
         var toi = [bx - dx * c - 6 * dx / dai, by - dy * c - 6 * dy / dai];
         var mau = 'm' + k;
         var chu = t.nhanh[k];
-        kq.push(B.net('nhanh-' + k, cong(tu, toi, k % 2 ? -26 : 26, 70 + k), du.moc[k], 0.5, { mau: mau }));
+        kq.push(B.net('nhanh-' + k, cong(tu, toi, k % 2 ? -26 : 26, 70 + k), du.moc[k], 0.5, { mau: mau, am: 'ting' }));
         kq.push(B.net('o-' + k, V.hopQua(lam(bx - W / 2), lam(by - H / 2), W, H, 30 + k), du.moc[k] + 0.35, 0.4, { mau: mau }));
         kq.push(B.chu('chu-' + k, chu, bx - W / 2 + 12, by - H / 2 + 8, W - 24, H - 16, coNhanh,
           du.moc[k] + 0.6, { can: 'giua', mau: 'giua-doc', day: true }));

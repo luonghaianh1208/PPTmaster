@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import json
 import os
 import sys
 from concurrent.futures import FIRST_EXCEPTION, ProcessPoolExecutor, wait
@@ -86,6 +87,11 @@ def kiem_tran(page, html: str) -> list:
     return list(page.evaluate("() => window.THI_VIDEO.kiemTran()"))
 
 
+def doc_su_kien(page) -> list:
+    """Sự kiện âm thanh [{t, loai, dai}] của cảnh đang mở (tính từ cùng dữ liệu và mốc như khung hình)."""
+    return list(page.evaluate("() => window.THI_VIDEO.suKien()"))
+
+
 def chup_canh(page, html: str, so_khung: int, fps: int, thu_muc: Path, so_dau: int) -> int:
     mo_trang(page, html)
     thu_muc.mkdir(parents=True, exist_ok=True)
@@ -142,6 +148,8 @@ def chup_dai(cong_viec: dict) -> int:
     dau, cuoi, fps = cong_viec["dau"], cong_viec["cuoi"], cong_viec["fps"]
     khung_dau, so_khung = cong_viec["khung_dau"], cong_viec["so_khung"]
     thu_muc = Path(cong_viec["thu_muc_anh"])
+    # Có `thu_muc_su_kien`: đọc sự kiện âm thanh của mỗi cảnh ngay trên trang vừa chụp (không mở thêm trang).
+    thu_muc_su_kien = Path(cong_viec["thu_muc_su_kien"]) if cong_viec.get("thu_muc_su_kien") else None
 
     def html(k: int) -> str:
         return trang.dung_trang(cac_du[k], models.get(cac_du[k]["so"]))
@@ -165,6 +173,10 @@ def chup_dai(cong_viec: dict) -> int:
             try:
                 chup_canh(page, trang_k, so_khung[k], fps, thu_muc, khung_dau[k])
                 da_ghi += so_khung[k]
+                if thu_muc_su_kien is not None:
+                    thu_muc_su_kien.mkdir(parents=True, exist_ok=True)
+                    (thu_muc_su_kien / f"canh-{cac_du[k]['so']}.json").write_text(
+                        json.dumps(doc_su_kien(page)), encoding="utf-8")
                 cac_du[k]["nenTruoc"] = None  # nền data: của cảnh đã chụp xong không cần giữ nữa
                 if k + 1 < cuoi and can_nen(k + 1):
                     cuoi_k = thu_muc / f"f{khung_dau[k] + so_khung[k] - 1:06d}.png"
@@ -192,7 +204,9 @@ def _loi_dai(cac_du: list, dau: int, cuoi: int, exc: BaseException) -> MediaErro
     return MediaError("dung", f"Chụp khung lỗi ở {canh}: {type(exc).__name__}: {exc}", FIX_DUNG)
 
 
-def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_muc_anh, so_tt: int) -> None:
+def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_muc_anh, so_tt: int,
+                   thu_muc_su_kien=None) -> dict | None:
+    """Chụp mọi cảnh. Có `thu_muc_su_kien` thì trả thêm {số cảnh: sự kiện âm thanh}, đọc trong cùng lượt chụp."""
     khung_dau = [0]
     for n in so_khung[:-1]:
         khung_dau.append(khung_dau[-1] + n)
@@ -204,7 +218,8 @@ def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_
         cac_so = {du["so"] for du in cac_du[lo:b]}
         viec.append({"cac_du": cac_du[lo:b], "models_js": {so: js for so, js in models_js.items() if so in cac_so},
                      "dau": a - lo, "cuoi": b - lo, "khung_dau": khung_dau[lo:b], "so_khung": list(so_khung[lo:b]),
-                     "fps": fps, "thu_muc_anh": str(thu_muc_anh)})
+                     "fps": fps, "thu_muc_anh": str(thu_muc_anh),
+                     "thu_muc_su_kien": str(thu_muc_su_kien) if thu_muc_su_kien else None})
     if len(viec) == 1:
         try:
             chup_dai(viec[0])
@@ -212,7 +227,7 @@ def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_
             raise
         except Exception as exc:  # noqa: BLE001
             raise _loi_dai(viec[0]["cac_du"], viec[0]["dau"], viec[0]["cuoi"], exc) from exc
-        return
+        return _doc_cac_su_kien(cac_du, thu_muc_su_kien)
     with ProcessPoolExecutor(max_workers=len(viec)) as pool:
         theo_tl = {pool.submit(_chup_dai_con, v): v for v in viec}
         xong, con_lai = wait(theo_tl, return_when=FIRST_EXCEPTION)
@@ -224,3 +239,11 @@ def chup_song_song(cac_du: list, models_js: dict, so_khung: list, fps: int, thu_
     for tl, v in theo_tl.items():
         if not tl.cancelled() and tl.exception() is not None:
             raise _loi_dai(v["cac_du"], v["dau"], v["cuoi"], tl.exception())
+    return _doc_cac_su_kien(cac_du, thu_muc_su_kien)
+
+
+def _doc_cac_su_kien(cac_du: list, thu_muc_su_kien) -> dict | None:
+    if not thu_muc_su_kien:
+        return None
+    return {du["so"]: json.loads((Path(thu_muc_su_kien) / f"canh-{du['so']}.json").read_text(encoding="utf-8"))
+            for du in cac_du}

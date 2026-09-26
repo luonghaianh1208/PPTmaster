@@ -10,7 +10,7 @@ from pathlib import Path
 
 from video_parts import media, srt
 
-from . import karaoke
+from . import am_thanh, karaoke
 from .lich import DAN_DAU, FPS, doan_loi
 from .phong import FONT as ITIM_FONT, TEN as ITIM_TEN
 
@@ -88,13 +88,26 @@ def _chay(cmd: list, run, cwd: Path) -> None:
         raise media.MediaError("dung", f"FFmpeg lỗi (mã {proc.returncode}): {loi}", "Báo nội dung lỗi cho người bảo trì.")
 
 
-def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps: int = FPS, run=subprocess.run) -> list:
+def ghep_video(thu_muc: Path, cac_lich: list, cac_giong: list, phu_de: str, fps: int = FPS, run=subprocess.run,
+               su_kien: list | None = None) -> list:
+    """`su_kien`: sự kiện âm thanh của từng cảnh (cùng thứ tự `cac_lich`) để trộn hiệu ứng; None là không có hiệu ứng."""
     lam = thu_muc / ".khung"
     wavs = []
-    for cl, giong in zip(cac_lich, cac_giong):
+    mau = None
+    for k, (cl, giong) in enumerate(zip(cac_lich, cac_giong)):
         wav = lam / f"am-{cl.so}.wav"
         giai = (giong.giai.mp3, cl.bat_dau_giai) if giong.giai is not None and cl.bat_dau_giai is not None else None
-        _chay(lenh_am_canh(giong.mp3, wav, cl.thoi_luong, giai), run, thu_muc)
+        cac = su_kien[k] if su_kien is not None else []
+        if not cac:
+            _chay(lenh_am_canh(giong.mp3, wav, cl.thoi_luong, giai), run, thu_muc)
+        else:
+            # Tiếng cảnh = giọng (có nhiễu nền) trộn hiệu ứng, mức hiệu ứng theo đỉnh giọng của chính cảnh.
+            wav_giong = lam / f"am-{cl.so}-giong.wav"
+            _chay(lenh_am_canh(giong.mp3, wav_giong, cl.thoi_luong, giai), run, thu_muc)
+            if mau is None:
+                mau = am_thanh.tao_mau(lam / "am", run=run)
+            _chay(am_thanh.lenh_tron(wav_giong, cac, mau, wav, cl.thoi_luong, dinh_giong_db=am_thanh.dinh_db(wav_giong)),
+                  run, thu_muc)
         wavs.append(wav)
     danh_sach = lam / "am.txt"
     danh_sach.write_text(media.build_audio_concat_text(wavs), encoding="utf-8")
