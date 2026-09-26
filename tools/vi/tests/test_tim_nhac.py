@@ -127,6 +127,35 @@ class MainTest(unittest.TestCase):
         self.assertEqual(items[0]["title"], "Bản dai-2")
         self.assertTrue(kq["warnings"])
 
+    def test_chuyen_huong_sang_http_thi_tu_choi_khong_doc(self):
+        class TraLoi(io.BytesIO):
+            def __init__(self, du_lieu, cuoi):
+                super().__init__(du_lieu)
+                self.cuoi = cuoi
+
+            def geturl(self):
+                return self.cuoi
+
+        doc = []
+
+        class LayChuyenHuong(LayGia):
+            def __call__(self, req, timeout=None):
+                tra = super().__call__(req, timeout)
+                url = req.full_url
+                cuoi = url if url.startswith(tim_nhac.API) else url.replace("https://", "http://")
+                tl = TraLoi(tra.getvalue(), cuoi)
+                goc = tl.read
+                tl.read = lambda *a: (doc.append(url), goc(*a))[1]
+                return tl
+
+        code, dong = chay(["calm piano", "-o", str(self.nhac)], LayChuyenHuong())
+        self.assertEqual(code, 1, dong)
+        kq = json.loads(dong[0])
+        self.assertEqual(kq["error"]["step"], "mang")
+        self.assertIn("http://", kq["error"]["message"])
+        self.assertEqual([u for u in doc if not u.startswith(tim_nhac.API)], [], "không đọc nội dung sau chuyển hướng")
+        self.assertFalse(list(self.nhac.glob("*.mp3")))
+
     def test_loi_mang_la_mot_dong_json_buoc_mang(self):
         for loi in (urllib.error.URLError("no route"), TimeoutError("het gio"),
                     urllib.error.HTTPError(tim_nhac.API, 503, "busy", {}, None)):

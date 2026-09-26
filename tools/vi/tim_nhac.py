@@ -58,9 +58,17 @@ def slug(chu: str) -> str:
 def _mo(lay, url: str):
     req = urllib.request.Request(url, headers={"User-Agent": TAC_NHAN})
     try:
-        return lay(req, timeout=HET_GIO)
+        tra_loi = lay(req, timeout=HET_GIO)
     except (urllib.error.URLError, OSError, ValueError) as exc:
         raise Loi("mang", f"Không tải được {url}: {exc}", FIX_MANG) from exc
+    # urlopen tự theo chuyển hướng, kể cả sang http: kiểm địa chỉ cuối trước khi đọc nội dung.
+    cuoi = tra_loi.geturl() if callable(getattr(tra_loi, "geturl", None)) else url
+    if urllib.parse.urlsplit(str(cuoi or url)).scheme != "https":
+        with contextlib.suppress(Exception):
+            tra_loi.close()
+        raise Loi("mang", f"{url} chuyển hướng sang địa chỉ không an toàn ({cuoi}); chỉ tải qua https.",
+                  "Chạy lại để thử lại, hoặc đổi từ khoá khác.")
+    return tra_loi
 
 
 def _doc(tra_loi, gioi_han: int) -> bytes:
